@@ -9,7 +9,7 @@ license = { text = "Proprietary" }
 requires-python = ">=3.12"
 dependencies = [
     "httpx",
-    "sqlalchemy>=2.0",
+    "sqlalchemy>=2.0.30,<3.0",
     "alembic",
     "pydantic>=2",
     "pydantic-settings",

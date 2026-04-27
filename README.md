@@ -1,5 +1,7 @@
 # Job Hunter EU
 
+![CI](https://github.com/v-sh-org/job-hunter-eu/actions/workflows/ci.yml/badge.svg)
+
 Sistema automatizado de búsqueda de empleo en Europa
 
 ## Desarrollo con Docker

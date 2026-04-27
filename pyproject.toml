@@ -1,0 +1,33 @@
+[project]
+name = "jobhunter"
+version = "0.1.0"
+description = "Automated job search system for Europe"
+authors = [
+    { name = "Job Hunter EU Team" }
+]
+license = { text = "Proprietary" }
+requires-python = ">=3.12"
+dependencies = [
+    "httpx",
+    "sqlalchemy>=2.0",
+    "alembic",
+    "pydantic>=2",
+    "pydantic-settings",
+    "anthropic",
+    "structlog",
+    "typer",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
+    "mypy",
+    "pre-commit",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.8,<0.11.0"]
+build-backend = "uv_build"

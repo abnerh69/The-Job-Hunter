@@ -36,7 +36,7 @@ jobs:
         id: merge_step
         run: |
           # Validación de seguridad: Asegurarse de que tenemos un número de PR
-          if[ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" == "null" ]; then
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" == "null" ]; then
             echo "❌ No se encontró un número de PR asociado a este workflow_run. Abortando."
             exit 0
           fi
@@ -44,7 +44,7 @@ jobs:
           echo "Comprobando si el PR #$PR_NUMBER es un borrador..."
           # 4. Validamos si el PR es un Draft directamente con la CLI de GitHub
           IS_DRAFT=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json isDraft --jq '.isDraft')
-          if[ "$IS_DRAFT" == "true" ]; then
+          if [ "$IS_DRAFT" == "true" ]; then
             echo "💤 El PR es un borrador (draft). Se omite el merge automático."
             exit 0
           fi
@@ -101,7 +101,7 @@ jobs:
           
           ACTIVE_ISSUE=$(gh issue list --repo "$REPO" --state open --label "jules" --limit 50 --json number,createdAt --jq 'sort_by(.createdAt) | .[0].number')
           
-          if[ -n "$ACTIVE_ISSUE" ] && [ "$ACTIVE_ISSUE" != "null" ]; then
+          if [ -n "$ACTIVE_ISSUE" ] && [ "$ACTIVE_ISSUE" != "null" ]; then
             echo "Cerrando el issue completado: #$ACTIVE_ISSUE..."
             gh issue close "$ACTIVE_ISSUE" --repo "$REPO" --reason "completed"
             echo "✅ Issue #$ACTIVE_ISSUE cerrado correctamente."

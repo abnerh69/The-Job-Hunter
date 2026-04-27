@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jobhunter-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: jobhunter
+      POSTGRES_PASSWORD: jobhunter_local
+      POSTGRES_DB: jobhunter
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobhunter -d jobhunter"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: jobhunter-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://jobhunter:jobhunter_local@postgres:5432/jobhunter
+
+volumes:
+  postgres_data:

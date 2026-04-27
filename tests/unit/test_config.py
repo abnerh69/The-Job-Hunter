@@ -22,20 +22,13 @@ def test_settings_parsing_from_env() -> None:
         # We clear the env_file in model_config for testing to ensure it only reads from env
         settings = Settings(_env_file=None)  # type: ignore[call-arg]
         assert settings.DATABASE_URL == env_vars["DATABASE_URL"]
-        assert (
-            settings.ANTHROPIC_API_KEY.get_secret_value() == env_vars["ANTHROPIC_API_KEY"]
-        )
+        assert settings.ANTHROPIC_API_KEY.get_secret_value() == env_vars["ANTHROPIC_API_KEY"]
         assert settings.TELEGRAM_BOT_TOKEN is not None
-        assert (
-            settings.TELEGRAM_BOT_TOKEN.get_secret_value()
-            == env_vars["TELEGRAM_BOT_TOKEN"]
-        )
+        assert settings.TELEGRAM_BOT_TOKEN.get_secret_value() == env_vars["TELEGRAM_BOT_TOKEN"]
         assert settings.TELEGRAM_CHAT_ID == env_vars["TELEGRAM_CHAT_ID"]
         assert settings.SMTP_USER == env_vars["SMTP_USER"]
         assert settings.SMTP_PASSWORD is not None
-        assert (
-            settings.SMTP_PASSWORD.get_secret_value() == env_vars["SMTP_PASSWORD"]
-        )
+        assert settings.SMTP_PASSWORD.get_secret_value() == env_vars["SMTP_PASSWORD"]
         assert settings.DIGEST_TO_EMAIL == env_vars["DIGEST_TO_EMAIL"]
 
 

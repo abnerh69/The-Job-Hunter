@@ -1,0 +1,82 @@
+{
+  "project_context": {
+    "owner": "Informatica-ASHware",
+    "repo": "Job-Hunter-EU",
+    "project_number": 2,
+    "project_id": "PVT_kwDOEBSEkc4BV46-"
+  },
+  "mapping_guide": [
+    {
+      "field_name": "Epic",
+      "field_id": "PVTSSF_lADOEBSEkc4BV46-zhRRYn4",
+      "options": [
+        {
+          "name": "E1-Foundation",
+          "id": "0fe443e8"
+        },
+        {
+          "name": "E2-Persistence",
+          "id": "d6c1cc08"
+        },
+        {
+          "name": "E3-Ingestion",
+          "id": "ecc070c5"
+        },
+        {
+          "name": "E4-Scoring",
+          "id": "1855a020"
+        },
+        {
+          "name": "E5-Notifications",
+          "id": "737d01f6"
+        },
+        {
+          "name": "E6-Toolkit",
+          "id": "291fb010"
+        },
+        {
+          "name": "E7-Dashboard",
+          "id": "2a7579cd"
+        },
+        {
+          "name": "E8-Automation",
+          "id": "7a9c7ae7"
+        },
+        {
+          "name": "E9-Outreach",
+          "id": "46ad1f6d"
+        },
+        {
+          "name": "E10-Gmail",
+          "id": "2e03fdca"
+        },
+        {
+          "name": "E11-Analytics",
+          "id": "4d8dcded"
+        },
+        {
+          "name": "E12-Observability",
+          "id": "37c62c87"
+        }
+      ]
+    },
+    {
+      "field_name": "Priority",
+      "field_id": "PVTSSF_lADOEBSEkc4BV46-zhRRYpk",
+      "options": [
+        {
+          "name": "P0-MVP Critical",
+          "id": "6f783caf"
+        },
+        {
+          "name": "P1-MVP Desirable",
+          "id": "72f5e96b"
+        },
+        {
+          "name": "P2-Post-MVP",
+          "id": "4a355e1b"
+        }
+      ]
+    }
+  ]
+}

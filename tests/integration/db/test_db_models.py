@@ -1,9 +1,13 @@
 import pytest
 import uuid
 from sqlalchemy.exc import IntegrityError
-from jobhunter.db.models import Job
+from jobhunter.db.models import Job, Application, ApplicationEvent
 from jobhunter.db.session import get_session
-from jobhunter.db.enums import JobStatus
+from jobhunter.db.enums import (
+    ApplicationEventType,
+    ApplicationStatus,
+    JobStatus,
+)
 
 
 def test_create_job() -> None:
@@ -95,6 +99,63 @@ def test_job_jsonb_fields() -> None:
         updated_job = session.query(Job).filter_by(url_hash=f"hash_{unique_id}").first()
         assert updated_job is not None
         assert updated_job.score_data is not None
+        assert isinstance(updated_job.score_data, dict)
         assert updated_job.score_data["score"] == 90
         assert updated_job.raw_payload is not None
+        assert isinstance(updated_job.raw_payload, dict)
         assert updated_job.raw_payload["original"] == "data"
+
+
+def test_application_workflow() -> None:
+    """
+    Test the creation of an Application and the automatic generation of ApplicationEvents.
+    """
+    unique_id = str(uuid.uuid4())
+    with get_session() as session:
+        # Create a Job
+        job = Job(
+            source="test_source",
+            url=f"https://example.com/job_{unique_id}",
+            url_hash=f"hash_{unique_id}",
+            title="Workflow Engineer",
+            company="Workflow Corp",
+            description="A job for testing workflow",
+        )
+        session.add(job)
+        session.commit()
+
+        # Create an Application
+        app = Application(
+            job=job,
+            status=ApplicationStatus.APPLIED,
+        )
+        session.add(app)
+        session.commit()
+
+        # Verify Application creation
+        assert app.id is not None
+        assert app.job_id == job.id
+        assert app.status == ApplicationStatus.APPLIED
+        assert len(app.events) == 0  # Initial set should not trigger event in this implementation
+
+        # Update status
+        app.status = ApplicationStatus.SCREENING
+        session.commit()
+
+        # Verify Event creation
+        assert len(app.events) == 1
+        event_obj = app.events[0]
+        assert event_obj.event_type == ApplicationEventType.STATUS_CHANGE
+        assert isinstance(event_obj.event_data, dict)
+        assert event_obj.event_data["old_status"] == ApplicationStatus.APPLIED
+        assert event_obj.event_data["new_status"] == ApplicationStatus.SCREENING
+
+        # Cascade delete test
+        session.delete(app)
+        session.commit()
+
+        # Verify Application and Events are deleted
+        deleted_app = session.get(Application, app.id)
+        assert deleted_app is None
+        deleted_event = session.get(ApplicationEvent, event_obj.id)
+        assert deleted_event is None

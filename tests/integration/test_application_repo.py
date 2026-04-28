@@ -6,29 +6,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import event
 
 from jobhunter.db.models import Job, Application, ApplicationEvent
-from jobhunter.db.enums import ApplicationStatus, ApplicationEventType, JobStatus
+from jobhunter.db.enums import ApplicationStatus, ApplicationEventType
 from jobhunter.db.repos.application import ApplicationRepo
 
 
 @pytest.fixture
 def app_repo(db_session: Session) -> ApplicationRepo:
     return ApplicationRepo(db_session)
-
-
-@pytest.fixture
-def sample_job(db_session: Session) -> Job:
-    job = Job(
-        source="test",
-        url="https://example.com/job",
-        url_hash="test_hash",
-        title="Test Job",
-        company="Test Co",
-        description="Test Desc",
-        status=JobStatus.NEW,
-    )
-    db_session.add(job)
-    db_session.flush()
-    return job
 
 
 def test_create_for_job(app_repo: ApplicationRepo, sample_job: Job) -> None:
@@ -48,17 +32,16 @@ def test_create_for_job(app_repo: ApplicationRepo, sample_job: Job) -> None:
 
 
 def test_transition_status_creates_event_with_note(
-    app_repo: ApplicationRepo, sample_job: Job
+    app_repo: ApplicationRepo, sample_application: Application
 ) -> None:
     # Given
-    app = app_repo.create_for_job(sample_job.id)
-    app_id = app.id
+    app_id = sample_application.id
 
     # When
     event = app_repo.transition_status(app_id, ApplicationStatus.SCREENING, note="Good first call")
 
     # Then
-    assert app.status == ApplicationStatus.SCREENING
+    assert sample_application.status == ApplicationStatus.SCREENING
     assert event.application_id == app_id
     assert event.event_type == ApplicationEventType.STATUS_CHANGE
     assert event.event_data is not None
@@ -68,11 +51,10 @@ def test_transition_status_creates_event_with_note(
 
 
 def test_transition_status_atomicity(
-    app_repo: ApplicationRepo, sample_job: Job, db_session: Session
+    app_repo: ApplicationRepo, sample_application: Application, db_session: Session
 ) -> None:
     # Given
-    app = app_repo.create_for_job(sample_job.id)
-    app_id = app.id
+    app_id = sample_application.id
     db_session.commit()  # Start a fresh transaction for the test
 
     # Simulate failure during event creation by adding a listener that raises an error

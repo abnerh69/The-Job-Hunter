@@ -2,8 +2,12 @@ import pytest
 from collections.abc import Generator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+import json
+from pathlib import Path
 from jobhunter.db.session import SessionLocal, engine
 from jobhunter.db.base import Base
+from jobhunter.db.models import Job, Application, OutreachContact
+from jobhunter.db.enums import JobStatus, ApplicationStatus, OutreachStatus
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -76,3 +80,51 @@ def session() -> Generator[Session, None, None]:
 def db_session(session: Session) -> Session:
     """Alias for session fixture for compatibility."""
     return session
+
+
+@pytest.fixture
+def sample_job(db_session: Session) -> Job:
+    """Provides a sample Job instance persisted in the DB."""
+    fixtures_path = Path(__file__).parent / "fixtures"
+    with open(fixtures_path / "sample_jobs.json") as f:
+        jobs_data = json.load(f)
+
+    data = jobs_data[0]
+    job = Job(
+        source=data["source"],
+        url=data["url"],
+        url_hash=data["url_hash"],
+        title=data["title"],
+        company=data["company"],
+        description=data["description"],
+        status=JobStatus.NEW,
+    )
+    db_session.add(job)
+    db_session.flush()
+    return job
+
+
+@pytest.fixture
+def sample_application(db_session: Session, sample_job: Job) -> Application:
+    """Provides a sample Application instance persisted in the DB."""
+    app = Application(
+        job_id=sample_job.id,
+        status=ApplicationStatus.APPLIED,
+        application_method="LinkedIn",
+    )
+    db_session.add(app)
+    db_session.flush()
+    return app
+
+
+@pytest.fixture
+def sample_outreach_contact(db_session: Session) -> OutreachContact:
+    """Provides a sample OutreachContact instance persisted in the DB."""
+    contact = OutreachContact(
+        name="John Doe",
+        linkedin_url="https://linkedin.com/in/johndoe",
+        status=OutreachStatus.NEW,
+    )
+    db_session.add(contact)
+    db_session.flush()
+    return contact

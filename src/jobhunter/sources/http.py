@@ -19,7 +19,7 @@ logger = structlog.get_logger(__name__)
 USER_AGENT = "jobhunter-eu/0.3 (+https://github.com/Informatica-ASHware/Job-Hunter-EU)"
 
 
-def is_retryable_exception(exception: Exception) -> bool:
+def is_retryable_exception(exception: BaseException) -> bool:
     """Checks if the exception is retryable."""
     if isinstance(exception, (httpx.TimeoutException, httpx.ConnectError)):
         return True

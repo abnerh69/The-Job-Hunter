@@ -99,8 +99,10 @@ def test_job_jsonb_fields() -> None:
         updated_job = session.query(Job).filter_by(url_hash=f"hash_{unique_id}").first()
         assert updated_job is not None
         assert updated_job.score_data is not None
+        assert isinstance(updated_job.score_data, dict)
         assert updated_job.score_data["score"] == 90
         assert updated_job.raw_payload is not None
+        assert isinstance(updated_job.raw_payload, dict)
         assert updated_job.raw_payload["original"] == "data"
 
 
@@ -142,10 +144,11 @@ def test_application_workflow() -> None:
 
         # Verify Event creation
         assert len(app.events) == 1
-        event = app.events[0]
-        assert event.event_type == ApplicationEventType.STATUS_CHANGE
-        assert event.event_data["old_status"] == ApplicationStatus.APPLIED
-        assert event.event_data["new_status"] == ApplicationStatus.SCREENING
+        event_obj = app.events[0]
+        assert event_obj.event_type == ApplicationEventType.STATUS_CHANGE
+        assert isinstance(event_obj.event_data, dict)
+        assert event_obj.event_data["old_status"] == ApplicationStatus.APPLIED
+        assert event_obj.event_data["new_status"] == ApplicationStatus.SCREENING
 
         # Cascade delete test
         session.delete(app)
@@ -154,5 +157,5 @@ def test_application_workflow() -> None:
         # Verify Application and Events are deleted
         deleted_app = session.get(Application, app.id)
         assert deleted_app is None
-        deleted_event = session.get(ApplicationEvent, event.id)
+        deleted_event = session.get(ApplicationEvent, event_obj.id)
         assert deleted_event is None

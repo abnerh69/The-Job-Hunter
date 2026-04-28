@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text, event, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.mutable import MutableDict
-from sqlalchemy.orm import Mapped, attributes, mapped_column, object_session, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from jobhunter.db.base import Base
 from jobhunter.db.enums import (
@@ -182,11 +182,19 @@ class ApplicationEvent(Base):
 
 
 @event.listens_for(Application.status, "set")
-def receive_status_change(target: Application, value: str, oldvalue: str, initiator: Any) -> None:
+def receive_status_change(target: Application, value: str, oldvalue: Any, initiator: Any) -> None:
     """
     Automatically creates an ApplicationEvent when the status of an Application changes.
     """
-    if oldvalue == attributes.NO_VALUE or value == oldvalue:
+    # Filter out initial values or non-changes.
+    # We check if the target has an ID to ensure it's an existing record being updated,
+    # rather than a new record being initialized with a default status.
+    if (
+        target.id is None
+        or oldvalue is None
+        or str(oldvalue) in ("NO_VALUE", "NEVER_SET")
+        or value == oldvalue
+    ):
         return
 
     session = object_session(target)

@@ -5,14 +5,15 @@ Revises: outreach_contacts
 Create Date: 2026-04-28 02:54:30.221745
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision: str = '8003f9b94773'
-down_revision: Union[str, Sequence[str], None] = 'outreach_contacts'
+revision: str = "8003f9b94773"
+down_revision: Union[str, Sequence[str], None] = "outreach_contacts"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

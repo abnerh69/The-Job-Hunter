@@ -67,14 +67,14 @@ def test_weekly_metrics_materialized_view(session: Session):
     this_week_row = result[-1]
     assert this_week_row.apps_sent == 2
     assert this_week_row.apps_with_response == 1  # only app3 (OFFER) counts, app2 (APPLIED) doesn't
-    assert this_week_row.interviews == 1         # app3 (OFFER)
-    assert this_week_row.offers == 1             # app3
+    assert this_week_row.interviews == 1  # app3 (OFFER)
+    assert this_week_row.offers == 1  # app3
     assert float(this_week_row.avg_offer_max) == 120000.0
 
     # Check the previous week
     last_week_row = result[-2]
     assert last_week_row.apps_sent == 1
-    assert last_week_row.apps_with_response == 1 # app1 (INTERVIEW_1)
-    assert last_week_row.interviews == 1        # app1
+    assert last_week_row.apps_with_response == 1  # app1 (INTERVIEW_1)
+    assert last_week_row.interviews == 1  # app1
     assert last_week_row.offers == 0
     assert last_week_row.avg_offer_max is None

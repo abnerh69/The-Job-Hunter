@@ -1,5 +1,5 @@
 import pytest
-import vcr
+import vcr  # type: ignore[import-untyped]
 from datetime import datetime, timezone
 from jobhunter.sources.remoteok import RemoteOKSource
 from jobhunter.sources.http import SourceHttpClient
@@ -79,6 +79,7 @@ async def test_remoteok_tag_filtering_integration() -> None:
             async for job in source.fetch(since):
                 jobs.append(job)
                 # Check that at least one tag of the job is 'python'
+                assert job.raw_payload is not None
                 tags = [t.lower() for t in job.raw_payload.get("tags", [])]
                 assert "python" in tags
                 if len(jobs) >= 3:

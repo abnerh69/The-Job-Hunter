@@ -23,20 +23,23 @@ async def test_run_ingestion_parallel_success():
     source_ok = MockSource()
     source_fail = MockSource()
     source_fail.__class__ = type("FailingSource", (MockSource,), {})
+
     # Mock fetch to fail for source_fail
     async def failing_fetch(since):
         raise ValueError("Failed")
         yield  # make it a generator
+
     source_fail.fetch = failing_fetch
 
     sources = [source_ok, source_fail]
     since = datetime.now(timezone.utc)
     mock_session = MagicMock()
 
-    with patch("jobhunter.sources.orchestrator.JobRepo") as MockJobRepo, \
-         patch("jobhunter.sources.orchestrator.SourceHealthRepo"), \
-         patch("jobhunter.sources.orchestrator.CircuitBreaker") as MockCB:
-
+    with (
+        patch("jobhunter.sources.orchestrator.JobRepo") as MockJobRepo,
+        patch("jobhunter.sources.orchestrator.SourceHealthRepo"),
+        patch("jobhunter.sources.orchestrator.CircuitBreaker") as MockCB,
+    ):
         # Setup JobRepo mock
         job_repo_instance = MockJobRepo.return_value
         job_repo_instance.bulk_create_skipping_duplicates.return_value = [1]
@@ -57,6 +60,7 @@ async def test_run_ingestion_parallel_success():
         # Wait, if they have same class name, the results might overwrite or be duplicated in list
         # In my implementation they are appended to list.
 
+
 @pytest.mark.asyncio
 async def test_run_ingestion_with_breaker():
     source_ok = MockSource()
@@ -67,10 +71,11 @@ async def test_run_ingestion_with_breaker():
     since = datetime.now(timezone.utc)
     mock_session = MagicMock()
 
-    with patch("jobhunter.sources.orchestrator.JobRepo") as MockJobRepo, \
-         patch("jobhunter.sources.orchestrator.SourceHealthRepo"), \
-         patch("jobhunter.sources.orchestrator.CircuitBreaker") as MockCB:
-
+    with (
+        patch("jobhunter.sources.orchestrator.JobRepo") as MockJobRepo,
+        patch("jobhunter.sources.orchestrator.SourceHealthRepo"),
+        patch("jobhunter.sources.orchestrator.CircuitBreaker") as MockCB,
+    ):
         job_repo_instance = MockJobRepo.return_value
         job_repo_instance.bulk_create_skipping_duplicates.return_value = [1]
 

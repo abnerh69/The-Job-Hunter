@@ -30,7 +30,7 @@ async def test_retries_on_500_then_succeeds() -> None:
         original_retrying = jobhunter.sources.http.AsyncRetrying
 
         def mock_retrying(*args: Any, **kwargs: Any) -> Any:
-            kwargs['wait'] = wait_none()
+            kwargs["wait"] = wait_none()
             return original_retrying(*args, **kwargs)
 
         jobhunter.sources.http.AsyncRetrying = mock_retrying
@@ -81,10 +81,13 @@ async def test_respects_retry_after_on_429(monkeypatch: pytest.MonkeyPatch) -> N
     async with SourceHttpClient(client=httpx.AsyncClient(transport=transport)) as client:
         import jobhunter.sources.http
         from tenacity import wait_none
+
         original_retrying = jobhunter.sources.http.AsyncRetrying
+
         def mock_retrying(*args: Any, **kwargs: Any) -> Any:
-            kwargs['wait'] = wait_none()
+            kwargs["wait"] = wait_none()
             return original_retrying(*args, **kwargs)
+
         jobhunter.sources.http.AsyncRetrying = mock_retrying
 
         try:
@@ -114,8 +117,7 @@ async def test_rate_limit_throttles_concurrent_requests() -> None:
 
     # Rate limit 2
     async with SourceHttpClient(
-        client=httpx.AsyncClient(transport=transport),
-        rate_limit_per_host=2
+        client=httpx.AsyncClient(transport=transport), rate_limit_per_host=2
     ) as client:
         start_time = time.perf_counter()
         # Run 3 requests concurrently
@@ -130,5 +132,5 @@ async def test_rate_limit_throttles_concurrent_requests() -> None:
         duration = end_time - start_time
         # 2 requests should take ~0.2s, then the 3rd should take another ~0.2s.
         # Total duration should be at least 0.4s.
-        assert duration >= 0.35 # Allow some buffer
+        assert duration >= 0.35  # Allow some buffer
         assert responses_count == 3

@@ -6,7 +6,7 @@ from jobhunter.db.base import Base
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_database():
+def setup_database() -> Generator[None, None, None]:
     """
     Creates the database schema for the test session.
     """

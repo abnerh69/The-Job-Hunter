@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 
-def test_cli_db_backup_help():
+def test_cli_db_backup_help() -> None:
     """Test that the db-backup command is available in the CLI help."""
     result = subprocess.run(
         ["python", "-m", "jobhunter", "db-backup", "--help"],
@@ -16,7 +16,7 @@ def test_cli_db_backup_help():
     assert "--output" in result.stdout
 
 
-def test_backup_script_integrity(tmp_path):
+def test_backup_script_integrity(tmp_path: Path) -> None:
     """Test that the backup script creates a valid gzip file (smoke test)."""
     # This test assumes a database is running and accessible via DATABASE_URL
     # which is true in our sandbox environment now.

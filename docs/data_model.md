@@ -38,6 +38,53 @@ The central entity of the system. It stores job offers ingested from various sou
 * `idx_jobs_company`: On `company`.
 * `jobs_url_hash_key`: UNIQUE constraint on `url_hash`.
 
+### `applications`
+
+Represents an application submitted for a job.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `UUID` | Primary key. |
+| `job_id` | `UUID` | Foreign key to `jobs.id`. |
+| `applied_at` | `TIMESTAMPTZ` | When the application was submitted. |
+| `application_method` | `VARCHAR(50)` | Method used (e.g., 'web_form', 'email'). |
+| `cv_variant` | `VARCHAR(50)` | CV version used. |
+| `cover_letter_text` | `TEXT` | Full text of the cover letter. |
+| `cover_letter_model` | `VARCHAR(50)` | LLM model used for the cover letter. |
+| `contact_name` | `TEXT` | Name of the contact person. |
+| `contact_email` | `TEXT` | Email of the contact person. |
+| `contact_linkedin` | `TEXT` | LinkedIn URL of the contact person. |
+| `status` | `VARCHAR(30)` | Current application status (defaults to 'applied'). |
+| `status_updated_at` | `TIMESTAMPTZ` | Last time the status was updated. |
+| `next_action` | `TEXT` | Description of the next step. |
+| `next_action_due` | `DATE` | Deadline for the next action. |
+| `salary_offered_min` | `INTEGER` | Minimum salary offered. |
+| `salary_offered_max` | `INTEGER` | Maximum salary offered. |
+| `salary_currency` | `VARCHAR(10)` | Currency code. |
+| `contract_type` | `VARCHAR(20)` | e.g., 'B2B', 'EOR', 'employee'. |
+| `notes` | `TEXT` | Additional notes. |
+
+#### Indices
+
+* `idx_apps_status`: On `status`.
+* `idx_apps_next_action_due`: Partial index on `next_action_due` excluding terminal states.
+
+### `application_events`
+
+Audit log for application-related events.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `UUID` | Primary key. |
+| `application_id` | `UUID` | Foreign key to `applications.id`. |
+| `event_type` | `VARCHAR(50)` | Type of event (e.g., 'status_change'). |
+| `event_data` | `JSONB` | Structured data about the event. |
+| `occurred_at` | `TIMESTAMPTZ` | When the event occurred. |
+
+#### Indices
+
+* `idx_events_app`: On `application_id` and `occurred_at DESC`.
+
 ## Enums
 
 ### `JobStatus`
@@ -56,3 +103,20 @@ The central entity of the system. It stores job offers ingested from various sou
 * `B`: Good fit.
 * `C`: Average fit.
 * `REJECT`: Poor fit.
+
+### `ApplicationStatus`
+
+* `applied`: Initial state after submitting.
+* `screening`: Recruiter screen or initial chat.
+* `interview_1`: First technical/cultural interview.
+* `interview_n`: Subsequent interview rounds.
+* `offer`: Received a job offer.
+* `rejected`: Application was declined by the company.
+* `ghosted`: No response for a significant time.
+* `withdrawn`: Application withdrawn by the candidate.
+
+### `ApplicationEventType`
+
+* `status_change`: Record of a status update.
+* `follow_up_sent`: Record of a follow-up action.
+* `interview_scheduled`: Record of a newly scheduled interview.

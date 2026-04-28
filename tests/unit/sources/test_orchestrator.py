@@ -1,9 +1,8 @@
 import pytest
-import asyncio
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-from jobhunter.sources.orchestrator import run_ingestion, SourceResult
+from jobhunter.sources.orchestrator import run_ingestion
 from jobhunter.sources.base import BaseSource, RawJob
 
 

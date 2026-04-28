@@ -44,7 +44,11 @@ class IngestionReport(BaseModel):
 
 
 async def run_ingestion(
-    sources: Sequence[BaseSource], since: datetime, session: Session
+    sources: Sequence[BaseSource],
+    since: datetime,
+    session: Session,
+    dry_run: bool = False,
+    limit: int | None = None,
 ) -> IngestionReport:
     """
     Orchestrates the ingestion of jobs from multiple sources in parallel.
@@ -53,6 +57,8 @@ async def run_ingestion(
         sources: A sequence of job source instances.
         since: The datetime from which to fetch jobs.
         session: The SQLAlchemy session for persistence.
+        dry_run: If True, jobs are fetched but not saved to the database.
+        limit: Optional maximum number of jobs to fetch per source.
 
     Returns:
         IngestionReport: A report containing details and metrics of the ingestion run.
@@ -67,8 +73,8 @@ async def run_ingestion(
     tasks = []
     for source in sources:
         source_name = source.__class__.__name__
-        if breaker.allow_request(source_name):
-            tasks.append(_ingest_from_source(source, since, job_repo, breaker))
+        if dry_run or breaker.allow_request(source_name):
+            tasks.append(_ingest_from_source(source, since, job_repo, breaker, dry_run, limit))
         else:
             logger.info("Source %s: skipped by circuit breaker", source_name)
             report.source_results.append(
@@ -105,7 +111,12 @@ async def run_ingestion(
 
 
 async def _ingest_from_source(
-    source: BaseSource, since: datetime, job_repo: JobRepo, breaker: CircuitBreaker
+    source: BaseSource,
+    since: datetime,
+    job_repo: JobRepo,
+    breaker: CircuitBreaker,
+    dry_run: bool = False,
+    limit: int | None = None,
 ) -> SourceResult:
     """
     Ingests jobs from a single source, handles errors and persistence.
@@ -117,6 +128,8 @@ async def _ingest_from_source(
     try:
         async for job in source.fetch(since):
             raw_jobs.append(job)
+            if limit is not None and len(raw_jobs) >= limit:
+                break
 
         # Convert RawJobs to Job models
         job_models = [
@@ -135,11 +148,15 @@ async def _ingest_from_source(
             for job in raw_jobs
         ]
 
-        inserted_ids = job_repo.bulk_create_skipping_duplicates(job_models)
-        new_jobs_count = len(inserted_ids)
-        duplicates_count = len(job_models) - new_jobs_count
-
-        breaker.record_success(source_name)
+        if dry_run:
+            new_jobs_count = len(job_models)
+            duplicates_count = 0
+            logger.info("Source %s: dry run, skipping persistence", source_name)
+        else:
+            inserted_ids = job_repo.bulk_create_skipping_duplicates(job_models)
+            new_jobs_count = len(inserted_ids)
+            duplicates_count = len(job_models) - new_jobs_count
+            breaker.record_success(source_name)
 
         return SourceResult(
             source_name=source_name,
@@ -151,7 +168,8 @@ async def _ingest_from_source(
 
     except Exception as e:
         logger.exception("Error ingesting from source %s: %s", source_name, e)
-        breaker.record_failure(source_name)
+        if not dry_run:
+            breaker.record_failure(source_name)
         return SourceResult(
             source_name=source_name,
             status="failed",

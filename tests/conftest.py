@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from jobhunter.db.session import SessionLocal, engine
 from jobhunter.db.base import Base
 
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     """
@@ -12,6 +13,7 @@ def setup_database():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture
 def db_session() -> Generator[Session, None, None]:

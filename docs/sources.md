@@ -23,3 +23,14 @@ This document describes the job sources supported by Job Hunter EU.
 - **Pagination**: None (returns latest jobs in a single request).
 - **Rate Limit**: Configured at `0.33` (1 request every 3 seconds).
 - **Notes**: Includes a configurable tag filter (defaults to `python`, `ai`, `ml`, `flutter`, `dart`, `senior`, `backend`). Parsing skips the first metadata element.
+
+## WeWorkRemotely
+
+- **Name**: `weworkremotely`
+- **URL**: [https://weworkremotely.com/](https://weworkremotely.com/)
+- **RSS Feeds**: `https://weworkremotely.com/categories/{category}.rss`
+- **Authentication**: None required.
+- **Format**: RSS (XML).
+- **Pagination**: None (returns latest jobs in a single request per feed).
+- **Rate Limit**: Handled by the centralized `SourceHttpClient` with 1 concurrent request per host.
+- **Notes**: Supports multiple categories (default: `remote-programming-jobs`, `devops-sysadmin-jobs`, `back-end-programming-jobs`). Automatically strips HTML from descriptions and deduplicates jobs appearing in multiple feeds.

@@ -5,7 +5,7 @@ from jobhunter.__main__ import app
 from jobhunter.sources.orchestrator import IngestionReport, SourceResult
 from datetime import datetime, timezone
 
-runner = CliRunner()
+runner = CliRunner(env={"NO_COLOR": "1"})
 
 
 @pytest.fixture

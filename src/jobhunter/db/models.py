@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text, event, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.mutable import MutableDict
-from sqlalchemy.orm import Mapped, Session, mapped_column, relationship, attributes, object_session
+from sqlalchemy.orm import Mapped, attributes, mapped_column, object_session, relationship
 
 from jobhunter.db.base import Base
 from jobhunter.db.enums import (
@@ -134,16 +134,13 @@ class Application(Base):
         Index(
             "idx_apps_next_action_due",
             "next_action_due",
-            postgresql_where=(
-                status.in_(
-                    [
-                        ApplicationStatus.REJECTED,
-                        ApplicationStatus.GHOSTED,
-                        ApplicationStatus.WITHDRAWN,
-                        ApplicationStatus.OFFER,
-                    ]
-                )
-                == False
+            postgresql_where=~status.in_(
+                [
+                    ApplicationStatus.REJECTED,
+                    ApplicationStatus.GHOSTED,
+                    ApplicationStatus.WITHDRAWN,
+                    ApplicationStatus.OFFER,
+                ]
             ),
         ),
     )

@@ -59,5 +59,8 @@ jobs:
       - name: Type check with mypy
         run: uv run mypy .
 
+      - name: Run database migrations
+        run: uv run alembic upgrade head
+
       - name: Run tests with coverage
         run: uv run pytest -v --cov

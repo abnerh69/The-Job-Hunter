@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime, timezone
+from typing import AsyncIterator
 from unittest.mock import MagicMock, patch
 
 from jobhunter.sources.orchestrator import run_ingestion
@@ -7,7 +8,7 @@ from jobhunter.sources.base import BaseSource, RawJob
 
 
 class MockSource(BaseSource):
-    async def fetch(self, since: datetime):
+    async def fetch(self, since: datetime) -> AsyncIterator[RawJob]:
         yield RawJob(
             source_name=self.__class__.__name__,
             source_id="1",
@@ -19,19 +20,18 @@ class MockSource(BaseSource):
 
 
 @pytest.mark.asyncio
-async def test_run_ingestion_parallel_success():
+async def test_run_ingestion_parallel_success() -> None:
     source_ok = MockSource()
     source_fail = MockSource()
     source_fail.__class__ = type("FailingSource", (MockSource,), {})
 
     # Mock fetch to fail for source_fail
-    async def failing_fetch(since):
+    async def failing_fetch(since: datetime) -> AsyncIterator[RawJob]:
         raise ValueError("Failed")
-        yield  # make it a generator
+        if False:
+            yield RawJob(source_name="", source_id="", url="", title="", company="", description="")
 
-    source_fail.fetch = failing_fetch
-
-    sources = [source_ok, source_fail]
+    sources: list[BaseSource] = [source_ok, source_fail]
     since = datetime.now(timezone.utc)
     mock_session = MagicMock()
 
@@ -48,7 +48,8 @@ async def test_run_ingestion_parallel_success():
         cb_instance = MockCB.return_value
         cb_instance.allow_request.return_value = True
 
-        report = await run_ingestion(sources, since, mock_session)
+        with patch.object(source_fail, "fetch", side_effect=failing_fetch):
+            report = await run_ingestion(sources, since, mock_session)
 
         assert len(report.source_results) == 2
 
@@ -57,17 +58,15 @@ async def test_run_ingestion_parallel_success():
         assert results_map["MockSource"].new_jobs == 1
 
         assert results_map["FailingSource"].status == "failed"
-        # Wait, if they have same class name, the results might overwrite or be duplicated in list
-        # In my implementation they are appended to list.
 
 
 @pytest.mark.asyncio
-async def test_run_ingestion_with_breaker():
+async def test_run_ingestion_with_breaker() -> None:
     source_ok = MockSource()
     source_skipped = MockSource()
     source_skipped.__class__ = type("SkippedSource", (MockSource,), {})
 
-    sources = [source_ok, source_skipped]
+    sources: list[BaseSource] = [source_ok, source_skipped]
     since = datetime.now(timezone.utc)
     mock_session = MagicMock()
 

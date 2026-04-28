@@ -175,9 +175,7 @@ class ApplicationEvent(Base):
     application: Mapped["Application"] = relationship(back_populates="events")
 
     # Indices
-    __table_args__ = (
-        Index("idx_events_app", "application_id", occurred_at.desc()),
-    )
+    __table_args__ = (Index("idx_events_app", "application_id", occurred_at.desc()),)
 
     def __repr__(self) -> str:
         return f"<ApplicationEvent(application_id={self.application_id}, event_type={self.event_type})>"

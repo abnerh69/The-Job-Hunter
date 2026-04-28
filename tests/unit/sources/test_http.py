@@ -26,7 +26,6 @@ async def test_retries_on_500_then_succeeds() -> None:
 
         # Let's use a more test-friendly way: patch the AsyncRetrying in the module.
         import jobhunter.sources.http
-        from tenacity import wait_none
 
         original_retrying = jobhunter.sources.http.AsyncRetrying
 

@@ -5,7 +5,7 @@ import logging
 from typing import Any, Mapping, Dict
 from tenacity import (
     stop_after_attempt,
-    wait_exponential,
+    wait_random_exponential,
     retry_if_exception,
     before_sleep_log,
     RetryCallState,
@@ -20,7 +20,15 @@ USER_AGENT = "jobhunter-eu/0.3 (+https://github.com/Informatica-ASHware/Job-Hunt
 
 
 def is_retryable_exception(exception: BaseException) -> bool:
-    """Checks if the exception is retryable."""
+    """
+    Checks if the exception is retryable.
+
+    Args:
+        exception: The exception to check.
+
+    Returns:
+        bool: True if retryable, False otherwise.
+    """
     if isinstance(exception, (httpx.TimeoutException, httpx.ConnectError)):
         return True
     if isinstance(exception, httpx.HTTPStatusError):
@@ -51,7 +59,16 @@ class SourceHttpClient:
         if headers:
             base_headers.update(headers)
 
-        self.client = client or httpx.AsyncClient(headers=base_headers)
+        if client:
+            # If client is provided, we don't own it and shouldn't close it.
+            # Also, we can't easily inject the User-Agent if it's already created,
+            # but we assume the caller knows what they are doing.
+            self.client = client
+            self._own_client = False
+        else:
+            self.client = httpx.AsyncClient(headers=base_headers)
+            self._own_client = True
+
         self.rate_limit_per_host = rate_limit_per_host
         self._semaphores: Dict[str, asyncio.Semaphore] = {}
         self._semaphores_lock = asyncio.Lock()
@@ -84,17 +101,18 @@ class SourceHttpClient:
         host = parsed_url.host or ""
         semaphore = await self._get_semaphore(host)
 
+        # Semaphore acquired outside to satisfy requirement, but retry loop inside.
+        # This means 1 concurrent request per host INCLUDING retry/backoff time.
         async with semaphore:
-            start_time = asyncio.get_event_loop().time()
-
             async for attempt in AsyncRetrying(
                 stop=stop_after_attempt(4),  # 1 original + 3 retries
-                wait=wait_exponential(multiplier=1, min=1, max=10),
+                wait=wait_random_exponential(multiplier=1, min=1, max=10),
                 retry=retry_if_exception(is_retryable_exception),
                 before_sleep=before_sleep_log(logger, logging.INFO),
                 reraise=True,
             ):
                 with attempt:
+                    start_time = asyncio.get_event_loop().time()
                     try:
                         response = await self.client.request(method, url, **kwargs)
                         response.raise_for_status()
@@ -156,8 +174,9 @@ class SourceHttpClient:
         logger.info("HTTP request", **log_data)
 
     async def close(self) -> None:
-        """Closes the underlying httpx.AsyncClient."""
-        await self.client.aclose()
+        """Closes the underlying httpx.AsyncClient if it was created by this instance."""
+        if self._own_client:
+            await self.client.aclose()
 
     async def __aenter__(self) -> "SourceHttpClient":
         return self

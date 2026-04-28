@@ -17,7 +17,7 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAJfL8GkAA+y923IjV5Il+t5fEa3p6UpNAWReJLWKXapqJvMiljKVrGSmstV2zMoCQJAIJRCB
+        H4sIAOXk8GkAA+y923IjV5Il+t5fEa3p6UpNAWReJLWKXapqJvMiljKVrGSmstV2zMoCQJAIJRCB
         igiQgqwfZMfmD7ofZsxmXvr52PmI8yn6kuNrue9LBAIEmEndejjWo2KSQMS++Pbtl+XLf//Hb+ez
         5CKr6rwsPvvg3t7dD5KsGJeTvDj/7IPXr54MP/3gj3/4m99XdR0+dR+fku8V9cFk/NkH06ZZHOzv
         L5bVbK+szvcn4/1sls2zoqn37+3d23efnWeTPPUfr7O0Gk/3Vum0LPfG5Xx/Lu/44A9/kyS/H0/T
@@ -948,7 +948,7 @@ interactions:
         zV78sPvy+d8CaLZw4V8QY/bAPebBy/6PLU05/Ue3UZOy/I//8P8DAAD//wMADz6z/xlWAwA=
     headers:
       CF-RAY:
-      - 9f36f0157f5c4616-ORD
+      - 9f378e3a9ee5f3ee-ORD
       Cache-Control:
       - max-age=3600, public
       Connection:
@@ -960,7 +960,7 @@ interactions:
       Content-Type:
       - application/rss+xml; charset=utf-8
       Date:
-      - Tue, 28 Apr 2026 15:00:40 GMT
+      - Tue, 28 Apr 2026 16:48:37 GMT
       Server:
       - cloudflare
       alt-svc:
@@ -988,15 +988,15 @@ interactions:
         https: https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com
         https://r.weworkremotely.com; form-action ''self'' https: https://checkout.stripe.com'
       etag:
-      - W/"793cbb5d5e65fcf5fb8be370c2deb7fe"
+      - W/"9458ddbc4066557e6c7c58050b0a8587"
       nel:
       - '{"report_to":"heroku-nel","response_headers":["Via"],"max_age":3600,"success_fraction":0.01,"failure_fraction":0.1}'
       referrer-policy:
       - strict-origin-when-cross-origin
       report-to:
-      - '{"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=8a7ekLrYDzBLJJwCJ%2BMcznbFXGEVe0DlQwOw5SDZ3TE%3D\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\u0026ts=1777388439"}],"max_age":3600}'
+      - '{"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=dfLgT5PXxqvKym8jygHq1UEUuWCxei2EXnFhphOi1gM%3D\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\u0026ts=1777394917"}],"max_age":3600}'
       reporting-endpoints:
-      - heroku-nel="https://nel.heroku.com/reports?s=8a7ekLrYDzBLJJwCJ%2BMcznbFXGEVe0DlQwOw5SDZ3TE%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1777388439"
+      - heroku-nel="https://nel.heroku.com/reports?s=dfLgT5PXxqvKym8jygHq1UEUuWCxei2EXnFhphOi1gM%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1777394917"
       strict-transport-security:
       - max-age=63072000; includeSubDomains
       vary:
@@ -1010,9 +1010,9 @@ interactions:
       x-permitted-cross-domain-policies:
       - none
       x-request-id:
-      - 23e258ad-0ad1-6fff-41a4-06fac4ef4c22
+      - cf1c01d8-a610-17e5-43e7-a8d995f21a11
       x-runtime:
-      - '0.062202'
+      - '0.062238'
       x-xss-protection:
       - '0'
     status:

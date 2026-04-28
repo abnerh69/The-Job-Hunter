@@ -70,5 +70,19 @@ Ensure you have the PostgreSQL client tools installed.
 - **Ubuntu/Debian**: `sudo apt-get install postgresql-client`
 - **macOS**: `brew install postgresql`
 
+### Re-recording cassettes when an API changes
+
+If a job source API changes its schema or you add new fields, you may need to re-record the HTTP cassettes used in integration tests.
+
+1.  **Delete the old cassettes**:
+    ```bash
+    rm -rf tests/integration/sources/cassettes/*
+    ```
+2.  **Run tests with record mode**:
+    ```bash
+    uv run pytest tests/integration/sources/ --record-mode=once
+    ```
+    *Note: This requires an active internet connection.*
+
 ### "role 'jobhunter' does not exist"
 This usually happens when trying to connect to a fresh Postgres instance that hasn't been initialized by the Docker Compose script. Ensure the environment variables match the expected user.

@@ -1,4 +1,7 @@
+import os
+import subprocess
 import sys
+from pathlib import Path
 
 import structlog
 import typer
@@ -50,6 +53,43 @@ def db_seed(
         typer.echo(f"Successfully seeded database with scenario: {scenario}")
     except Exception as e:
         logger.error("Failed to seed database", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def db_backup(
+    output: Annotated[
+        Path | None, typer.Option(help="Path to the backup file (defaults to timestamped file)")
+    ] = None,
+) -> None:
+    """Create a compressed backup of the database."""
+    logger.info("Starting database backup")
+    try:
+        # Resolve path to the backup script
+        script_path = Path(__file__).parent.parent.parent / "scripts" / "backup_db.sh"
+        if not script_path.exists():
+            typer.echo(f"Error: Backup script not found at {script_path}", err=True)
+            raise typer.Exit(code=1)
+
+        cmd = ["bash", str(script_path)]
+        if output:
+            cmd.append(str(output))
+
+        # Pass environment variables to the script
+        env = os.environ.copy()
+        settings = Settings()  # type: ignore[call-arg]
+        env["DATABASE_URL"] = settings.DATABASE_URL
+
+        result = subprocess.run(cmd, env=env, check=True, capture_output=True, text=True)
+        typer.echo(result.stdout)
+        logger.info("Database backup completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error("Database backup failed", error=str(e), stderr=e.stderr)
+        typer.echo(f"Error during backup: {e.stderr}", err=True)
+        raise typer.Exit(code=1)
+    except Exception as e:
+        logger.error("Failed to initiate database backup", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

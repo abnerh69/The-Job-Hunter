@@ -1,6 +1,7 @@
-import csv
+from pathlib import Path
+
 import pytest
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from sqlalchemy.orm import Session
 
 from jobhunter.db.models import OutreachContact
@@ -34,11 +35,13 @@ def test_list_due_for_followup(outreach_repo: OutreachRepo, db_session: Session)
     today = date(2024, 1, 15)
 
     # Contacted 8 days ago -> Due
-    c1 = OutreachContact(name="C1", status=OutreachStatus.CONTACTED,
-                         last_contacted_at=datetime(2024, 1, 7, 12, 0))
+    c1 = OutreachContact(
+        name="C1", status=OutreachStatus.CONTACTED, last_contacted_at=datetime(2024, 1, 7, 12, 0)
+    )
     # Contacted 5 days ago -> Not due
-    c2 = OutreachContact(name="C2", status=OutreachStatus.CONTACTED,
-                         last_contacted_at=datetime(2024, 1, 10, 12, 0))
+    c2 = OutreachContact(
+        name="C2", status=OutreachStatus.CONTACTED, last_contacted_at=datetime(2024, 1, 10, 12, 0)
+    )
     # New -> Not due
     c3 = OutreachContact(name="C3", status=OutreachStatus.NEW)
 
@@ -64,6 +67,7 @@ def test_mark_contacted(outreach_repo: OutreachRepo) -> None:
 
     # Then
     updated = outreach_repo.get(contact_id)
+    assert updated is not None
     assert updated.status == OutreachStatus.CONTACTED
     assert updated.contact_count == 1
     assert updated.first_contacted_at is not None
@@ -75,11 +79,12 @@ def test_mark_contacted(outreach_repo: OutreachRepo) -> None:
 
     # Then
     updated = outreach_repo.get(contact_id)
+    assert updated is not None
     assert updated.contact_count == 2
     assert updated.first_contacted_at == first_time
 
 
-def test_bulk_import_from_csv(outreach_repo: OutreachRepo, tmp_path: pytest.TempPathFactory) -> None:
+def test_bulk_import_from_csv(outreach_repo: OutreachRepo, tmp_path: Path) -> None:
     # Given
     csv_file = tmp_path / "contacts.csv"
     content = [
@@ -96,18 +101,19 @@ def test_bulk_import_from_csv(outreach_repo: OutreachRepo, tmp_path: pytest.Temp
 
     # Then
     assert imported == 2
-    assert skipped == 1 # Alice Duplicate
+    assert skipped == 1  # Alice Duplicate
 
     alice = outreach_repo.find_by_linkedin_url("https://linkedin.com/in/alice")
+    assert alice is not None
     assert alice.name == "Alice"
     assert alice.quality_score == 5
 
 
-def test_bulk_import_from_csv_malformed(outreach_repo: OutreachRepo, tmp_path: pytest.TempPathFactory) -> None:
+def test_bulk_import_from_csv_malformed(outreach_repo: OutreachRepo, tmp_path: Path) -> None:
     # Given a CSV that might cause issues (though csv.DictReader is quite lenient)
     csv_file = tmp_path / "malformed.csv"
     # An empty file or one with only headers is not "malformed" but "empty"
-    csv_file.write_text("name;linkedin_url\nAlice;url1") # Wrong delimiter for DictReader default
+    csv_file.write_text("name;linkedin_url\nAlice;url1")  # Wrong delimiter for DictReader default
 
     # When
     imported, skipped = outreach_repo.bulk_import_from_csv(str(csv_file))

@@ -1,20 +1,30 @@
+import asyncio
 import os
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Annotated
 
 import structlog
 import typer
+from rich.console import Console
+from rich.table import Table
 
 from jobhunter import __version__
 from jobhunter.config import Settings
-from typing import Annotated
 from jobhunter.db.maintenance import refresh_weekly_metrics
+from jobhunter.db.repos.source_health import SourceHealthRepo
 from jobhunter.db.seed import seed_database
 from jobhunter.db.session import get_session
+from jobhunter.sources.orchestrator import run_ingestion
+from jobhunter.sources.registry import get_all_sources
 
 logger = structlog.get_logger()
 app = typer.Typer(help="Job Hunter EU CLI")
+
+sources_app = typer.Typer(help="Manage job sources")
+app.add_typer(sources_app, name="sources")
 
 
 @app.command()
@@ -53,6 +63,145 @@ def db_seed(
         typer.echo(f"Successfully seeded database with scenario: {scenario}")
     except Exception as e:
         logger.error("Failed to seed database", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def ingest(
+    source: Annotated[
+        list[str] | None, typer.Option(help="Specific sources to run (can be repeated)")
+    ] = None,
+    since: Annotated[
+        str, typer.Option(help="Fetch jobs since this date (YYYY-MM-DD or 'N days ago')")
+    ] = "7 days ago",
+    limit: Annotated[int | None, typer.Option(help="Maximum jobs per source")] = None,
+    dry_run: Annotated[bool, typer.Option(help="Fetch and parse but do not persist to DB")] = False,
+) -> None:
+    """Run job ingestion from configured sources."""
+    logger.info("Starting job ingestion", sources=source, since=since, dry_run=dry_run)
+
+    # Resolve 'since' parameter
+    since_dt: datetime
+    if "days ago" in since:
+        try:
+            days = int(since.split()[0])
+            since_dt = datetime.now(timezone.utc) - timedelta(days=days)
+        except (ValueError, IndexError):
+            typer.echo(f"Error: Invalid 'since' format: {since}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        try:
+            since_dt = datetime.fromisoformat(since).replace(tzinfo=timezone.utc)
+        except ValueError:
+            typer.echo(f"Error: Invalid 'since' date format: {since}. Use YYYY-MM-DD.", err=True)
+            raise typer.Exit(code=1)
+
+    # Resolve sources
+    all_source_classes = get_all_sources()
+    selected_sources = []
+    if source:
+        source_map = {cls.__name__.lower(): cls for cls in all_source_classes}
+        for s in source:
+            cls = source_map.get(s.lower())
+            if cls:
+                selected_sources.append(cls())
+            else:
+                typer.echo(f"Error: Source '{s}' not found.", err=True)
+                raise typer.Exit(code=1)
+    else:
+        selected_sources = [cls() for cls in all_source_classes]
+
+    if not selected_sources:
+        typer.echo("No sources to ingest.")
+        return
+
+    try:
+        with get_session() as session:
+            report = asyncio.run(
+                run_ingestion(selected_sources, since_dt, session, dry_run=dry_run, limit=limit)
+            )
+
+        # Output results table
+        console = Console()
+        table = Table(
+            title=f"Ingestion Report {'(DRY RUN)' if dry_run else ''}",
+            show_footer=True,
+            header_style="bold magenta",
+        )
+        table.add_column("Source", footer="Total")
+        table.add_column("Status")
+        table.add_column("New", justify="right", footer=str(report.total_new))
+        table.add_column("Duplicates", justify="right", footer=str(report.total_duplicates))
+        table.add_column("Errors", justify="right", footer=str(report.total_errors))
+        table.add_column("Duration", justify="right")
+
+        for res in report.source_results:
+            duration_str = f"{res.duration_ms}ms" if res.duration_ms > 0 else "-"
+            status_style = "green" if res.status == "success" else "red"
+            if res.status == "skipped_breaker":
+                status_style = "yellow"
+
+            table.add_row(
+                res.source_name,
+                f"[{status_style}]{res.status}[/{status_style}]",
+                str(res.new_jobs),
+                str(res.duplicates),
+                "1" if res.status == "failed" else "0",
+                duration_str,
+            )
+
+        console.print(table)
+
+        if report.total_errors > 0:
+            raise typer.Exit(code=1)
+
+    except Exception as e:
+        logger.error("Ingestion failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@sources_app.command("list")
+def sources_list() -> None:
+    """List all registered job sources and their current health status."""
+    all_source_classes = get_all_sources()
+    console = Console()
+    table = Table(title="Job Sources Health", header_style="bold blue")
+    table.add_column("Source Name")
+    table.add_column("Circuit Breaker State")
+    table.add_column("Last Failure At")
+    table.add_column("Opened Until")
+
+    try:
+        with get_session() as session:
+            repo = SourceHealthRepo(session)
+            for cls in all_source_classes:
+                name = cls.__name__
+                health = repo.get_by_source(name)
+
+                state = health.state if health else "CLOSED"
+                last_failure = (
+                    health.last_failure_at.isoformat() if health and health.last_failure_at else "-"
+                )
+                opened_until = (
+                    health.opened_until.isoformat() if health and health.opened_until else "-"
+                )
+
+                state_style = "green" if state == "CLOSED" else "red"
+                if state == "HALF_OPEN":
+                    state_style = "yellow"
+
+                table.add_row(
+                    name,
+                    f"[{state_style}]{state}[/{state_style}]",
+                    last_failure,
+                    opened_until,
+                )
+
+        console.print(table)
+    except Exception as e:
+        logger.error("Failed to list sources", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

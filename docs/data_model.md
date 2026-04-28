@@ -110,6 +110,25 @@ Represents a contact for proactive outreach.
 
 * `idx_outreach_followup`: Composite index on `status` and `last_contacted_at`.
 
+## Views
+
+### `weekly_metrics` (Materialized View)
+
+Aggregated weekly metrics for the dashboard and digest.
+
+| Column | Type | Description |
+|---|---|---|
+| `week` | `DATE` | Start of the week (Monday). |
+| `apps_sent` | `BIGINT` | Total applications submitted during the week. |
+| `apps_with_response` | `BIGINT` | Applications that received any response (not in 'applied', 'ghosted', 'withdrawn' status). |
+| `interviews` | `BIGINT` | Applications that reached interview stage. |
+| `offers` | `BIGINT` | Applications that resulted in an offer. |
+| `avg_offer_max` | `NUMERIC` | Average maximum salary offered in that week. |
+
+#### Indices
+
+* `idx_weekly_metrics_week`: UNIQUE index on `week`.
+
 ## Enums
 
 ### `JobStatus`

@@ -6,7 +6,10 @@ from jobhunter.sources.url_utils import canonicalize_url, compute_url_hash
     "url,expected",
     [
         ("HTTPS://EXAMPLE.COM/path/", "https://example.com/path"),
-        ("https://example.com/path/?utm_source=twitter&foo=bar", "https://example.com/path?foo=bar"),
+        (
+            "https://example.com/path/?utm_source=twitter&foo=bar",
+            "https://example.com/path?foo=bar",
+        ),
         ("https://example.com/path#fragment", "https://example.com/path"),
         ("https://example.com/path?b=2&a=1", "https://example.com/path?a=1&b=2"),
         (

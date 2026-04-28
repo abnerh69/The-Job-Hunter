@@ -2,6 +2,83 @@
 
 This document describes the database schema for the Job Hunter EU project.
 
+## ER Diagram
+
+```mermaid
+erDiagram
+    jobs ||--o{ applications : "has"
+    applications ||--o{ application_events : "logs"
+
+    jobs {
+        uuid id PK
+        string source
+        string source_id
+        string url
+        string url_hash UK
+        string title
+        string company
+        string location_raw
+        string description
+        timestamptz posted_at
+        timestamptz scraped_at
+        jsonb raw_payload
+        timestamptz scored_at
+        string score_model
+        string score_version
+        int fit_score
+        string tier
+        jsonb score_data
+        string status
+    }
+
+    applications {
+        uuid id PK
+        uuid job_id FK
+        timestamptz applied_at
+        string application_method
+        string cv_variant
+        text cover_letter_text
+        string cover_letter_model
+        string contact_name
+        string contact_email
+        string contact_linkedin
+        string status
+        timestamptz status_updated_at
+        text next_action
+        date next_action_due
+        int salary_offered_min
+        int salary_offered_max
+        string salary_currency
+        string contract_type
+        text notes
+    }
+
+    application_events {
+        uuid id PK
+        uuid application_id FK
+        string event_type
+        jsonb event_data
+        timestamptz occurred_at
+    }
+
+    outreach_contacts {
+        uuid id PK
+        string name
+        string company
+        string role
+        string linkedin_url UK
+        string email
+        string market
+        string specialty_stack
+        int quality_score
+        timestamptz first_contacted_at
+        timestamptz last_contacted_at
+        int contact_count
+        string status
+        text notes
+    }
+```
+
 ## Tables
 
 ### `jobs`
@@ -180,3 +257,33 @@ Aggregated weekly metrics for the dashboard and digest.
 * `replied`: Contact replied.
 * `ghosted`: No response after several attempts.
 * `warm`: Contact is interested or helpful.
+
+## Design Decisions
+
+### Why JSONB?
+We use `JSONB` for `raw_payload` in `jobs` and `event_data` in `application_events`. This allows us to store unstructured or semi-structured data from various job sources without constantly modifying the schema. `JSONB` is preferred over `JSON` because it is stored in a decomposed binary format, which makes it slightly slower to input but significantly faster to process, as it supports indexing.
+
+### Why Partial Indices?
+The `idx_apps_next_action_due` is a partial index:
+```sql
+CREATE INDEX idx_apps_next_action_due ON applications (next_action_due)
+WHERE status NOT IN ('rejected', 'ghosted', 'withdrawn', 'offer');
+```
+This optimizes queries that look for pending actions. By excluding terminal statuses, we keep the index small and focused on the data that actually needs monitoring for follow-ups.
+
+### Why UUIDs vs Serials?
+We use UUIDs (v4) for all primary keys.
+- **Benefits**: They are globally unique, allowing for easier data merges and distributed systems. They don't leak information about the number of records (unlike serials).
+- **Implementation**: Generated in the database using `gen_random_uuid()`.
+
+### Timestamps in UTC
+All `TIMESTAMPTZ` columns store data in UTC. This ensures consistency across different timezones and avoids ambiguity during daylight saving transitions. Application logic should handle conversion to the user's local time if necessary.
+
+## How to add a new table (Workflow)
+
+1. **Define the Model**: Add a new SQLAlchemy class in `src/jobhunter/db/models.py` inheriting from `Base`.
+2. **Import the Model**: Ensure the new model is imported in `alembic/env.py` so Alembic can detect it.
+3. **Generate Migration**: Run `uv run alembic revision --autogenerate -m "Add table <name>"`.
+4. **Review Migration**: Check the generated file in `alembic/versions/` for correctness.
+5. **Apply Migration**: Run `uv run alembic upgrade head`.
+6. **Update Documentation**: Add the new table description and update the ER diagram in `docs/data_model.md`.

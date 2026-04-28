@@ -41,9 +41,7 @@ def seed_database(session: Session, scenario: Literal["rich", "minimal"] = "rich
     jobs = []
     for data in jobs_data:
         # Convert ISO strings to datetime objects
-        posted_at = (
-            datetime.fromisoformat(data["posted_at"]) if data.get("posted_at") else None
-        )
+        posted_at = datetime.fromisoformat(data["posted_at"]) if data.get("posted_at") else None
         scraped_at = (
             datetime.fromisoformat(data["scraped_at"])
             if data.get("scraped_at")
@@ -97,7 +95,10 @@ def seed_database(session: Session, scenario: Literal["rich", "minimal"] = "rich
             cv_variant=random.choice(["Generic", "Backend", "Tech Lead"]),
             salary_offered_max=salary_max,
             salary_currency="EUR" if salary_max else None,
-            next_action_due=date.today() + timedelta(days=random.randint(1, 7)) if status not in [ApplicationStatus.REJECTED, ApplicationStatus.GHOSTED, ApplicationStatus.OFFER] else None
+            next_action_due=date.today() + timedelta(days=random.randint(1, 7))
+            if status
+            not in [ApplicationStatus.REJECTED, ApplicationStatus.GHOSTED, ApplicationStatus.OFFER]
+            else None,
         )
         session.add(app)
         # Update job status to match application if it was 'new'
@@ -106,10 +107,26 @@ def seed_database(session: Session, scenario: Literal["rich", "minimal"] = "rich
 
     # 3. Seed Outreach Contacts
     names = [
-        "John Doe", "Jane Smith", "Alice Johnson", "Bob Brown", "Charlie Davis",
-        "Diana Prince", "Edward Norton", "Fiona Apple", "George Clooney", "Hannah Abbott",
-        "Ian McKellen", "Julia Roberts", "Kevin Hart", "Laura Dern", "Michael Jordan",
-        "Natalie Portman", "Oscar Isaac", "Penelope Cruz", "Quentin Tarantino", "Ryan Gosling"
+        "John Doe",
+        "Jane Smith",
+        "Alice Johnson",
+        "Bob Brown",
+        "Charlie Davis",
+        "Diana Prince",
+        "Edward Norton",
+        "Fiona Apple",
+        "George Clooney",
+        "Hannah Abbott",
+        "Ian McKellen",
+        "Julia Roberts",
+        "Kevin Hart",
+        "Laura Dern",
+        "Michael Jordan",
+        "Natalie Portman",
+        "Oscar Isaac",
+        "Penelope Cruz",
+        "Quentin Tarantino",
+        "Ryan Gosling",
     ]
 
     markets = list(OutreachMarket)
@@ -119,27 +136,29 @@ def seed_database(session: Session, scenario: Literal["rich", "minimal"] = "rich
     for i in range(num_contacts):
         name = names[i % len(names)]
         if i >= len(names):
-             name += f" {i}"
+            name += f" {i}"
 
-        status = random.choice(outreach_statuses)
+        outreach_status = random.choice(outreach_statuses)
         last_contacted = None
         contact_count = 0
-        if status != OutreachStatus.NEW:
+        if outreach_status != OutreachStatus.NEW:
             last_contacted = datetime.now(timezone.utc) - timedelta(days=random.randint(1, 20))
             contact_count = random.randint(1, 3)
 
         contact = OutreachContact(
             name=name,
-            company=random.choice(["Tech Recruiter Ltd", "Global Talent", "Startup Founders", "BigCorp HR"]),
+            company=random.choice(
+                ["Tech Recruiter Ltd", "Global Talent", "Startup Founders", "BigCorp HR"]
+            ),
             role=random.choice(["Technical Recruiter", "HR Manager", "Engineering Manager", "CTO"]),
             linkedin_url=f"https://www.linkedin.com/in/sample-profile-{i}",
             market=random.choice(markets),
             specialty_stack=random.choice(stacks),
             quality_score=random.randint(1, 5),
-            status=status,
+            status=outreach_status,
             last_contacted_at=last_contacted,
             contact_count=contact_count,
-            first_contacted_at=last_contacted - timedelta(days=5) if last_contacted else None
+            first_contacted_at=last_contacted - timedelta(days=5) if last_contacted else None,
         )
         session.add(contact)
 

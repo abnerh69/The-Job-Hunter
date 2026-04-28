@@ -36,7 +36,7 @@ def db_refresh_metrics() -> None:
 
 @app.command()
 def db_seed(
-    scenario: Annotated[str, typer.Option(help="Scenario to seed: 'rich' or 'minimal'")] = "rich"
+    scenario: Annotated[str, typer.Option(help="Scenario to seed: 'rich' or 'minimal'")] = "rich",
 ) -> None:
     """Seed the database with sample data."""
     if scenario not in ["rich", "minimal"]:

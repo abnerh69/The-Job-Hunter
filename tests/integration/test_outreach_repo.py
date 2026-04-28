@@ -14,8 +14,11 @@ def outreach_repo(db_session: Session) -> OutreachRepo:
     return OutreachRepo(db_session)
 
 
-def test_find_by_linkedin_url(outreach_repo: OutreachRepo, sample_outreach_contact: OutreachContact) -> None:
+def test_find_by_linkedin_url(
+    outreach_repo: OutreachRepo, sample_outreach_contact: OutreachContact
+) -> None:
     # When
+    assert sample_outreach_contact.linkedin_url is not None
     found = outreach_repo.find_by_linkedin_url(sample_outreach_contact.linkedin_url)
     not_found = outreach_repo.find_by_linkedin_url("https://linkedin.com/in/other")
 
@@ -51,7 +54,9 @@ def test_list_due_for_followup(outreach_repo: OutreachRepo, db_session: Session)
     assert due[0].name == "C1"
 
 
-def test_mark_contacted(outreach_repo: OutreachRepo, sample_outreach_contact: OutreachContact) -> None:
+def test_mark_contacted(
+    outreach_repo: OutreachRepo, sample_outreach_contact: OutreachContact
+) -> None:
     # Given
     contact_id = sample_outreach_contact.id
 

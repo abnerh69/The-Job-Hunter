@@ -240,10 +240,15 @@ def receive_status_change(target: Application, value: str, oldvalue: Any, initia
 
     session = object_session(target)
 
+    note = getattr(target, "_transition_note", None)
+    event_data = {"old_status": str(oldvalue), "new_status": str(value)}
+    if note:
+        event_data["note"] = note
+
     event_log = ApplicationEvent(
         application_id=target.id,
         event_type=ApplicationEventType.STATUS_CHANGE,
-        event_data={"old_status": str(oldvalue), "new_status": str(value)},
+        event_data=event_data,
     )
 
     if session:

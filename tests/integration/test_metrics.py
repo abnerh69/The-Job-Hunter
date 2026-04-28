@@ -1,7 +1,5 @@
-import uuid
 from datetime import datetime, timedelta
 
-import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 

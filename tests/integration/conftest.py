@@ -1,8 +1,7 @@
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 from jobhunter.config import Settings
-from jobhunter.db.base import Base
 
 @pytest.fixture(scope="session")
 def engine():

@@ -5,7 +5,9 @@ import typer
 
 from jobhunter import __version__
 from jobhunter.config import Settings
+from typing import Annotated
 from jobhunter.db.maintenance import refresh_weekly_metrics
+from jobhunter.db.seed import seed_database
 from jobhunter.db.session import get_session
 
 logger = structlog.get_logger()
@@ -28,6 +30,26 @@ def db_refresh_metrics() -> None:
         typer.echo("Successfully refreshed weekly metrics.")
     except Exception as e:
         logger.error("Failed to refresh weekly metrics", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def db_seed(
+    scenario: Annotated[str, typer.Option(help="Scenario to seed: 'rich' or 'minimal'")] = "rich"
+) -> None:
+    """Seed the database with sample data."""
+    if scenario not in ["rich", "minimal"]:
+        typer.echo(f"Error: Invalid scenario '{scenario}'. Must be 'rich' or 'minimal'.", err=True)
+        raise typer.Exit(code=1)
+
+    logger.info("Starting database seeding", scenario=scenario)
+    try:
+        with get_session() as session:
+            seed_database(session, scenario=scenario)  # type: ignore[arg-type]
+        typer.echo(f"Successfully seeded database with scenario: {scenario}")
+    except Exception as e:
+        logger.error("Failed to seed database", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

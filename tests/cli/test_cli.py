@@ -1,11 +1,18 @@
 import pytest
+import re
 from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 from jobhunter.__main__ import app
 from jobhunter.sources.orchestrator import IngestionReport, SourceResult
 from datetime import datetime, timezone
 
-runner = CliRunner(env={"NO_COLOR": "1"})
+runner = CliRunner(env={"NO_COLOR": "1", "TERM": "dumb"})
+
+
+def strip_ansi(text: str) -> str:
+    """Strip ANSI escape sequences from text."""
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
 
 
 @pytest.fixture
@@ -34,11 +41,12 @@ def mock_ingestion_report() -> IngestionReport:
 def test_ingest_help() -> None:
     result = runner.invoke(app, ["ingest", "--help"])
     assert result.exit_code == 0
-    assert "Run job ingestion from configured sources" in result.output
-    assert "--source" in result.output
-    assert "--since" in result.output
-    assert "--limit" in result.output
-    assert "--dry-run" in result.output
+    output = strip_ansi(result.output)
+    assert "Run job ingestion from configured sources" in output
+    assert "--source" in output
+    assert "--since" in output
+    assert "--limit" in output
+    assert "--dry-run" in output
 
 
 @patch("jobhunter.__main__.get_all_sources")

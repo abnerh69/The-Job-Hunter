@@ -41,3 +41,23 @@ class ApplicationEventType(StrEnum):
     STATUS_CHANGE = "status_change"
     FOLLOW_UP_SENT = "follow_up_sent"
     INTERVIEW_SCHEDULED = "interview_scheduled"
+
+
+class OutreachMarket(StrEnum):
+    """Enumeration of possible markets for outreach."""
+
+    GERMANY = "germany"
+    EU_WIDE = "eu_wide"
+    UK = "uk"
+    NETHERLANDS = "netherlands"
+    OTHER = "other"
+
+
+class OutreachStatus(StrEnum):
+    """Enumeration of possible statuses for an outreach contact."""
+
+    NEW = "new"
+    CONTACTED = "contacted"
+    REPLIED = "replied"
+    GHOSTED = "ghosted"
+    WARM = "warm"

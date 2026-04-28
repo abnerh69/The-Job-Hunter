@@ -85,6 +85,31 @@ Audit log for application-related events.
 
 * `idx_events_app`: On `application_id` and `occurred_at DESC`.
 
+### `outreach_contacts`
+
+Represents a contact for proactive outreach.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `UUID` | Primary key. |
+| `name` | `TEXT` | Name of the contact. |
+| `company` | `TEXT` | Company name. |
+| `role` | `TEXT` | Job title or role. |
+| `linkedin_url` | `TEXT` | LinkedIn profile URL (UNIQUE). |
+| `email` | `TEXT` | Email address. |
+| `market` | `VARCHAR(50)` | Targeted market. |
+| `specialty_stack` | `VARCHAR(100)` | Tech stack specialty. |
+| `quality_score` | `INTEGER` | Quality score (1-5). |
+| `first_contacted_at` | `TIMESTAMPTZ` | Date of first contact. |
+| `last_contacted_at` | `TIMESTAMPTZ` | Date of last contact. |
+| `contact_count` | `INTEGER` | Number of times contacted. |
+| `status` | `VARCHAR(30)` | Current outreach status (defaults to 'new'). |
+| `notes` | `TEXT` | Additional notes. |
+
+#### Indices
+
+* `idx_outreach_followup`: Composite index on `status` and `last_contacted_at`.
+
 ## Enums
 
 ### `JobStatus`
@@ -120,3 +145,19 @@ Audit log for application-related events.
 * `status_change`: Record of a status update.
 * `follow_up_sent`: Record of a follow-up action.
 * `interview_scheduled`: Record of a newly scheduled interview.
+
+### `OutreachMarket`
+
+* `germany`: Germany market.
+* `eu_wide`: EU Wide market.
+* `uk`: UK market.
+* `netherlands`: Netherlands market.
+* `other`: Other markets.
+
+### `OutreachStatus`
+
+* `new`: New contact, not yet reached out.
+* `contacted`: Initial outreach sent.
+* `replied`: Contact replied.
+* `ghosted`: No response after several attempts.
+* `warm`: Contact is interested or helpful.

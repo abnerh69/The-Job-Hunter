@@ -13,6 +13,8 @@ from jobhunter.db.enums import (
     ApplicationStatus,
     JobStatus,
     JobTier,
+    OutreachMarket,
+    OutreachStatus,
 )
 
 
@@ -179,6 +181,45 @@ class ApplicationEvent(Base):
 
     def __repr__(self) -> str:
         return f"<ApplicationEvent(application_id={self.application_id}, event_type={self.event_type})>"
+
+
+class OutreachContact(Base):
+    """
+    SQLAlchemy model for the 'outreach_contacts' table.
+    Represents a contact for proactive outreach.
+    """
+
+    __tablename__ = "outreach_contacts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    company: Mapped[str | None] = mapped_column(Text)
+    role: Mapped[str | None] = mapped_column(Text)
+    linkedin_url: Mapped[str | None] = mapped_column(Text, unique=True)
+    email: Mapped[str | None] = mapped_column(Text)
+
+    market: Mapped[OutreachMarket | None] = mapped_column(String(50))
+    specialty_stack: Mapped[str | None] = mapped_column(String(100))
+    quality_score: Mapped[int | None] = mapped_column(Integer)
+
+    first_contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    contact_count: Mapped[int] = mapped_column(Integer, server_default="0")
+
+    status: Mapped[OutreachStatus] = mapped_column(
+        String(30), nullable=False, server_default=OutreachStatus.NEW
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    # Indices
+    __table_args__ = (Index("idx_outreach_followup", "status", "last_contacted_at"),)
+
+    def __repr__(self) -> str:
+        return f"<OutreachContact(name={self.name}, status={self.status})>"
 
 
 @event.listens_for(Application.status, "set")

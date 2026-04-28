@@ -5,11 +5,12 @@ from pathlib import Path
 
 def test_cli_db_backup_help() -> None:
     """Test that the db-backup command is available in the CLI help."""
+    # We use NO_COLOR=1 to avoid ANSI escape codes in the output which break assertions
     result = subprocess.run(
         ["python", "-m", "jobhunter", "db-backup", "--help"],
         capture_output=True,
         text=True,
-        env={**os.environ, "PYTHONPATH": "src", "ANTHROPIC_API_KEY": "dummy"},
+        env={**os.environ, "PYTHONPATH": "src", "ANTHROPIC_API_KEY": "dummy", "NO_COLOR": "1"},
     )
     assert result.returncode == 0
     assert "Create a compressed backup of the database" in result.stdout

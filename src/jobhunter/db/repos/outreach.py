@@ -92,6 +92,7 @@ class OutreachRepo(BaseRepo[OutreachContact]):
         """
         imported = 0
         duplicates = 0
+        seen_urls: set[str] = set()
 
         try:
             with open(path, mode="r", encoding="utf-8") as csvfile:
@@ -101,12 +102,17 @@ class OutreachRepo(BaseRepo[OutreachContact]):
                     if not linkedin_url:
                         continue
 
-                    # Check for duplicate in DB
+                    # Check for duplicate in this batch or DB
+                    if linkedin_url in seen_urls:
+                        duplicates += 1
+                        continue
+
                     existing = self.find_by_linkedin_url(linkedin_url)
                     if existing:
                         duplicates += 1
                         continue
 
+                    seen_urls.add(linkedin_url)
                     contact = OutreachContact(
                         name=row.get("name", "Unknown"),
                         company=row.get("company"),

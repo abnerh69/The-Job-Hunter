@@ -82,12 +82,10 @@ def test_transition_status_atomicity(
             raise RuntimeError("Simulated failure")
 
     # When / Then
+    # We use a savepoint (nested transaction) to allow rolling back ONLY the transition
     with pytest.raises(RuntimeError, match="Simulated failure"):
-        try:
+        with db_session.begin_nested():
             app_repo.transition_status(app_id, ApplicationStatus.INTERVIEW_1)
-        except Exception:
-            db_session.rollback()
-            raise
 
     # Verify rollback: status should still be 'applied' and no event should exist
     db_session.expire_all()

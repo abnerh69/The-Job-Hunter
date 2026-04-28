@@ -61,3 +61,11 @@ class OutreachStatus(StrEnum):
     REPLIED = "replied"
     GHOSTED = "ghosted"
     WARM = "warm"
+
+
+class SourceState(StrEnum):
+    """Enumeration of possible states for a circuit breaker."""
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"

@@ -15,6 +15,7 @@ from jobhunter.db.enums import (
     JobTier,
     OutreachMarket,
     OutreachStatus,
+    SourceState,
 )
 
 
@@ -220,6 +221,26 @@ class OutreachContact(Base):
 
     def __repr__(self) -> str:
         return f"<OutreachContact(name={self.name}, status={self.status})>"
+
+
+class SourceHealth(Base):
+    """
+    SQLAlchemy model for the 'source_health' table.
+    Tracks the health and circuit breaker state of each job source.
+    """
+
+    __tablename__ = "source_health"
+
+    source_name: Mapped[str] = mapped_column(String(50), primary_key=True)
+    state: Mapped[SourceState] = mapped_column(
+        String(20), nullable=False, server_default=SourceState.CLOSED
+    )
+    failure_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    last_failure_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    opened_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    def __repr__(self) -> str:
+        return f"<SourceHealth(source_name={self.source_name}, state={self.state}, failures={self.failure_count})>"
 
 
 @event.listens_for(Application.status, "set")

@@ -73,7 +73,9 @@ def test_outreach_contact_null_linkedin_url_allowed_multiple_times() -> None:
         session.commit()
 
         # Verify both exist
-        contacts = session.query(OutreachContact).filter(OutreachContact.linkedin_url.is_(None)).all()
+        contacts = (
+            session.query(OutreachContact).filter(OutreachContact.linkedin_url.is_(None)).all()
+        )
         assert len(contacts) >= 2
         names = [c.name for c in contacts]
         assert "No LinkedIn 1" in names

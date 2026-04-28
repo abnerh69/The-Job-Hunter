@@ -12,6 +12,8 @@ from tenacity import (
     AsyncRetrying,
 )
 
+__all__ = ["SourceHttpClient", "AsyncRetrying"]
+
 logger = structlog.get_logger(__name__)
 
 USER_AGENT = "jobhunter-eu/0.3 (+https://github.com/Informatica-ASHware/Job-Hunter-EU)"
@@ -22,7 +24,7 @@ def is_retryable_exception(exception: Exception) -> bool:
     if isinstance(exception, (httpx.TimeoutException, httpx.ConnectError)):
         return True
     if isinstance(exception, httpx.HTTPStatusError):
-        return exception.response.status_code >= 500 or exception.response.status_code == 429
+        return bool(exception.response.status_code >= 500 or exception.response.status_code == 429)
     return False
 
 

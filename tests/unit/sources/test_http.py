@@ -2,12 +2,13 @@ import asyncio
 import httpx
 import pytest
 import time
+from typing import Any
 from unittest.mock import MagicMock
 from jobhunter.sources.http import SourceHttpClient
 
 
 @pytest.mark.asyncio
-async def test_retries_on_500_then_succeeds():
+async def test_retries_on_500_then_succeeds() -> None:
     responses = [
         httpx.Response(500, content=b"Internal Server Error"),
         httpx.Response(500, content=b"Internal Server Error"),
@@ -23,40 +24,27 @@ async def test_retries_on_500_then_succeeds():
         # Mock wait to speed up tests
         from tenacity import wait_none
 
-        # We need to reach into the internal _request and patch its use of AsyncRetrying or just patch the wait
-        # Alternatively, we can just let it run if the backoff is small.
-        # Given wait_exponential(multiplier=1, min=1, max=10), it might take some time.
-        # Let's try to patch wait_exponential for this test.
+        # Let's use a more test-friendly way: patch the AsyncRetrying in the module.
+        import jobhunter.sources.http
+        from tenacity import wait_none
 
-        with MagicMock() as mock_wait:
-            mock_wait.return_value = 0
+        original_retrying = jobhunter.sources.http.AsyncRetrying
 
-            # This is tricky because AsyncRetrying is instantiated inside _request.
-            # Let's re-implement a bit of _request or use a different approach.
-            # Actually, I'll just use a small multiplier and min for testing if possible,
-            # but I already hardcoded them.
+        def mock_retrying(*args: Any, **kwargs: Any) -> Any:
+            kwargs['wait'] = wait_none()
+            return original_retrying(*args, **kwargs)
 
-            # Let's use a more test-friendly way: patch the AsyncRetrying in the module.
-            import jobhunter.sources.http
-            from tenacity import stop_after_attempt, wait_none
-
-            original_retrying = jobhunter.sources.http.AsyncRetrying
-
-            def mock_retrying(*args, **kwargs):
-                kwargs['wait'] = wait_none()
-                return original_retrying(*args, **kwargs)
-
-            jobhunter.sources.http.AsyncRetrying = mock_retrying
-            try:
-                response = await client.get("http://example.com")
-                assert response.status_code == 200
-                assert len(responses) == 0
-            finally:
-                jobhunter.sources.http.AsyncRetrying = original_retrying
+        jobhunter.sources.http.AsyncRetrying = mock_retrying
+        try:
+            response = await client.get("http://example.com")
+            assert response.status_code == 200
+            assert len(responses) == 0
+        finally:
+            jobhunter.sources.http.AsyncRetrying = original_retrying
 
 
 @pytest.mark.asyncio
-async def test_no_retry_on_404():
+async def test_no_retry_on_404() -> None:
     responses = [
         httpx.Response(404, content=b"Not Found"),
         httpx.Response(200, content=b"OK"),
@@ -76,7 +64,7 @@ async def test_no_retry_on_404():
 
 
 @pytest.mark.asyncio
-async def test_respects_retry_after_on_429(monkeypatch):
+async def test_respects_retry_after_on_429(monkeypatch: pytest.MonkeyPatch) -> None:
     responses = [
         httpx.Response(429, headers={"Retry-After": "0.1"}, content=b"Too Many Requests"),
         httpx.Response(200, content=b"OK"),
@@ -95,7 +83,7 @@ async def test_respects_retry_after_on_429(monkeypatch):
         import jobhunter.sources.http
         from tenacity import wait_none
         original_retrying = jobhunter.sources.http.AsyncRetrying
-        def mock_retrying(*args, **kwargs):
+        def mock_retrying(*args: Any, **kwargs: Any) -> Any:
             kwargs['wait'] = wait_none()
             return original_retrying(*args, **kwargs)
         jobhunter.sources.http.AsyncRetrying = mock_retrying
@@ -104,14 +92,13 @@ async def test_respects_retry_after_on_429(monkeypatch):
             response = await client.get("http://example.com")
             assert response.status_code == 200
             # Verify asyncio.sleep was called with 0.1 from Retry-After
-            # It might be called multiple times by tenacity too if we didn't patch it to wait_none
             mock_sleep.assert_any_call(0.1)
         finally:
             jobhunter.sources.http.AsyncRetrying = original_retrying
 
 
 @pytest.mark.asyncio
-async def test_rate_limit_throttles_concurrent_requests():
+async def test_rate_limit_throttles_concurrent_requests() -> None:
     # 3 requests, rate limit 2.
     # The first 2 should start immediately.
     # The 3rd should wait for one of them to finish.

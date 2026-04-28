@@ -1,11 +1,19 @@
 import subprocess
 import os
+import re
 from pathlib import Path
+
+
+def strip_ansi(text: str) -> str:
+    """Removes ANSI escape codes from a string."""
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
 
 
 def test_cli_db_backup_help() -> None:
     """Test that the db-backup command is available in the CLI help."""
-    # We use NO_COLOR=1 to avoid ANSI escape codes in the output which break assertions
+    # We use NO_COLOR=1 to try to avoid ANSI escape codes, but some may persist
+    # depending on the environment/Rich configuration, so we strip them manually.
     result = subprocess.run(
         ["python", "-m", "jobhunter", "db-backup", "--help"],
         capture_output=True,
@@ -13,8 +21,9 @@ def test_cli_db_backup_help() -> None:
         env={**os.environ, "PYTHONPATH": "src", "ANTHROPIC_API_KEY": "dummy", "NO_COLOR": "1"},
     )
     assert result.returncode == 0
-    assert "Create a compressed backup of the database" in result.stdout
-    assert "--output" in result.stdout
+    stdout = strip_ansi(result.stdout)
+    assert "Create a compressed backup of the database" in stdout
+    assert "--output" in stdout
 
 
 def test_backup_script_integrity(tmp_path: Path) -> None:

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from jobhunter.db.enums import JobStatus, JobTier
-from jobhunter.db.models import Job, LLMCall
+from jobhunter.db.models import Job
 from jobhunter.scoring.pipeline import rescore_jobs, score_pending_jobs
 from jobhunter.scoring.schema import ScoringResult, Tier
 from jobhunter.scoring.scorer import ScoringOutcome
@@ -74,11 +74,8 @@ async def test_score_pending_jobs_success(
     assert job.fit_score == 85
     assert job.score_model == "claude-haiku-4-5-20251001"
 
-    # Check LLMCall was added to session
-    calls = [args[0] for args, _ in mock_session.add.call_args_list if isinstance(args[0], LLMCall)]
-    assert len(calls) == 1
-    assert calls[0].job_id == job.id
-    assert calls[0].cost_usd == 0.001
+    # Check that score was called with the session
+    mock_scorer.score.assert_called_once_with(job, session=mock_session)
 
     mock_session.commit.assert_called_once()
 

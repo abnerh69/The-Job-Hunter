@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     Numeric,
     String,
     Text,
@@ -24,6 +25,7 @@ from jobhunter.db.enums import (
     ApplicationStatus,
     JobStatus,
     JobTier,
+    LLMPurpose,
     OutreachMarket,
     OutreachStatus,
     SourceState,
@@ -41,7 +43,7 @@ class Job(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
-        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
     )
     source: Mapped[str] = mapped_column(String(50), nullable=False)
     source_id: Mapped[str | None] = mapped_column(String(255))
@@ -57,7 +59,7 @@ class Job(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    raw_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    raw_payload: Mapped[dict[str, Any] | None] = mapped_column()
 
     # Scoring (populated by SCORING LAYER)
     scored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -65,7 +67,9 @@ class Job(Base):
     score_version: Mapped[str | None] = mapped_column(String(20))
     fit_score: Mapped[int | None] = mapped_column(Integer)
     tier: Mapped[JobTier | None] = mapped_column(String(10))
-    score_data: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(JSONB))
+    score_data: Mapped[dict[str, Any] | None] = mapped_column(
+        MutableDict.as_mutable(JSONB().with_variant(JSON(), "sqlite"))
+    )
 
     status: Mapped[JobStatus] = mapped_column(
         String(30), nullable=False, server_default=JobStatus.NEW
@@ -97,7 +101,7 @@ class Application(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
-        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
     )
     job_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=False
@@ -174,13 +178,13 @@ class ApplicationEvent(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
-        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
     )
     application_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("applications.id"), nullable=False
     )
     event_type: Mapped[ApplicationEventType] = mapped_column(String(50), nullable=False)
-    event_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    event_data: Mapped[dict[str, Any] | None] = mapped_column()
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -206,7 +210,7 @@ class OutreachContact(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
-        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     company: Mapped[str | None] = mapped_column(Text)
@@ -265,18 +269,20 @@ class LLMCall(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
-        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
     )
     job_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=True
     )
     model: Mapped[str] = mapped_column(String(50), nullable=False)
+    purpose: Mapped[LLMPurpose] = mapped_column(String(30), nullable=False)
     prompt_version: Mapped[str | None] = mapped_column(String(20))
-    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
-    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
-    cost_usd: Mapped[float] = mapped_column(Numeric(10, 6), nullable=False)
-    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[float | None] = mapped_column(Numeric(10, 6))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    success: Mapped[bool] = mapped_column(nullable=False, server_default="true")
+    called_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
@@ -284,7 +290,7 @@ class LLMCall(Base):
     job: Mapped["Job"] = relationship()
 
     def __repr__(self) -> str:
-        return f"<LLMCall(model={self.model}, cost_usd={self.cost_usd})>"
+        return f"<LLMCall(model={self.model}, cost_usd={self.cost_usd}, success={self.success})>"
 
 
 @event.listens_for(Application.status, "set")

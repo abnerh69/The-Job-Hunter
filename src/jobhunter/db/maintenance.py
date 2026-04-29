@@ -16,6 +16,10 @@ def refresh_weekly_metrics(session: Session) -> None:
     Args:
         session (Session): The SQLAlchemy session to use for the execution.
     """
+    if session.bind and session.bind.dialect.name != "postgresql":
+        logger.info("Skipping weekly_metrics refresh on non-postgresql dialect")
+        return
+
     logger.info("Refreshing weekly_metrics materialized view")
     try:
         session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY weekly_metrics"))

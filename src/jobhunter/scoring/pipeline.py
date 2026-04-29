@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from jobhunter.db.enums import JobStatus, JobTier
-from jobhunter.db.models import Job, LLMCall
+from jobhunter.db.models import Job
 from jobhunter.scoring.errors import ScoringError
 from jobhunter.scoring.schema import ScoringResult, Tier
 from jobhunter.scoring.scorer import JobScorer
@@ -72,7 +72,7 @@ async def score_pending_jobs(
     async def score_job_task(job: Job) -> None:
         async with semaphore:
             try:
-                outcome = await scorer.score(job)
+                outcome = await scorer.score(job, session=session)
 
                 # Apply changes to job
                 job.scored_at = datetime.now(timezone.utc)
@@ -103,18 +103,6 @@ async def score_pending_jobs(
                         report.tier_distribution.get("INVALID", 0) + 1
                     )
 
-                # Record LLM call
-                llm_call = LLMCall(
-                    job_id=job.id,
-                    model=outcome.model,
-                    prompt_version=outcome.prompt_version,
-                    input_tokens=outcome.input_tokens,
-                    output_tokens=outcome.output_tokens,
-                    cost_usd=outcome.cost_usd,
-                    duration_ms=outcome.duration_ms,
-                )
-
-                session.add(llm_call)
                 report.success_count += 1
                 report.total_cost_usd += outcome.cost_usd
 
@@ -174,7 +162,7 @@ async def rescore_jobs(
     async def score_job_task(job: Job) -> None:
         async with semaphore:
             try:
-                outcome = await scorer.score(job)
+                outcome = await scorer.score(job, session=session)
 
                 # Update job
                 job.scored_at = datetime.now(timezone.utc)
@@ -207,16 +195,6 @@ async def rescore_jobs(
                         report.tier_distribution.get("INVALID", 0) + 1
                     )
 
-                llm_call = LLMCall(
-                    job_id=job.id,
-                    model=outcome.model,
-                    prompt_version=outcome.prompt_version,
-                    input_tokens=outcome.input_tokens,
-                    output_tokens=outcome.output_tokens,
-                    cost_usd=outcome.cost_usd,
-                    duration_ms=outcome.duration_ms,
-                )
-                session.add(llm_call)
                 report.success_count += 1
                 report.total_cost_usd += outcome.cost_usd
 

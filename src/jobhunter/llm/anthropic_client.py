@@ -1,9 +1,11 @@
 import time
+from uuid import UUID
 
 import anthropic
 import structlog
 from anthropic import APIConnectionError, InternalServerError, RateLimitError
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from tenacity import (
     AsyncRetrying,
     retry_if_exception_type,
@@ -11,6 +13,8 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
+from jobhunter.db.enums import LLMPurpose
+from jobhunter.db.repos.llm_calls import LLMCallRepo
 from jobhunter.llm.pricing import calculate_cost_usd
 
 logger = structlog.get_logger(__name__)
@@ -50,6 +54,10 @@ class AnthropicLLMClient:
         system: str,
         user: str,
         model: str,
+        purpose: LLMPurpose,
+        session: Session | None = None,
+        job_id: UUID | None = None,
+        prompt_version: str | None = None,
         max_tokens: int = 1500,
     ) -> LLMResponse:
         """
@@ -59,6 +67,10 @@ class AnthropicLLMClient:
             system: The system prompt.
             user: The user prompt.
             model: The model to use.
+            purpose: The purpose of the call.
+            session: The SQLAlchemy session to use for recording the call.
+            job_id: The ID of the job associated with the call.
+            prompt_version: The version of the prompt used.
             max_tokens: The maximum number of tokens to generate.
 
         Returns:
@@ -114,6 +126,20 @@ class AnthropicLLMClient:
                         attempt=attempt,
                     )
 
+                    if session:
+                        repo = LLMCallRepo(session)
+                        repo.record_call(
+                            model=model,
+                            purpose=purpose,
+                            success=True,
+                            job_id=job_id,
+                            prompt_version=prompt_version,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            cost_usd=cost_usd,
+                            duration_ms=duration_ms,
+                        )
+
                     return llm_response
 
                 except (RateLimitError, APIConnectionError, InternalServerError) as e:
@@ -123,6 +149,17 @@ class AnthropicLLMClient:
                         error=str(e),
                         attempt=attempt,
                     )
+                    if session:
+                        duration_ms = int((time.perf_counter() - start_time) * 1000)
+                        repo = LLMCallRepo(session)
+                        repo.record_call(
+                            model=model,
+                            purpose=purpose,
+                            success=False,
+                            job_id=job_id,
+                            prompt_version=prompt_version,
+                            duration_ms=duration_ms,
+                        )
                     raise
                 except Exception as e:
                     logger.error(
@@ -131,6 +168,17 @@ class AnthropicLLMClient:
                         error=str(e),
                         attempt=attempt,
                     )
+                    if session:
+                        duration_ms = int((time.perf_counter() - start_time) * 1000)
+                        repo = LLMCallRepo(session)
+                        repo.record_call(
+                            model=model,
+                            purpose=purpose,
+                            success=False,
+                            job_id=job_id,
+                            prompt_version=prompt_version,
+                            duration_ms=duration_ms,
+                        )
                     raise
         # This line should technically not be reached because of reraise=True
         raise RuntimeError("LLM completion failed unexpectedly")

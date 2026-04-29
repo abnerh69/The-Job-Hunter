@@ -1,3 +1,7 @@
+from typing import Any
+
+from sqlalchemy import JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -7,4 +11,6 @@ class Base(DeclarativeBase):
     Uses SQLAlchemy 2.0 style DeclarativeBase.
     """
 
-    pass
+    type_annotation_map = {
+        dict[str, Any]: JSONB().with_variant(JSON(), "sqlite"),
+    }

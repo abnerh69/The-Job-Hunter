@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from anthropic import AuthenticationError, RateLimitError
 
+from jobhunter.db.enums import LLMPurpose
 from jobhunter.llm.anthropic_client import AnthropicLLMClient, LLMResponse
 from jobhunter.llm.pricing import calculate_cost_usd
 
@@ -44,6 +45,7 @@ async def test_complete_success() -> None:
             system="system prompt",
             user="user prompt",
             model="claude-haiku-4-5-20251001",
+            purpose=LLMPurpose.SCORING,
         )
 
         assert isinstance(response, LLMResponse)
@@ -86,6 +88,7 @@ async def test_complete_retry_on_rate_limit() -> None:
                 system="system",
                 user="user",
                 model="claude-haiku-4-5-20251001",
+                purpose=LLMPurpose.SCORING,
             )
 
         assert response.text == "Success after retry"
@@ -111,6 +114,7 @@ async def test_complete_no_retry_on_auth_error() -> None:
                 system="system",
                 user="user",
                 model="claude-haiku-4-5-20251001",
+                purpose=LLMPurpose.SCORING,
             )
 
         assert mock_create.call_count == 1

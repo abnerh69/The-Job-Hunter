@@ -1,5 +1,6 @@
 import subprocess
 import os
+import pytest
 import re
 from pathlib import Path
 
@@ -28,6 +29,10 @@ def test_cli_db_backup_help() -> None:
 
 def test_backup_script_integrity(tmp_path: Path) -> None:
     """Test that the backup script creates a valid gzip file (smoke test)."""
+    # Check if pg_dump is available, skip otherwise
+    if subprocess.run(["which", "pg_dump"], capture_output=True).returncode != 0:
+        pytest.skip("pg_dump not available")
+
     # This test assumes a database is running and accessible via DATABASE_URL
     # which is true in our sandbox environment now.
     backup_file = tmp_path / "test_backup_smoke.sql.gz"

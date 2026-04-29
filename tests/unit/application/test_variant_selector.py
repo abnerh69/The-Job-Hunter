@@ -2,7 +2,7 @@ from jobhunter.db.models import Job
 from jobhunter.application.variant_selector import recommend_cv_variant
 
 
-def test_recommend_ai_python_via_flag():
+def test_recommend_ai_python_via_flag() -> None:
     job = Job(
         title="AI Engineer",
         description="Looking for an AI enthusiast.",
@@ -22,7 +22,7 @@ def test_recommend_ai_python_via_flag():
     assert "explicitly flagged" in recommendation.reasoning
 
 
-def test_recommend_ai_python_via_stack():
+def test_recommend_ai_python_via_stack() -> None:
     job = Job(
         title="Software Engineer",
         description="Generic description.",
@@ -42,7 +42,7 @@ def test_recommend_ai_python_via_stack():
     assert "Stack match" in recommendation.reasoning
 
 
-def test_recommend_flutter_via_flag():
+def test_recommend_flutter_via_flag() -> None:
     job = Job(
         title="Mobile Developer",
         description="Build mobile apps.",
@@ -62,7 +62,7 @@ def test_recommend_flutter_via_flag():
     assert "explicitly flagged" in recommendation.reasoning
 
 
-def test_recommend_flutter_via_stack():
+def test_recommend_flutter_via_stack() -> None:
     job = Job(
         title="Software Engineer",
         description="Generic description.",
@@ -82,7 +82,7 @@ def test_recommend_flutter_via_stack():
     assert "Stack match" in recommendation.reasoning
 
 
-def test_recommend_fullstack_via_flag():
+def test_recommend_fullstack_via_flag() -> None:
     job = Job(
         title="Software Engineer",
         description="Build web apps.",
@@ -102,7 +102,7 @@ def test_recommend_fullstack_via_flag():
     assert "explicitly flagged" in recommendation.reasoning
 
 
-def test_recommend_fullstack_ambiguous_with_score_data():
+def test_recommend_fullstack_ambiguous_with_score_data() -> None:
     job = Job(
         title="Generalist Engineer",
         description="Do everything.",
@@ -122,7 +122,7 @@ def test_recommend_fullstack_ambiguous_with_score_data():
     assert "No specific stack match" in recommendation.reasoning
 
 
-def test_recommend_via_keywords_fallback_flutter():
+def test_recommend_via_keywords_fallback_flutter() -> None:
     job = Job(
         title="Mobile Developer (Flutter)",
         description="We need someone who knows Dart and Flutter.",
@@ -134,7 +134,7 @@ def test_recommend_via_keywords_fallback_flutter():
     assert "Heuristic match" in recommendation.reasoning
 
 
-def test_recommend_via_keywords_fallback_ai_python():
+def test_recommend_via_keywords_fallback_ai_python() -> None:
     job = Job(
         title="Python Developer",
         description="Experience with LLMs and AI is a plus.",
@@ -146,7 +146,7 @@ def test_recommend_via_keywords_fallback_ai_python():
     assert "Heuristic match" in recommendation.reasoning
 
 
-def test_recommend_absolute_fallback():
+def test_recommend_absolute_fallback() -> None:
     job = Job(
         title="Software Engineer",
         description="Just a job.",

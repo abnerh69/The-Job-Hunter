@@ -102,7 +102,9 @@ def notify_digest(
     week_ending: Annotated[
         str | None, typer.Option(help="End date of the week (YYYY-MM-DD), defaults to today")
     ] = None,
-    send: Annotated[bool, typer.Option(help="Actually send the email instead of just previewing")] = False,
+    send: Annotated[
+        bool, typer.Option(help="Actually send the email instead of just previewing")
+    ] = False,
 ) -> None:
     """Preview or send the weekly digest email summary."""
     logger.info("Triggering weekly digest command", week_ending=week_ending, send=send)
@@ -122,7 +124,9 @@ def notify_digest(
                 if result is None:
                     typer.echo("Digest was already sent for this week. Skipping.")
                 elif result.success:
-                    typer.echo(f"Successfully sent weekly digest. (Duration: {result.duration_ms}ms)")
+                    typer.echo(
+                        f"Successfully sent weekly digest. (Duration: {result.duration_ms}ms)"
+                    )
                 else:
                     typer.echo(f"Failed to send weekly digest: {result.error}", err=True)
                     raise typer.Exit(code=1)

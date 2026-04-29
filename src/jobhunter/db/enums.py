@@ -78,3 +78,4 @@ class LLMPurpose(StrEnum):
     COVER_LETTER = "cover_letter"
     OUTREACH = "outreach"
     ATS_KEYWORDS = "ats_keywords"
+    CV_TWEAKS = "cv_tweaks"

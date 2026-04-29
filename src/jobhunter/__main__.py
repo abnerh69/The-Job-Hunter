@@ -4,7 +4,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 import typer
@@ -466,13 +466,13 @@ def rescore(
     logger.info("Starting job rescoring", tier=tier, model=with_model, limit=limit)
 
     settings = Settings()  # type: ignore[call-arg]
-    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
 
-    scorer_kwargs = {"llm_client": llm_client}
+    scorer_kwargs: dict[str, Any] = {"llm_client": client}
     if with_model:
         scorer_kwargs["model"] = with_model
 
-    scorer = JobScorer(**scorer_kwargs)  # type: ignore[arg-type]
+    scorer = JobScorer(**scorer_kwargs)
 
     try:
         with get_session() as session:

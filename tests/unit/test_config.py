@@ -17,6 +17,7 @@ def test_settings_parsing_from_env() -> None:
         "SMTP_USER": "smtp-user",
         "SMTP_PASSWORD": "smtp-password",
         "DIGEST_TO_EMAIL": "digest@example.com",
+        "DASHBOARD_PASSWORD": "dash-password",
     }
     with mock.patch.dict(os.environ, env_vars):
         # We clear the env_file in model_config for testing to ensure it only reads from env
@@ -41,7 +42,11 @@ def test_settings_missing_required() -> None:
 
 def test_settings_default_values() -> None:
     """Verify that default values are used when not provided in env."""
-    with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "some-key"}, clear=True):
+    with mock.patch.dict(
+        os.environ,
+        {"ANTHROPIC_API_KEY": "some-key", "DASHBOARD_PASSWORD": "some-password"},
+        clear=True,
+    ):
         settings = Settings(_env_file=None)  # type: ignore[call-arg]
         assert settings.DATABASE_URL == "sqlite:///./jobhunter.db"
         assert settings.TELEGRAM_BOT_TOKEN is None
@@ -54,9 +59,11 @@ def test_safe_dict_masks_secrets() -> None:
         ANTHROPIC_API_KEY=SecretStr("secret-api-key"),
         TELEGRAM_BOT_TOKEN=SecretStr("secret-bot-token"),
         SMTP_PASSWORD=SecretStr("secret-smtp-password"),
+        DASHBOARD_PASSWORD=SecretStr("secret-dash-password"),
     )
     safe_settings = settings.safe_dict()
     assert safe_settings["ANTHROPIC_API_KEY"] == "***"
     assert safe_settings["TELEGRAM_BOT_TOKEN"] == "***"
     assert safe_settings["SMTP_PASSWORD"] == "***"
+    assert safe_settings["DASHBOARD_PASSWORD"] == "***"
     assert "secret" not in str(safe_settings)

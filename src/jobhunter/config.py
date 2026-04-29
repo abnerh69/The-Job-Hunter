@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     COVER_LETTER_MODEL: str = "claude-opus-4-7"
     CV_VARIANTS_DIR: Path = Path(".local/cv_variants")
 
+    DASHBOARD_PASSWORD: SecretStr
+    DASHBOARD_SESSION_TIMEOUT_MINUTES: int = 60
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -44,4 +47,6 @@ class Settings(BaseSettings):
             "DIGEST_TO_EMAIL": self.DIGEST_TO_EMAIL,
             "LLM_MONTHLY_BUDGET_USD": self.LLM_MONTHLY_BUDGET_USD,
             "COVER_LETTER_MODEL": self.COVER_LETTER_MODEL,
+            "DASHBOARD_PASSWORD": "***" if self.DASHBOARD_PASSWORD else None,
+            "DASHBOARD_SESSION_TIMEOUT_MINUTES": self.DASHBOARD_SESSION_TIMEOUT_MINUTES,
         }

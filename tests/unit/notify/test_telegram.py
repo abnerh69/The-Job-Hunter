@@ -13,6 +13,7 @@ from jobhunter.notify.telegram import TelegramNotifier, escape_telegram_markdown
 def settings_mock() -> Settings:
     return Settings(
         ANTHROPIC_API_KEY=SecretStr("dummy"),
+        DASHBOARD_PASSWORD=SecretStr("pass"),
         TELEGRAM_BOT_TOKEN=SecretStr("bot_token"),
         TELEGRAM_CHAT_ID="chat_id",
     )
@@ -31,6 +32,7 @@ def test_is_enabled(notifier: TelegramNotifier, settings_mock: Settings) -> None
 
     settings_disabled = Settings(
         ANTHROPIC_API_KEY=SecretStr("dummy"),
+        DASHBOARD_PASSWORD=SecretStr("pass"),
         TELEGRAM_BOT_TOKEN=None,
         TELEGRAM_CHAT_ID=None,
     )

@@ -1,0 +1,50 @@
+{
+  "valid": true,
+  "fit_score": 15,
+  "tier": "REJECT",
+  "company": {
+    "name": "CheapCode",
+    "stage": "agency",
+    "domain_inferred": "Outsourcing"
+  },
+  "role": {
+    "title_normalized": "Junior Python Dev",
+    "seniority_inferred": "junior",
+    "primary_stack_match": ["Python"],
+    "stack_overlap_pct": 70,
+    "is_ai_ml_role": false,
+    "is_flutter_role": false,
+    "is_full_stack": false
+  },
+  "compensation": {
+    "salary_min_usd_month": 1500.0,
+    "salary_max_usd_month": 2000.0,
+    "salary_explicit_in_offer": true,
+    "currency_original": "USD",
+    "meets_floor": false,
+    "meets_target": false,
+    "notes": "Salary is far below floor."
+  },
+  "logistics": {
+    "remote_type": "remote_global",
+    "timezone_requirement": "any",
+    "overlap_hours_required_with_CET": 0,
+    "latam_friendly": true,
+    "colombia_explicitly_blocked": false,
+    "contract_type_offered": "B2B",
+    "language_requirements": ["English"]
+  },
+  "match_analysis": {
+    "key_match_points": ["Python"],
+    "key_gaps": ["Very low salary"],
+    "differentiators_to_emphasize": []
+  },
+  "red_flags": ["Salary below floor"],
+  "yellow_flags": [],
+  "recommendation": {
+    "action": "skip",
+    "priority": "low",
+    "reason_short": "REJECT: Salary is too low.",
+    "cover_letter_angle": "N/A"
+  }
+}

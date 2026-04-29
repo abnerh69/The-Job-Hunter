@@ -1,0 +1,50 @@
+{
+  "valid": true,
+  "fit_score": 75,
+  "tier": "B",
+  "company": {
+    "name": "MidTech",
+    "stage": "enterprise",
+    "domain_inferred": "E-commerce"
+  },
+  "role": {
+    "title_normalized": "Python Developer",
+    "seniority_inferred": "mid",
+    "primary_stack_match": ["Python", "Django"],
+    "stack_overlap_pct": 80,
+    "is_ai_ml_role": false,
+    "is_flutter_role": false,
+    "is_full_stack": false
+  },
+  "compensation": {
+    "salary_min_usd_month": 5000.0,
+    "salary_max_usd_month": 7000.0,
+    "salary_explicit_in_offer": false,
+    "currency_original": null,
+    "meets_floor": true,
+    "meets_target": false,
+    "notes": "Salary not explicit, but estimated based on role"
+  },
+  "logistics": {
+    "remote_type": "remote_eu_only",
+    "timezone_requirement": "flexible_EU",
+    "overlap_hours_required_with_CET": 6,
+    "latam_friendly": false,
+    "colombia_explicitly_blocked": false,
+    "contract_type_offered": "direct_employee",
+    "language_requirements": ["English"]
+  },
+  "match_analysis": {
+    "key_match_points": ["Solid Python background"],
+    "key_gaps": ["Lacks experience with specific e-commerce platforms"],
+    "differentiators_to_emphasize": ["Scalability experience"]
+  },
+  "red_flags": [],
+  "yellow_flags": ["EU only remote", "Salary not explicit"],
+  "recommendation": {
+    "action": "apply_with_caveats",
+    "priority": "medium",
+    "reason_short": "Good match but salary and location restrictions are borderline.",
+    "cover_letter_angle": "Focus on backend efficiency and quick onboarding."
+  }
+}

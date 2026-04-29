@@ -1,0 +1,50 @@
+{
+  "valid": true,
+  "fit_score": 10,
+  "tier": "REJECT",
+  "company": {
+    "name": "EuroCentric",
+    "stage": "scaleup",
+    "domain_inferred": "Logistics"
+  },
+  "role": {
+    "title_normalized": "Local Python dev",
+    "seniority_inferred": "mid",
+    "primary_stack_match": ["Python"],
+    "stack_overlap_pct": 50,
+    "is_ai_ml_role": false,
+    "is_flutter_role": false,
+    "is_full_stack": false
+  },
+  "compensation": {
+    "salary_min_usd_month": 5000.0,
+    "salary_max_usd_month": 6000.0,
+    "salary_explicit_in_offer": true,
+    "currency_original": "EUR",
+    "meets_floor": true,
+    "meets_target": false,
+    "notes": "Standard EU salary"
+  },
+  "logistics": {
+    "remote_type": "onsite",
+    "timezone_requirement": "strict_CET",
+    "overlap_hours_required_with_CET": 8,
+    "latam_friendly": false,
+    "colombia_explicitly_blocked": true,
+    "contract_type_offered": "direct_employee",
+    "language_requirements": ["German"]
+  },
+  "match_analysis": {
+    "key_match_points": ["Python"],
+    "key_gaps": ["Requires EU work permit", "Onsite only"],
+    "differentiators_to_emphasize": []
+  },
+  "red_flags": ["Requires EU work permit", "Onsite only"],
+  "yellow_flags": ["German required"],
+  "recommendation": {
+    "action": "skip",
+    "priority": "low",
+    "reason_short": "REJECT: Requires EU work permit and is onsite.",
+    "cover_letter_angle": "N/A"
+  }
+}

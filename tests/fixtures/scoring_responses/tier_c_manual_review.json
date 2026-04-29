@@ -1,0 +1,50 @@
+{
+  "valid": true,
+  "fit_score": 60,
+  "tier": "C",
+  "company": {
+    "name": "OldSchool Corp",
+    "stage": "enterprise",
+    "domain_inferred": "Banking"
+  },
+  "role": {
+    "title_normalized": "Software Maintainer",
+    "seniority_inferred": "senior",
+    "primary_stack_match": ["Python", "SQL"],
+    "stack_overlap_pct": 60,
+    "is_ai_ml_role": false,
+    "is_flutter_role": false,
+    "is_full_stack": false
+  },
+  "compensation": {
+    "salary_min_usd_month": 4000.0,
+    "salary_max_usd_month": 5500.0,
+    "salary_explicit_in_offer": true,
+    "currency_original": "EUR",
+    "meets_floor": false,
+    "meets_target": false,
+    "notes": "Salary is below the preferred floor."
+  },
+  "logistics": {
+    "remote_type": "hybrid",
+    "timezone_requirement": "strict_CET",
+    "overlap_hours_required_with_CET": 8,
+    "latam_friendly": false,
+    "colombia_explicitly_blocked": false,
+    "contract_type_offered": "direct_employee",
+    "language_requirements": ["English", "German"]
+  },
+  "match_analysis": {
+    "key_match_points": ["Python skills"],
+    "key_gaps": ["Hybrid requirement", "Low salary"],
+    "differentiators_to_emphasize": ["Stability and reliability"]
+  },
+  "red_flags": [],
+  "yellow_flags": ["Low salary", "Hybrid work", "German required"],
+  "recommendation": {
+    "action": "manual_review",
+    "priority": "low",
+    "reason_short": "Ambiguous case: salary is low and hybrid required, but stable company.",
+    "cover_letter_angle": "Emphasize long-term commitment and reliability."
+  }
+}

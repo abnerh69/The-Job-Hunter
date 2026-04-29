@@ -11,7 +11,7 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def mock_notifier_instance():
+def mock_notifier_instance() -> MagicMock:
     mock_inst = MagicMock()
     mock_inst.is_enabled.return_value = True
     mock_inst.send = AsyncMock(return_value=NotificationResult(success=True, duration_ms=100))
@@ -20,7 +20,7 @@ def mock_notifier_instance():
 
 
 @pytest.mark.integration
-def test_notify_dispatch_e2e(session, mock_notifier_instance):
+def test_notify_dispatch_e2e(session: MagicMock, mock_notifier_instance: MagicMock) -> None:
     # Setup: Create some Tier-A jobs
     job1 = Job(
         source="test",
@@ -80,7 +80,7 @@ def test_notify_dispatch_e2e(session, mock_notifier_instance):
 
 
 @pytest.mark.integration
-def test_notify_digest_preview_vs_send(session):
+def test_notify_digest_preview_vs_send(session: MagicMock) -> None:
     # Mocking EmailNotifier
     with patch("jobhunter.notify.digest.EmailNotifier") as mock_email_cls:
         mock_email = mock_email_cls.return_value
@@ -104,7 +104,7 @@ def test_notify_digest_preview_vs_send(session):
 
 
 @pytest.mark.integration
-def test_notify_status(session, mock_notifier_instance):
+def test_notify_status(session: MagicMock, mock_notifier_instance: MagicMock) -> None:
     # Trigger some notifications to have data in status
     n1 = NotificationSent(
         channel="telegram", dedup_key="test1", success=True, sent_at=datetime.now(timezone.utc)
@@ -134,7 +134,7 @@ def test_notify_status(session, mock_notifier_instance):
 
 
 @pytest.mark.integration
-def test_notify_test_command(mock_notifier_instance):
+def test_notify_test_command(mock_notifier_instance: MagicMock) -> None:
     with patch("jobhunter.__main__.get_notifier_cls") as mock_get_cls:
         mock_get_cls.return_value = lambda: mock_notifier_instance
         result = runner.invoke(

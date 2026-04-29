@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from jobhunter.db.enums import JobStatus, JobTier
-from jobhunter.db.models import Job, LLMCall
+from jobhunter.db.models import Job
 from jobhunter.scoring.pipeline import rescore_jobs, score_pending_jobs
 from jobhunter.scoring.schema import ScoringResult, Tier
 from jobhunter.scoring.scorer import ScoringOutcome

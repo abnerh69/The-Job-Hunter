@@ -67,7 +67,7 @@ class Job(Base):
     score_version: Mapped[str | None] = mapped_column(String(20))
     fit_score: Mapped[int | None] = mapped_column(Integer)
     tier: Mapped[JobTier | None] = mapped_column(String(10))
-    score_data: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(JSONB).with_variant(JSON(), "sqlite"))
+    score_data: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(JSONB().with_variant(JSON(), "sqlite")))
 
     status: Mapped[JobStatus] = mapped_column(
         String(30), nullable=False, server_default=JobStatus.NEW

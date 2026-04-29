@@ -132,7 +132,7 @@ class LLMCallRepo(BaseRepo[LLMCall]):
             select(
                 LLMCall.model,
                 func.count(LLMCall.id).label("total_calls"),
-                func.sum(sa_case((LLMCall.success == True, 1), else_=0)).label("success_count"),
+                func.sum(sa_case((LLMCall.success, 1), else_=0)).label("success_count"),
                 func.sum(LLMCall.cost_usd).label("total_cost"),
             )
             .where(

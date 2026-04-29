@@ -52,7 +52,7 @@ def test_monthly_total_usd(session: Session) -> None:
     )
 
     # Another month
-    last_month = now.replace(day=1) - datetime.resolution
+    # last_month = now.replace(day=1) - datetime.resolution
     # Manual insertion to control date if needed, but record_call uses now()
     # Let's mock datetime.now if we want to test different months
     # Or just use the current month for this test

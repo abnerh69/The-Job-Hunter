@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from jobhunter.db.enums import JobStatus, JobTier
-from jobhunter.db.models import Job, LLMCall
+from jobhunter.db.models import Job
 from jobhunter.scoring.errors import ScoringError
 from jobhunter.scoring.schema import ScoringResult, Tier
 from jobhunter.scoring.scorer import JobScorer

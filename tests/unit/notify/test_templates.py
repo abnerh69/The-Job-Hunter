@@ -102,21 +102,35 @@ def test_render_weekly_digest_email_html() -> None:
     context = {
         "end_date": "2024-05-26",
         "metrics": {
-            "new_jobs": 150,
-            "tier_a_count": 5,
-            "applications_sent": 3,
+            "new_jobs_total": 150,
+            "new_jobs_tier_a": 5,
+            "new_jobs_tier_b": 10,
+            "new_jobs_tier_c": 135,
+            "apps_sent_this_week": 3,
+            "response_rate_last_4_weeks": 33.33,
+            "pending_followups_count": 1,
+            "queued_tier_a_count": 2,
+            "manual_review_tier_c_count": 5,
         },
-        "tier_a_jobs": [
+        "top_tier_a_queued": [
             {"title": "Job 1", "company": "Co 1", "fit_score": 90, "url": "url1"},
         ],
-        "pending_tier_b": [],
         "followups_due": [
             {
-                "job": {"company": "Target"},
+                "job_company": "Target",
                 "next_action": "Follow up email",
                 "next_action_due": "2024-05-28",
             }
         ],
+        "monthly_trends": [
+            {
+                "week_start": "2024-05-19",
+                "apps_sent": 10,
+                "interviews": 2,
+                "conversion_rate": 20.0,
+            }
+        ],
+        "is_empty_pipeline": False,
     }
     output = render("notifications/weekly_digest_email.html", context)
 
@@ -127,28 +141,33 @@ def test_render_weekly_digest_email_html() -> None:
     assert "Target" in output
     assert "Follow up email" in output
     assert "May 28, 2024" in output
+    assert "33.3%" in output
 
 
 def test_render_weekly_digest_email_txt() -> None:
     context: dict[str, Any] = {
         "end_date": "2024-05-26",
         "metrics": {
-            "new_jobs": 150,
-            "tier_a_count": 5,
-            "applications_sent": 3,
+            "new_jobs_total": 150,
+            "new_jobs_tier_a": 5,
+            "new_jobs_tier_b": 10,
+            "new_jobs_tier_c": 135,
+            "apps_sent_this_week": 3,
+            "response_rate_last_4_weeks": 33.33,
+            "pending_followups_count": 1,
+            "queued_tier_a_count": 2,
+            "manual_review_tier_c_count": 5,
         },
-        "tier_a_jobs": [
+        "top_tier_a_queued": [
             {"title": "Job 1", "company": "Co 1", "fit_score": 90, "url": "url1"},
         ],
-        "pending_tier_b": [
-            {"title": "Job 2", "company": "Co 2", "fit_score": 75},
-        ],
         "followups_due": [],
+        "monthly_trends": [],
+        "is_empty_pipeline": False,
     }
     output = render("notifications/weekly_digest_email.txt", context)
 
     assert "WEEKLY JOB HUNT SUMMARY" in output
     assert "May 26, 2024" in output
     assert "Job 1" in output
-    assert "Job 2" in output
-    assert "Co 2" in output
+    assert "33.3%" in output

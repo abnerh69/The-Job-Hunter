@@ -62,7 +62,9 @@ class TelegramNotifier(BaseNotifier):
                 duration_ms=0,
             )
 
-        token = settings.TELEGRAM_BOT_TOKEN.get_secret_value() if settings.TELEGRAM_BOT_TOKEN else ""
+        token = (
+            settings.TELEGRAM_BOT_TOKEN.get_secret_value() if settings.TELEGRAM_BOT_TOKEN else ""
+        )
         chat_id = settings.TELEGRAM_CHAT_ID or ""
 
         bot = Bot(token=token)

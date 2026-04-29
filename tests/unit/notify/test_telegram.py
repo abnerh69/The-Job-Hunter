@@ -88,7 +88,9 @@ async def test_send_retry_after(notifier: TelegramNotifier, settings_mock: Setti
 
 
 @pytest.mark.asyncio
-async def test_send_retry_after_exhausted(notifier: TelegramNotifier, settings_mock: Settings) -> None:
+async def test_send_retry_after_exhausted(
+    notifier: TelegramNotifier, settings_mock: Settings
+) -> None:
     with (
         patch("jobhunter.notify.telegram.Bot") as MockBot,
         patch("jobhunter.notify.telegram.asyncio.sleep", AsyncMock()) as mock_sleep,
@@ -155,7 +157,9 @@ async def test_truncation(notifier: TelegramNotifier, settings_mock: Settings) -
 
 
 @pytest.mark.asyncio
-async def test_truncation_escaping_boundary(notifier: TelegramNotifier, settings_mock: Settings) -> None:
+async def test_truncation_escaping_boundary(
+    notifier: TelegramNotifier, settings_mock: Settings
+) -> None:
     # A text where truncation would leave a trailing backslash
     body = "A" * 4094 + "."  # Escaped: A...A\. (len 4096)
     # If we had "A" * 4095 + "." -> Escaped: A...A\. (len 4097) -> truncated to 4095: A...A\

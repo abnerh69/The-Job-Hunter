@@ -3,6 +3,7 @@ from pathlib import Path
 from jobhunter.application.cv import load_cv, list_available_variants
 from jobhunter.config import Settings
 
+
 def test_list_available_variants(tmp_path):
     # Setup mock directories
     local_dir = tmp_path / ".local" / "cv_variants"
@@ -19,6 +20,7 @@ def test_list_available_variants(tmp_path):
     # but we can at least check if it finds the ones in CV_VARIANTS_DIR
     variants = list_available_variants(settings)
     assert "expert" in variants
+
 
 def test_load_cv_success(tmp_path):
     cv_content = """# My CV
@@ -54,6 +56,7 @@ Experienced dev.
     assert cv.experience[0].bullets == ["Led team.", "Built stuff."]
     assert cv.skills == ["Testing", "Architecture"]
 
+
 def test_load_cv_malformed(tmp_path):
     cv_content = """# My CV
 ## SUMMARY
@@ -69,10 +72,12 @@ Missing experience section.
     with pytest.raises(ValueError, match="missing an EXPERIENCE section"):
         load_cv("bad", settings=settings)
 
+
 def test_load_cv_not_found(tmp_path):
     settings = Settings(ANTHROPIC_API_KEY="dummy", CV_VARIANTS_DIR=tmp_path)
     with pytest.raises(FileNotFoundError):
         load_cv("non_existent", settings=settings)
+
 
 def test_fallback_to_repo_variants(tmp_path, monkeypatch):
     # This test is a bit trickier because Path("cv_variants") is hardcoded

@@ -14,7 +14,7 @@ from jobhunter.llm.anthropic_client import LLMResponse
 
 
 @pytest.fixture
-def mock_job():
+def mock_job() -> Job:
     return Job(
         id=uuid.uuid4(),
         title="Senior Python Engineer",
@@ -26,7 +26,7 @@ def mock_job():
 
 
 @pytest.fixture
-def mock_cv_variant():
+def mock_cv_variant() -> CVVariant:
     return CVVariant(
         name="ai_python",
         path=Path("dummy.md"),
@@ -39,7 +39,7 @@ def mock_cv_variant():
     )
 
 
-def test_validate_cover_letter():
+def test_validate_cover_letter() -> None:
     forbidden = ["passionate about"]
 
     # Valid
@@ -73,7 +73,7 @@ def test_validate_cover_letter():
 
 
 @pytest.mark.asyncio
-async def test_generate_cover_letter_success(mock_job, mock_cv_variant):
+async def test_generate_cover_letter_success(mock_job: Job, mock_cv_variant: CVVariant) -> None:
     mock_llm = MagicMock()
     mock_llm.complete = AsyncMock(
         return_value=LLMResponse(
@@ -97,7 +97,7 @@ async def test_generate_cover_letter_success(mock_job, mock_cv_variant):
 
 
 @pytest.mark.asyncio
-async def test_generate_cover_letter_retry(mock_job, mock_cv_variant):
+async def test_generate_cover_letter_retry(mock_job: Job, mock_cv_variant: CVVariant) -> None:
     mock_llm = MagicMock()
     # First response is too short, second is valid
     mock_llm.complete = AsyncMock(
@@ -135,7 +135,7 @@ async def test_generate_cover_letter_retry(mock_job, mock_cv_variant):
 
 
 @pytest.mark.asyncio
-async def test_generate_cover_letter_persistence(mock_job, mock_cv_variant):
+async def test_generate_cover_letter_persistence(mock_job: Job, mock_cv_variant: CVVariant) -> None:
     mock_llm = MagicMock()
     mock_llm.complete = AsyncMock(
         return_value=LLMResponse(
@@ -165,6 +165,7 @@ async def test_generate_cover_letter_persistence(mock_job, mock_cv_variant):
         session=mock_session,
     )
 
+    assert mock_app.cover_letter_text is not None
     assert mock_app.cover_letter_text.startswith("This is a valid cover letter.")
     assert mock_app.cover_letter_model == "claude-opus-4-7"
     mock_session.commit.assert_called_once()

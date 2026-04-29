@@ -1,4 +1,3 @@
-import pytest
 from jobhunter.db.models import Job
 from jobhunter.application.variant_selector import recommend_cv_variant
 

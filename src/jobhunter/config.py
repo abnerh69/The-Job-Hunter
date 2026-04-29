@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     DIGEST_TO_EMAIL: str | None = None
 
     LLM_MONTHLY_BUDGET_USD: float = 25.0
+    COVER_LETTER_MODEL: str = "claude-opus-4-7"
     CV_VARIANTS_DIR: Path = Path(".local/cv_variants")
 
     model_config = SettingsConfigDict(
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    def safe_dict(self) -> dict[str, str | int | None]:
+    def safe_dict(self) -> dict[str, str | int | float | None]:
         """Returns a dictionary with sensitive values masked."""
         return {
             "DATABASE_URL": self.DATABASE_URL,
@@ -41,4 +42,6 @@ class Settings(BaseSettings):
             "SMTP_USER": self.SMTP_USER,
             "SMTP_PASSWORD": "***" if self.SMTP_PASSWORD else None,
             "DIGEST_TO_EMAIL": self.DIGEST_TO_EMAIL,
+            "LLM_MONTHLY_BUDGET_USD": self.LLM_MONTHLY_BUDGET_USD,
+            "COVER_LETTER_MODEL": self.COVER_LETTER_MODEL,
         }

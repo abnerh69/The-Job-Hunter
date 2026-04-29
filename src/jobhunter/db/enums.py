@@ -77,3 +77,4 @@ class LLMPurpose(StrEnum):
     SCORING = "scoring"
     COVER_LETTER = "cover_letter"
     OUTREACH = "outreach"
+    ATS_KEYWORDS = "ats_keywords"

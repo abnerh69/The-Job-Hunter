@@ -74,7 +74,7 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
         sa.Column("application_id", sa.UUID(), nullable=False),
         sa.Column("event_type", sa.String(length=50), nullable=False),
-        sa.Column("event_data", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("event_data", sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql"), nullable=True),
         sa.Column(
             "occurred_at",
             sa.DateTime(timezone=True),

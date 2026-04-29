@@ -14,6 +14,7 @@ from rich.table import Table
 from jobhunter import __version__
 from jobhunter.config import Settings
 from jobhunter.db.maintenance import refresh_weekly_metrics
+from jobhunter.db.repos.llm_calls import LLMCallRepo
 from jobhunter.db.repos.source_health import SourceHealthRepo
 from jobhunter.db.seed import seed_database
 from jobhunter.db.session import get_session
@@ -25,6 +26,9 @@ app = typer.Typer(help="Job Hunter EU CLI")
 
 sources_app = typer.Typer(help="Manage job sources")
 app.add_typer(sources_app, name="sources")
+
+scoring_app = typer.Typer(help="LLM scoring statistics and management")
+app.add_typer(scoring_app, name="scoring")
 
 
 @app.command()
@@ -202,6 +206,71 @@ def sources_list() -> None:
         console.print(table)
     except Exception as e:
         logger.error("Failed to list sources", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@scoring_app.command("stats")
+def scoring_stats() -> None:
+    """Display LLM scoring statistics and cost breakdown."""
+    console = Console()
+    now = datetime.now(timezone.utc)
+
+    try:
+        with get_session() as session:
+            repo = LLMCallRepo(session)
+            settings = Settings()  # type: ignore[call-arg]
+
+            monthly_total = repo.monthly_total_usd(now.year, now.month)
+            weekly_total = repo.weekly_total_usd(now)
+            budget = settings.LLM_MONTHLY_BUDGET_USD
+
+            # Header info
+            console.print(f"[bold blue]LLM Cost Tracking - {now.strftime('%B %Y')}[/bold blue]")
+            console.print(f"Monthly Spend: [bold]${monthly_total:.4f}[/] / ${budget:.2f}")
+            console.print(f"Weekly Spend: [bold]${weekly_total:.4f}[/]")
+
+            # Breakdown by model
+            # Let's take stats for the current month
+            start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            next_month = (start_of_month + timedelta(days=32)).replace(day=1)
+
+            stats = repo.get_stats_by_model(start_of_month, next_month)
+
+            table = Table(title="Cost Breakdown by Model", header_style="bold magenta")
+            table.add_column("Model")
+            table.add_column("Total Calls", justify="right")
+            table.add_column("Success Rate", justify="right")
+            table.add_column("Cost (USD)", justify="right")
+
+            total_calls = 0
+            total_success = 0
+
+            for s in stats:
+                success_rate = (s["success_count"] / s["total_calls"]) * 100 if s["total_calls"] > 0 else 0
+                table.add_row(
+                    s["model"],
+                    str(s["total_calls"]),
+                    f"{success_rate:.1f}%",
+                    f"${s['total_cost']:.4f}",
+                )
+                total_calls += s["total_calls"]
+                total_success += s["success_count"]
+
+            avg_success = (total_success / total_calls) * 100 if total_calls > 0 else 0
+            table.add_section()
+            table.add_row(
+                "Total",
+                str(total_calls),
+                f"{avg_success:.1f}%",
+                f"${monthly_total:.4f}",
+                style="bold",
+            )
+
+            console.print(table)
+
+    except Exception as e:
+        logger.error("Failed to retrieve scoring stats", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

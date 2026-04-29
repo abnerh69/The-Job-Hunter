@@ -69,3 +69,11 @@ class SourceState(StrEnum):
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
+
+
+class LLMPurpose(StrEnum):
+    """Enumeration of possible purposes for an LLM call."""
+
+    SCORING = "scoring"
+    COVER_LETTER = "cover_letter"
+    OUTREACH = "outreach"

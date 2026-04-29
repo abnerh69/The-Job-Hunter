@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: SecretStr | None = None
     DIGEST_TO_EMAIL: str | None = None
 
+    LLM_MONTHLY_BUDGET_USD: float = 25.0
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

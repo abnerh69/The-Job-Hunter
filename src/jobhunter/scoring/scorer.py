@@ -4,9 +4,12 @@ Main scoring logic for evaluating job offers using LLMs.
 
 import structlog
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.orm import Session
 
+from jobhunter.db.enums import LLMPurpose
 from jobhunter.db.models import Job
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.budget import check_budget
 from jobhunter.scoring.errors import ScoringAPIError, ScoringParseError
 from jobhunter.scoring.prompt import load_prompt, render_user_prompt
 from jobhunter.scoring.schema import (
@@ -92,12 +95,13 @@ class JobScorer:
 
         return truncated.strip()
 
-    async def score(self, job: Job) -> ScoringOutcome:
+    async def score(self, job: Job, session: Session | None = None) -> ScoringOutcome:
         """
         Scores a job offer.
 
         Args:
             job: The job to score.
+            session: Optional SQLAlchemy session for budget checks and call recording.
 
         Returns:
             A ScoringOutcome object.
@@ -105,7 +109,11 @@ class JobScorer:
         Raises:
             ScoringAPIError: If there is an error calling the LLM.
             ScoringParseError: If the AI response cannot be parsed after retries.
+            BudgetExceededError: If the LLM budget is exceeded.
         """
+        if session:
+            check_budget(session)
+
         job_data = {
             "title": job.title,
             "company": job.company,
@@ -123,10 +131,16 @@ class JobScorer:
                 system=self.prompt.system_prompt,
                 user=user_prompt,
                 model=self.model,
+                purpose=LLMPurpose.SCORING,
+                session=session,
+                job_id=job.id,
+                prompt_version=self.prompt.version,
             )
         except Exception as e:
-            logger.error("llm_call_failed", error=str(e), job_id=str(job.id))
-            raise ScoringAPIError(f"Failed to call LLM: {e}") from e
+            if not isinstance(e, ScoringAPIError):
+                logger.error("llm_call_failed", error=str(e), job_id=str(job.id))
+                raise ScoringAPIError(f"Failed to call LLM: {e}") from e
+            raise
 
         try:
             result = parse_scoring_response(llm_response.text)
@@ -148,6 +162,10 @@ class JobScorer:
                     system=self.prompt.system_prompt,
                     user=reinforced_user,
                     model=self.model,
+                    purpose=LLMPurpose.SCORING,
+                    session=session,
+                    job_id=job.id,
+                    prompt_version=self.prompt.version,
                 )
                 result = parse_scoring_response(llm_response.text)
             except Exception as retry_err:

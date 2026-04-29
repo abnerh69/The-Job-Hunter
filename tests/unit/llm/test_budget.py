@@ -1,8 +1,9 @@
-from unittest.mock import patch
+from typing import Generator
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session as SQLAlchemySession, sessionmaker
 
 from jobhunter.db.base import Base
 from jobhunter.db.enums import LLMPurpose
@@ -11,7 +12,7 @@ from jobhunter.llm.budget import BudgetExceededError, check_budget
 
 
 @pytest.fixture
-def session():
+def session() -> Generator[SQLAlchemySession, None, None]:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
@@ -21,7 +22,7 @@ def session():
 
 
 @patch("jobhunter.llm.budget.Settings")
-def test_check_budget_ok(mock_settings, session) -> None:
+def test_check_budget_ok(mock_settings: MagicMock, session: SQLAlchemySession) -> None:
     mock_settings.return_value.LLM_MONTHLY_BUDGET_USD = 10.0
     repo = LLMCallRepo(session)
     repo.record_call(model="m1", purpose=LLMPurpose.SCORING, success=True, cost_usd=5.0)
@@ -34,7 +35,7 @@ def test_check_budget_ok(mock_settings, session) -> None:
 
 
 @patch("jobhunter.llm.budget.Settings")
-def test_check_budget_warning(mock_settings, session) -> None:
+def test_check_budget_warning(mock_settings: MagicMock, session: SQLAlchemySession) -> None:
     mock_settings.return_value.LLM_MONTHLY_BUDGET_USD = 10.0
     repo = LLMCallRepo(session)
     repo.record_call(model="m1", purpose=LLMPurpose.SCORING, success=True, cost_usd=8.5)
@@ -46,7 +47,7 @@ def test_check_budget_warning(mock_settings, session) -> None:
 
 
 @patch("jobhunter.llm.budget.Settings")
-def test_check_budget_exceeded(mock_settings, session) -> None:
+def test_check_budget_exceeded(mock_settings: MagicMock, session: SQLAlchemySession) -> None:
     mock_settings.return_value.LLM_MONTHLY_BUDGET_USD = 10.0
     repo = LLMCallRepo(session)
     repo.record_call(model="m1", purpose=LLMPurpose.SCORING, success=True, cost_usd=11.0)

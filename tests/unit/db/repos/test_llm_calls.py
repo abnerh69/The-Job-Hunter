@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Generator
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -9,7 +10,7 @@ from jobhunter.db.repos.llm_calls import LLMCallRepo
 
 
 @pytest.fixture
-def session():
+def session() -> Generator[Session, None, None]:
     engine = create_engine("sqlite:///:memory:")
     # We need to make sure JSONB is handled as JSON in SQLite for tests
     # But since we are using Base.metadata.create_all, it should use the type_annotation_map

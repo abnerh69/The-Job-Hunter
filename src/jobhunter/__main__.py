@@ -10,12 +10,13 @@ import structlog
 import typer
 from rich.console import Console
 from rich.table import Table
+from rich.markdown import Markdown
 
 from jobhunter import __version__
 import uuid
 
 from jobhunter.config import Settings
-from jobhunter.db.enums import JobStatus, JobTier
+from jobhunter.db.enums import JobStatus, JobTier, ApplicationStatus
 from jobhunter.db.maintenance import refresh_weekly_metrics
 from jobhunter.db.repos.job import JobRepo
 from jobhunter.db.repos.llm_calls import LLMCallRepo
@@ -32,6 +33,11 @@ from jobhunter.notify import get_all_notifiers, get_notifier_cls, NotificationMe
 from jobhunter.notify.digest import prepare_weekly_digest, send_weekly_digest
 from jobhunter.notify.dispatcher import dispatch_tier_a_notifications
 from jobhunter.db.repos.notifications import NotificationsRepo
+from jobhunter.application.assistant import assist_application, clear_assistant_cache
+from jobhunter.application.cover_letter import generate_cover_letter
+from jobhunter.application.cv import load_cv
+from jobhunter.db.models import Application, Job
+from sqlalchemy import select
 
 logger = structlog.get_logger()
 app = typer.Typer(help="Job Hunter EU CLI")
@@ -701,6 +707,215 @@ def notify_status() -> None:
 
     except Exception as e:
         logger.error("Failed to retrieve notification status", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def assist(
+    job_id: Annotated[str, typer.Argument(help="UUID of the job to assist")],
+    output_dir: Annotated[
+        Path | None, typer.Option(help="Directory to write files (default: stdout)")
+    ] = None,
+    no_letter: Annotated[bool, typer.Option(help="Skip cover letter generation")] = False,
+    cv_variant: Annotated[str | None, typer.Option(help="Override CV variant selector")] = None,
+) -> None:
+    """Generate application package: CV variant, tweaks, keywords, and letter."""
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {job_id}", err=True)
+        raise typer.Exit(code=1)
+
+    settings = Settings()  # type: ignore[call-arg]
+    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+
+    try:
+        with get_session() as session:
+            package = asyncio.run(
+                assist_application(
+                    session=session,
+                    job_id=job_uuid,
+                    llm_client=llm_client,
+                    settings=settings,
+                    no_letter=no_letter,
+                    cv_variant_override=cv_variant,
+                )
+            )
+
+        console = Console()
+        console.print(f"\n[bold blue]Application Package for Job {job_id}[/bold blue]\n")
+
+        # Summary table
+        table = Table(title="Summary")
+        table.add_column("Component")
+        table.add_column("Result")
+        table.add_row("CV Variant", package.cv_variant.variant_name)
+        table.add_row("Variant Reasoning", package.cv_variant.reasoning)
+        table.add_row("Estimated Apply Time", f"{package.estimated_apply_time_min} min")
+        table.add_row("Total Cost", f"${package.total_cost_usd:.4f}")
+        table.add_row("Duration", f"{package.total_duration_ms}ms")
+        console.print(table)
+
+        # ATS Keywords
+        console.print("\n[bold magenta]ATS Keywords:[/bold magenta]")
+        kw_table = Table()
+        kw_table.add_column("Term")
+        kw_table.add_column("Weight", justify="right")
+        kw_table.add_column("In CV?", justify="center")
+
+        for kw in package.ats_keywords.must_have + package.ats_keywords.nice_to_have:
+            in_cv = "[green]✓[/green]" if kw.present_in_cv else "[red]✗[/red]"
+            kw_table.add_row(kw.term, str(kw.weight), in_cv)
+        console.print(kw_table)
+
+        # CV Tweaks
+        console.print("\n[bold magenta]CV Tweaks:[/bold magenta]")
+        for i, tweak in enumerate(package.cv_tweaks.tweaks, 1):
+            console.print(f"{i}. [bold]{tweak.type}: {tweak.target}[/bold]")
+            console.print(f"   [italic]{tweak.suggested}[/italic]")
+            console.print(f"   Rationale: {tweak.rationale}\n")
+
+        # Cover Letter
+        if package.cover_letter:
+            console.print("\n[bold magenta]Cover Letter:[/bold magenta]")
+            console.print("-" * 40)
+            console.print(Markdown(package.cover_letter.text))
+            console.print("-" * 40)
+
+        # Output to files if requested
+        if output_dir:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            (output_dir / "cv_variant.txt").write_text(package.cv_variant.variant_name)
+            (output_dir / "cv_tweaks.md").write_text(
+                "\n".join(
+                    f"- {t.type} ({t.target}): {t.suggested}\n  Rationale: {t.rationale}"
+                    for t in package.cv_tweaks.tweaks
+                )
+            )
+            (output_dir / "keywords.txt").write_text(
+                "\n".join(
+                    f"{kw.term} ({kw.weight}) - {'Present' if kw.present_in_cv else 'Missing'}"
+                    for kw in package.ats_keywords.must_have + package.ats_keywords.nice_to_have
+                )
+            )
+            if package.cover_letter:
+                (output_dir / "cover_letter.md").write_text(package.cover_letter.text)
+            typer.echo(f"\nFiles written to {output_dir}")
+
+    except Exception as e:
+        logger.error("Assist failed", job_id=job_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def letter(
+    job_id: Annotated[str, typer.Argument(help="UUID of the job to generate letter for")],
+    output: Annotated[Path | None, typer.Option(help="File to write letter (default: stdout)")] = None,
+    cv_variant: Annotated[str | None, typer.Option(help="CV variant to use")] = None,
+) -> None:
+    """Generate only the cover letter for a job."""
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {job_id}", err=True)
+        raise typer.Exit(code=1)
+
+    settings = Settings()  # type: ignore[call-arg]
+    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+
+    try:
+        with get_session() as session:
+            job = session.get(Job, job_uuid)
+            if not job:
+                typer.echo(f"Error: Job {job_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            if not cv_variant:
+                from jobhunter.application.variant_selector import recommend_cv_variant
+                rec = recommend_cv_variant(job)
+                cv_variant = rec.variant_name
+                typer.echo(f"Auto-selected CV variant: {cv_variant} ({rec.reasoning})")
+
+            cv = load_cv(cv_variant, settings=settings)
+            result = asyncio.run(
+                generate_cover_letter(
+                    job=job,
+                    cv_variant=cv,
+                    llm_client=llm_client,
+                    model=settings.COVER_LETTER_MODEL,
+                    session=session,
+                )
+            )
+
+            if output:
+                output.write_text(result.text)
+                typer.echo(f"Cover letter written to {output}")
+            else:
+                console = Console()
+                console.print("-" * 40)
+                console.print(Markdown(result.text))
+                console.print("-" * 40)
+
+    except Exception as e:
+        logger.error("Letter generation failed", job_id=job_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def apply(
+    job_id: Annotated[str, typer.Argument(help="UUID of the job applied to")],
+    method: Annotated[str, typer.Option(help="Application method (web/email/linkedin/referral)", show_default=False)],
+    cv_variant: Annotated[str, typer.Option(help="CV variant used", show_default=False)],
+    contact_name: Annotated[str | None, typer.Option(help="Name of contact person")] = None,
+    contact_email: Annotated[str | None, typer.Option(help="Email of contact person")] = None,
+    notes: Annotated[str | None, typer.Option(help="Additional notes")] = None,
+) -> None:
+    """Register a manual application for a job."""
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {job_id}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            job = session.get(Job, job_uuid)
+            if not job:
+                typer.echo(f"Error: Job {job_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            # Create Application
+            app_record = Application(
+                job_id=job_uuid,
+                application_method=method,
+                cv_variant=cv_variant,
+                contact_name=contact_name,
+                contact_email=contact_email,
+                notes=notes,
+                status=ApplicationStatus.APPLIED,
+            )
+
+            # Check for cached assistant data in job.score_data
+            if job.score_data and "assistant_cache" in job.score_data:
+                cache = job.score_data["assistant_cache"]
+                if "cover_letter_text" in cache:
+                    app_record.cover_letter_text = cache["cover_letter_text"]
+                    app_record.cover_letter_model = cache.get("cover_letter_model")
+                    typer.echo("Persisting cover letter from database cache (from previous assist).")
+
+            session.add(app_record)
+
+            # Transition Job status
+            job.status = JobStatus.APPLIED
+
+            session.commit()
+            typer.echo(f"Successfully registered application for {job.company} - {job.title}")
+
+    except Exception as e:
+        logger.error("Apply registration failed", job_id=job_id, error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

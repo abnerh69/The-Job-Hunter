@@ -928,6 +928,30 @@ def apply(
 
 
 @app.command()
+def dashboard() -> None:
+    """Run the Streamlit dashboard."""
+    logger.info("Starting dashboard")
+    try:
+        app_path = Path(__file__).parent / "dashboard" / "streamlit_app.py"
+        if not app_path.exists():
+            typer.echo(f"Error: Dashboard entry point not found at {app_path}", err=True)
+            raise typer.Exit(code=1)
+
+        cmd = ["streamlit", "run", str(app_path)]
+
+        # We use subprocess.run and let it handle the execution
+        # In a real environment, this would block until the dashboard is stopped.
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error("Dashboard failed to run", error=str(e))
+        raise typer.Exit(code=1)
+    except Exception as e:
+        logger.error("Failed to start dashboard", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def db_backup(
     output: Annotated[
         Path | None, typer.Option(help="Path to the backup file (defaults to timestamped file)")

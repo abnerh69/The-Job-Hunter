@@ -92,3 +92,16 @@ def get_all_notifiers() -> list[Type[BaseNotifier]]:
         A list of registered BaseNotifier subclasses.
     """
     return list(_REGISTRY.values())
+
+
+def get_notifier_cls(name: str) -> Type[BaseNotifier] | None:
+    """
+    Retrieves a registered notifier class by its name.
+
+    Args:
+        name: The unique identifier for the notifier.
+
+    Returns:
+        The notifier class if found, None otherwise.
+    """
+    return _REGISTRY.get(name)

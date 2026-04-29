@@ -6,6 +6,7 @@ from jobhunter.notify.base import (
     get_notifier_cls,
     register_notifier,
 )
+from jobhunter.notify.email import EmailNotifier
 from jobhunter.notify.telegram import TelegramNotifier
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "get_all_notifiers",
     "get_notifier_cls",
     "register_notifier",
+    "EmailNotifier",
     "TelegramNotifier",
 ]

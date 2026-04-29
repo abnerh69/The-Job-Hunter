@@ -108,3 +108,23 @@ To enable Telegram notifications:
     ```bash
     uv run jobhunter notify test --channel telegram --message "Hello from Job Hunter!"
     ```
+
+### Configurar Gmail SMTP
+
+Para habilitar notificaciones por email usando Gmail:
+
+1.  **Habilitar 2FA**: Asegúrate de que tu cuenta de Google tiene activada la Verificación en dos pasos.
+2.  **Generar App Password**:
+    - Ve a [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+    - Nombre de la app: "Job-Hunter-EU".
+    - Copia la contraseña de 16 caracteres generada.
+3.  **Actualizar `.env`**:
+    ```env
+    SMTP_USER="tu_email@gmail.com"
+    SMTP_PASSWORD="tu_app_password_sin_espacios"
+    DIGEST_TO_EMAIL="donde_recibir_el_digest@email.com"
+    ```
+4.  **Test the setup**:
+    ```bash
+    uv run jobhunter notify test --channel email --subject "Test Email" --message "Hello from Job Hunter!"
+    ```

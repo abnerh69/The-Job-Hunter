@@ -96,7 +96,9 @@ async def test_dispatch_tier_a_idempotency(session: Session, sample_jobs, mock_t
 
 
 @pytest.mark.asyncio
-async def test_dispatch_tier_a_no_retry_on_failure(session: Session, sample_jobs, mock_telegram_notifier):
+async def test_dispatch_tier_a_no_retry_on_failure(
+    session: Session, sample_jobs, mock_telegram_notifier
+):
     # Make one fail
     mock_telegram_notifier.send.side_effect = [
         NotificationResult(success=False, error="Rate limited", duration_ms=10),
@@ -129,7 +131,9 @@ async def test_dispatch_tier_a_no_retry_on_failure(session: Session, sample_jobs
 
 
 @pytest.mark.asyncio
-async def test_dispatch_tier_a_disabled_notifier(session: Session, sample_jobs, mock_telegram_notifier):
+async def test_dispatch_tier_a_disabled_notifier(
+    session: Session, sample_jobs, mock_telegram_notifier
+):
     # Disable notifier
     mock_telegram_notifier.is_enabled.return_value = False
 
@@ -147,7 +151,9 @@ async def test_dispatch_tier_a_disabled_notifier(session: Session, sample_jobs, 
 
 
 @pytest.mark.asyncio
-async def test_dispatch_tier_a_exception_handling(session: Session, sample_jobs, mock_telegram_notifier):
+async def test_dispatch_tier_a_exception_handling(
+    session: Session, sample_jobs, mock_telegram_notifier
+):
     # One call raises an exception
     mock_telegram_notifier.send.side_effect = [
         NotificationResult(success=True, provider_message_id="msg1", duration_ms=10),

@@ -1,0 +1,23 @@
+{
+  "tweaks": [
+    {
+      "type": "add_keyword",
+      "target": "Skills",
+      "suggested": "Add 'LLM Orchestration' to your skills list.",
+      "rationale": "The job specifically mentions interest in LLMs."
+    },
+    {
+      "type": "rewrite_bullet",
+      "target": "Experience at AI Corp",
+      "original": "Worked on various ML models.",
+      "suggested": "Implemented and deployed Pytorch-based LLM orchestration pipelines for production environments.",
+      "rationale": "More specific and matches the job's focus on deployment."
+    },
+    {
+      "type": "reorder_bullet",
+      "target": "Experience at Tech Inc",
+      "suggested": "Move the bullet about Python backend performance to the top.",
+      "rationale": "Highlighting Python expertise is crucial for this role."
+    }
+  ]
+}

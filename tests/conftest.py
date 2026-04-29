@@ -37,27 +37,42 @@ class MockLLMClient:
         self.call_count += 1
         user_lower = user.lower()
 
-        fixture_name = "tier_b_borderline.json"  # Default
+        # Handle different purposes with specialized fixtures
+        if purpose == LLMPurpose.SCORING:
+            fixture_name = "scoring_responses/tier_b_borderline.json"  # Default
+            if "python and ai stack" in user_lower:
+                fixture_name = "scoring_responses/tier_a_python_ai.json"
+            elif "flutter apps development" in user_lower:
+                fixture_name = "scoring_responses/tier_a_flutter.json"
+            elif "manual review needed for maintenance" in user_lower:
+                fixture_name = "scoring_responses/tier_c_manual_review.json"
+            elif "eu work permit required strictly" in user_lower:
+                fixture_name = "scoring_responses/reject_eu_only.json"
+            elif "low salary offered for this junior role" in user_lower:
+                fixture_name = "scoring_responses/reject_low_salary.json"
+            elif "invalid post that looks like a spam job" in user_lower:
+                fixture_name = "scoring_responses/invalid_response.json"
+            elif "this will return malformed first" in user_lower:
+                if self.call_count == 1:
+                    fixture_name = "scoring_responses/malformed_json.txt"
+                else:
+                    fixture_name = "scoring_responses/tier_a_python_ai.json"
 
-        # Use substrings that are definitely in the rendered USER_TEMPLATE
-        if "python and ai stack" in user_lower:
-            fixture_name = "tier_a_python_ai.json"
-        elif "flutter apps development" in user_lower:
-            fixture_name = "tier_a_flutter.json"
-        elif "manual review needed for maintenance" in user_lower:
-            fixture_name = "tier_c_manual_review.json"
-        elif "eu work permit required strictly" in user_lower:
-            fixture_name = "reject_eu_only.json"
-        elif "low salary offered for this junior role" in user_lower:
-            fixture_name = "reject_low_salary.json"
-        elif "invalid post that looks like a spam job" in user_lower:
-            fixture_name = "invalid_response.json"
-        elif "this will return malformed first" in user_lower:
-            # Special case for testing retry of parsing: return malformed first, then valid
-            if self.call_count == 1:
-                fixture_name = "malformed_json.txt"
+        elif purpose == LLMPurpose.COVER_LETTER:
+            if "flutter" in user_lower:
+                fixture_name = "application_assistant/cover_letter_response_flutter.txt"
             else:
-                fixture_name = "tier_a_python_ai.json"
+                fixture_name = "application_assistant/cover_letter_response_python_ai.txt"
+
+        elif purpose == LLMPurpose.ATS_KEYWORDS:
+            fixture_name = "application_assistant/ats_keywords_response.json"
+
+        elif purpose == LLMPurpose.CV_TWEAKS:
+            fixture_name = "application_assistant/cv_tweaks_response.json"
+
+        else:
+            # Fallback for other purposes if needed
+            fixture_name = "scoring_responses/tier_b_borderline.json"
 
         fixture_path = self.fixtures_dir / fixture_name
         with open(fixture_path) as f:
@@ -98,7 +113,7 @@ class MockLLMClient:
 @pytest.fixture
 def mock_llm_client() -> MockLLMClient:
     """Provides a MockLLMClient."""
-    fixtures_dir = Path(__file__).parent / "fixtures" / "scoring_responses"
+    fixtures_dir = Path(__file__).parent / "fixtures"
     return MockLLMClient(fixtures_dir)
 
 

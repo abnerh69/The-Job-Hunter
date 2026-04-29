@@ -29,6 +29,7 @@ from jobhunter.scoring.scorer import JobScorer
 from jobhunter.sources.orchestrator import run_ingestion
 from jobhunter.sources.registry import get_all_sources
 from jobhunter.notify import get_notifier_cls, NotificationMessage
+from jobhunter.notify.digest import send_weekly_digest
 
 logger = structlog.get_logger()
 app = typer.Typer(help="Job Hunter EU CLI")
@@ -59,6 +60,40 @@ def db_refresh_metrics() -> None:
         typer.echo("Successfully refreshed weekly metrics.")
     except Exception as e:
         logger.error("Failed to refresh weekly metrics", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@notify_app.command("digest")
+def notify_digest(
+    week_ending: Annotated[
+        str | None, typer.Option(help="End date of the week (YYYY-MM-DD), defaults to today")
+    ] = None,
+) -> None:
+    """Send the weekly digest email summary."""
+    logger.info("Triggering weekly digest notification", week_ending=week_ending)
+
+    ending_date: date | None = None
+    if week_ending:
+        try:
+            ending_date = datetime.strptime(week_ending, "%Y-%m-%d").date()
+        except ValueError:
+            typer.echo(f"Error: Invalid date format: {week_ending}. Use YYYY-MM-DD.", err=True)
+            raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            result = asyncio.run(send_weekly_digest(session, ending_date))
+
+            if result is None:
+                typer.echo("Digest was already sent for this week. Skipping.")
+            elif result.success:
+                typer.echo(f"Successfully sent weekly digest. (Duration: {result.duration_ms}ms)")
+            else:
+                typer.echo(f"Failed to send weekly digest: {result.error}", err=True)
+                raise typer.Exit(code=1)
+    except Exception as e:
+        logger.error("Failed to send weekly digest", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

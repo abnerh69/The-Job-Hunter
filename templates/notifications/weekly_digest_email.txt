@@ -2,34 +2,49 @@ WEEKLY JOB HUNT SUMMARY
 =========================
 Ending: {{ end_date | format_date_human }}
 
-📊 TOP METRICS
---------------
-- New jobs ingested: {{ metrics.new_jobs }}
-- Tier A matches found: {{ metrics.tier_a_count }}
-- Applications sent: {{ metrics.applications_sent }}
+{% if is_empty_pipeline -%}
+🔇 SILENT PIPELINE
+-----------------
+No new jobs ingested and no applications sent this week.
+Possible causes: sources might be failing, filters are too restrictive, or it's just a slow week.
 
-{% if tier_a_jobs %}
-🚀 NEW TIER A MATCHES
----------------------
-{% for job in tier_a_jobs -%}
+{% endif -%}
+
+📊 WEEKLY METRICS
+----------------
+- New jobs: {{ metrics.new_jobs_total }} (A: {{ metrics.new_jobs_tier_a }}, B: {{ metrics.new_jobs_tier_b }}, C: {{ metrics.new_jobs_tier_c }})
+- Apps sent: {{ metrics.apps_sent_this_week }}
+- Response rate (4w): {{ metrics.response_rate_last_4_weeks | round(1) }}%
+
+⏳ PENDING TASKS
+----------------
+- Follow-ups due: {{ metrics.pending_followups_count }}
+- Tier A queued: {{ metrics.queued_tier_a_count }}
+- Tier C manual review: {{ metrics.manual_review_tier_c_count }}
+
+{% if top_tier_a_queued -%}
+🚀 TOP TIER A (QUEUED)
+----------------------
+{% for job in top_tier_a_queued -%}
 [{{ job.fit_score }}] {{ job.title }} at {{ job.company }}
 URL: {{ job.url }}
 
 {% endfor %}
-{% endif %}
+{% endif -%}
 
-{% if pending_tier_b %}
-⏳ PENDING TIER B ROLES
------------------------
-{% for job in pending_tier_b -%}
-[{{ job.fit_score }}] {{ job.title }} at {{ job.company }}
-{% endfor %}
-{% endif %}
-
-{% if followups_due %}
-🔔 FOLLOW-UPS DUE
------------------
+{% if followups_due -%}
+🔔 OVERDUE FOLLOW-UPS
+---------------------
 {% for app in followups_due -%}
-- {{ app.job.company }}: {{ app.next_action }} (Due: {{ app.next_action_due | format_date_human }})
+- {{ app.job_company }}: {{ app.next_action }} (Due: {{ app.next_action_due | format_date_human }})
 {% endfor %}
-{% endif %}
+
+{% endif -%}
+
+{% if monthly_trends -%}
+📈 MONTHLY TRENDS
+----------------
+{% for trend in monthly_trends -%}
+Week {{ trend.week_start | format_date_human }}: {{ trend.apps_sent }} apps, {{ trend.interviews }} interviews ({{ trend.conversion_rate | round(1) }}%)
+{% endfor %}
+{% endif -%}

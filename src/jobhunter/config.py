@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,6 +21,7 @@ class Settings(BaseSettings):
     DIGEST_TO_EMAIL: str | None = None
 
     LLM_MONTHLY_BUDGET_USD: float = 25.0
+    CV_VARIANTS_DIR: Path = Path(".local/cv_variants")
 
     model_config = SettingsConfigDict(
         env_file=".env",

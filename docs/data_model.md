@@ -7,6 +7,7 @@ This document describes the database schema for the Job Hunter EU project.
 ```mermaid
 erDiagram
     jobs ||--o{ applications : "has"
+    jobs ||--o{ llm_calls : "triggers"
     applications ||--o{ application_events : "logs"
 
     jobs {
@@ -76,6 +77,18 @@ erDiagram
         int contact_count
         string status
         text notes
+    }
+
+    llm_calls {
+        uuid id PK
+        uuid job_id FK
+        string model
+        string prompt_version
+        int input_tokens
+        int output_tokens
+        numeric cost_usd
+        int duration_ms
+        timestamptz created_at
     }
 ```
 
@@ -161,6 +174,22 @@ Audit log for application-related events.
 #### Indices
 
 * `idx_events_app`: On `application_id` and `occurred_at DESC`.
+
+### `llm_calls`
+
+Tracks individual calls to LLM APIs for cost and performance monitoring.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `UUID` | Primary key. |
+| `job_id` | `UUID` | Foreign key to `jobs.id` (optional). |
+| `model` | `VARCHAR(50)` | AI model used. |
+| `prompt_version` | `VARCHAR(20)` | Version of the prompt used. |
+| `input_tokens` | `INTEGER` | Number of input tokens. |
+| `output_tokens` | `INTEGER` | Number of generated tokens. |
+| `cost_usd` | `NUMERIC(10,6)` | Calculated cost of the call. |
+| `duration_ms` | `INTEGER` | Latency of the call in milliseconds. |
+| `created_at` | `TIMESTAMPTZ` | When the call was made (defaults to `now()`). |
 
 ### `outreach_contacts`
 

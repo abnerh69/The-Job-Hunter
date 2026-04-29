@@ -35,12 +35,18 @@ def test_notifier_is_enabled() -> None:
 
     # Enabled case
     settings_enabled = Settings(
-        ANTHROPIC_API_KEY=SecretStr("key"), TELEGRAM_BOT_TOKEN=SecretStr("token")
+        ANTHROPIC_API_KEY=SecretStr("key"),
+        TELEGRAM_BOT_TOKEN=SecretStr("token"),
+        DASHBOARD_PASSWORD=SecretStr("pass"),
     )
     assert notifier.is_enabled(settings_enabled) is True
 
     # Disabled case
-    settings_disabled = Settings(ANTHROPIC_API_KEY=SecretStr("key"), TELEGRAM_BOT_TOKEN=None)
+    settings_disabled = Settings(
+        ANTHROPIC_API_KEY=SecretStr("key"),
+        TELEGRAM_BOT_TOKEN=None,
+        DASHBOARD_PASSWORD=SecretStr("pass"),
+    )
     assert notifier.is_enabled(settings_disabled) is False
 
 

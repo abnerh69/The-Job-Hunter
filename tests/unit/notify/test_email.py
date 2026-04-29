@@ -13,6 +13,7 @@ from jobhunter.notify.email import EmailNotifier
 def settings_mock() -> Settings:
     return Settings(
         ANTHROPIC_API_KEY=SecretStr("dummy"),
+        DASHBOARD_PASSWORD=SecretStr("pass"),
         SMTP_USER="user@example.com",
         SMTP_PASSWORD=SecretStr("password"),
         DIGEST_TO_EMAIL="recipient@example.com",
@@ -34,6 +35,7 @@ def test_is_enabled(notifier: EmailNotifier, settings_mock: Settings) -> None:
 
     settings_disabled = Settings(
         ANTHROPIC_API_KEY=SecretStr("dummy"),
+        DASHBOARD_PASSWORD=SecretStr("pass"),
         SMTP_USER=None,
         SMTP_PASSWORD=None,
         DIGEST_TO_EMAIL=None,

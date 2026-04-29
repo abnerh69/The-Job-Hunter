@@ -1,3 +1,4 @@
+from typing import Any
 import pytest
 from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
@@ -5,14 +6,14 @@ from jobhunter.dashboard.auth import check_password, logout
 
 
 @pytest.fixture
-def mock_streamlit():
+def mock_streamlit() -> Any:
     with patch("jobhunter.dashboard.auth.st") as mock_st:
         mock_st.session_state = {}
         yield mock_st
 
 
 @pytest.fixture
-def mock_settings():
+def mock_settings() -> Any:
     with patch("jobhunter.dashboard.auth.Settings") as mock_s:
         mock_instance = MagicMock()
         mock_instance.DASHBOARD_PASSWORD.get_secret_value.return_value = "secret123"
@@ -21,13 +22,13 @@ def mock_settings():
         yield mock_instance
 
 
-def test_check_password_no_state(mock_streamlit, mock_settings):
+def test_check_password_no_state(mock_streamlit: Any, mock_settings: Any) -> None:
     # Should show text input and return False if no state
     assert check_password() is False
     mock_streamlit.text_input.assert_called_once()
 
 
-def test_check_password_correct(mock_streamlit, mock_settings):
+def test_check_password_correct(mock_streamlit: Any, mock_settings: Any) -> None:
     mock_streamlit.session_state["password"] = "secret123"
 
     # We need to simulate the callback manually since we are unit testing the logic
@@ -49,13 +50,13 @@ def test_check_password_correct(mock_streamlit, mock_settings):
     assert check_password() is True
 
 
-def test_check_password_incorrect(mock_streamlit, mock_settings):
+def test_check_password_incorrect(mock_streamlit: Any, mock_settings: Any) -> None:
     mock_streamlit.session_state["password_correct"] = False
     assert check_password() is False
     mock_streamlit.error.assert_called_with("😕 Password incorrect")
 
 
-def test_check_password_timeout(mock_streamlit, mock_settings):
+def test_check_password_timeout(mock_streamlit: Any, mock_settings: Any) -> None:
     mock_streamlit.session_state["password_correct"] = True
     mock_streamlit.session_state["last_login"] = datetime.now() - timedelta(minutes=61)
 
@@ -64,7 +65,7 @@ def test_check_password_timeout(mock_streamlit, mock_settings):
     mock_streamlit.rerun.assert_called_once()
 
 
-def test_logout(mock_streamlit):
+def test_logout(mock_streamlit: Any) -> None:
     mock_streamlit.session_state["password_correct"] = True
     logout()
     assert mock_streamlit.session_state["password_correct"] is False

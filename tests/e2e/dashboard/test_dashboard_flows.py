@@ -2,11 +2,12 @@ import pytest
 import time
 import os
 import subprocess
+from typing import Generator
 from playwright.sync_api import Page, expect
 
 
 @pytest.fixture(scope="module", autouse=True)
-def streamlit_server():
+def streamlit_server() -> Generator[None, None, None]:
     # Setup environment
     env = os.environ.copy()
     env["ANTHROPIC_API_KEY"] = "dummy"
@@ -35,7 +36,7 @@ def streamlit_server():
     process.wait()
 
 
-def test_login_flow(page: Page):
+def test_login_flow(page: Page) -> None:
     page.goto("http://localhost:8501")
 
     # Check if we are at login screen
@@ -57,7 +58,7 @@ def test_login_flow(page: Page):
     expect(page.get_by_text("System Status")).to_be_visible()
 
 
-def test_page_protection(page: Page):
+def test_page_protection(page: Page) -> None:
     # Try to access a page directly
     # Note: Streamlit pages URLs are usually /Page_Name
     page.goto("http://localhost:8501/New_Matches")
@@ -67,7 +68,7 @@ def test_page_protection(page: Page):
     expect(page.get_by_role("textbox", name="Password")).to_be_visible()
 
 
-def test_logout(page: Page):
+def test_logout(page: Page) -> None:
     # Login first
     page.goto("http://localhost:8501")
     page.get_by_role("textbox", name="Password").fill("secret123")

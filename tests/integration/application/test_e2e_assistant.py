@@ -8,12 +8,13 @@ from typer.testing import CliRunner
 from jobhunter.__main__ import app
 from unittest.mock import patch
 import uuid
+from typing import Any
 
 
 @pytest.mark.asyncio
 async def test_assist_application_e2e_python_ai(
     db_session: Session,
-    mock_llm_client: AnthropicLLMClient,
+    mock_llm_client: Any,
 ) -> None:
     """
     End-to-end test for assist_application with a Tier-A Python/AI job.
@@ -40,7 +41,7 @@ async def test_assist_application_e2e_python_ai(
     package = await assist_application(
         session=db_session,
         job_id=job.id,
-        llm_client=mock_llm_client,  # type: ignore
+        llm_client=mock_llm_client,
     )
 
     # 3. Verify results
@@ -53,14 +54,17 @@ async def test_assist_application_e2e_python_ai(
 
     # Verify persistence in job.score_data["assistant_cache"]
     db_session.refresh(job)
-    assert job.score_data["assistant_cache"]["cv_variant"] == "ai_python"
-    assert "Dear Hiring Manager" in job.score_data["assistant_cache"]["cover_letter_text"]
+    assert job.score_data is not None
+    score_data = job.score_data
+    assistant_cache = score_data["assistant_cache"]
+    assert assistant_cache["cv_variant"] == "ai_python"
+    assert "Dear Hiring Manager" in assistant_cache["cover_letter_text"]
 
 
 @pytest.mark.asyncio
 async def test_assist_application_rejected_job_raises_error(
     db_session: Session,
-    mock_llm_client: AnthropicLLMClient,
+    mock_llm_client: Any,
 ) -> None:
     """
     Verifies that assist_application raises JobNotAssistableError for REJECT tier.
@@ -82,7 +86,7 @@ async def test_assist_application_rejected_job_raises_error(
         await assist_application(
             session=db_session,
             job_id=job.id,
-            llm_client=mock_llm_client,  # type: ignore
+            llm_client=mock_llm_client,
         )
 
 
@@ -143,4 +147,5 @@ def test_apply_command_persists_application_and_uses_cache(
     assert app_record.cover_letter_text == "Cached cover letter for Flutter."
 
     updated_job = db_session.get(Job, job_id)
+    assert updated_job is not None
     assert updated_job.status == JobStatus.APPLIED

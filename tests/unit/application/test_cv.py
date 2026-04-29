@@ -94,7 +94,9 @@ Fallback worked.
 """)
 
     try:
-        settings = Settings(ANTHROPIC_API_KEY=SecretStr("dummy"), CV_VARIANTS_DIR=tmp_path / "empty")
+        settings = Settings(
+            ANTHROPIC_API_KEY=SecretStr("dummy"), CV_VARIANTS_DIR=tmp_path / "empty"
+        )
         cv = load_cv("test_fallback", settings=settings)
         assert cv.summary == "Fallback worked."
     finally:

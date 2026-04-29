@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-family: sans-serif; line-height: 1.6; color: #333; }
+  .section { margin-bottom: 25px; }
+  .job-item { margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #eee; }
+  .tier-a { color: #2e7d32; font-weight: bold; }
+  .tier-b { color: #f57c00; }
+  .metric { font-size: 1.1em; font-weight: bold; }
+</style>
+</head>
+<body>
+  <h1>Weekly Job Hunt Summary</h1>
+  <p>Here is your digest for the week ending {{ end_date | format_date_human }}.</p>
+
+  <div class="section">
+    <h2>📊 Top Metrics</h2>
+    <ul>
+      <li>New jobs ingested: <span class="metric">{{ metrics.new_jobs }}</span></li>
+      <li>Tier A matches found: <span class="metric">{{ metrics.tier_a_count }}</span></li>
+      <li>Applications sent: <span class="metric">{{ metrics.applications_sent }}</span></li>
+    </ul>
+  </div>
+
+  {% if tier_a_jobs %}
+  <div class="section">
+    <h2>🚀 New Tier A Matches</h2>
+    {% for job in tier_a_jobs %}
+    <div class="job-item">
+      <span class="tier-a">[{{ job.fit_score }}]</span>
+      <strong>{{ job.title }}</strong> at {{ job.company }}
+      (<a href="{{ job.url }}">Link</a>)
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if pending_tier_b %}
+  <div class="section">
+    <h2>⏳ Pending Tier B Roles</h2>
+    {% for job in pending_tier_b %}
+    <div class="job-item">
+      <span class="tier-b">[{{ job.fit_score }}]</span>
+      {{ job.title }} at {{ job.company }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if followups_due %}
+  <div class="section">
+    <h2>🔔 Follow-ups Due</h2>
+    {% for app in followups_due %}
+    <div class="job-item">
+      <strong>{{ app.job.company }}</strong>: {{ app.next_action }}
+      (Due: {{ app.next_action_due | format_date_human }})
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</body>
+</html>

@@ -1,0 +1,35 @@
+WEEKLY JOB HUNT SUMMARY
+=========================
+Ending: {{ end_date | format_date_human }}
+
+📊 TOP METRICS
+--------------
+- New jobs ingested: {{ metrics.new_jobs }}
+- Tier A matches found: {{ metrics.tier_a_count }}
+- Applications sent: {{ metrics.applications_sent }}
+
+{% if tier_a_jobs %}
+🚀 NEW TIER A MATCHES
+---------------------
+{% for job in tier_a_jobs -%}
+[{{ job.fit_score }}] {{ job.title }} at {{ job.company }}
+URL: {{ job.url }}
+
+{% endfor %}
+{% endif %}
+
+{% if pending_tier_b %}
+⏳ PENDING TIER B ROLES
+-----------------------
+{% for job in pending_tier_b -%}
+[{{ job.fit_score }}] {{ job.title }} at {{ job.company }}
+{% endfor %}
+{% endif %}
+
+{% if followups_due %}
+🔔 FOLLOW-UPS DUE
+-----------------
+{% for app in followups_due -%}
+- {{ app.job.company }}: {{ app.next_action }} (Due: {{ app.next_action_due | format_date_human }})
+{% endfor %}
+{% endif %}

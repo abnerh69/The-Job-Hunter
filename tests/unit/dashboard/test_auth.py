@@ -3,11 +3,13 @@ from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
 from jobhunter.dashboard.auth import check_password, logout
 
+
 @pytest.fixture
 def mock_streamlit():
     with patch("jobhunter.dashboard.auth.st") as mock_st:
         mock_st.session_state = {}
         yield mock_st
+
 
 @pytest.fixture
 def mock_settings():
@@ -18,10 +20,12 @@ def mock_settings():
         mock_s.return_value = mock_instance
         yield mock_instance
 
+
 def test_check_password_no_state(mock_streamlit, mock_settings):
     # Should show text input and return False if no state
     assert check_password() is False
     mock_streamlit.text_input.assert_called_once()
+
 
 def test_check_password_correct(mock_streamlit, mock_settings):
     mock_streamlit.session_state["password"] = "secret123"
@@ -44,10 +48,12 @@ def test_check_password_correct(mock_streamlit, mock_settings):
 
     assert check_password() is True
 
+
 def test_check_password_incorrect(mock_streamlit, mock_settings):
     mock_streamlit.session_state["password_correct"] = False
     assert check_password() is False
     mock_streamlit.error.assert_called_with("😕 Password incorrect")
+
 
 def test_check_password_timeout(mock_streamlit, mock_settings):
     mock_streamlit.session_state["password_correct"] = True
@@ -56,6 +62,7 @@ def test_check_password_timeout(mock_streamlit, mock_settings):
     assert check_password() is False
     assert mock_streamlit.session_state["password_correct"] is False
     mock_streamlit.rerun.assert_called_once()
+
 
 def test_logout(mock_streamlit):
     mock_streamlit.session_state["password_correct"] = True

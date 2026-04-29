@@ -43,7 +43,9 @@ def test_settings_missing_required() -> None:
 def test_settings_default_values() -> None:
     """Verify that default values are used when not provided in env."""
     with mock.patch.dict(
-        os.environ, {"ANTHROPIC_API_KEY": "some-key", "DASHBOARD_PASSWORD": "some-password"}, clear=True
+        os.environ,
+        {"ANTHROPIC_API_KEY": "some-key", "DASHBOARD_PASSWORD": "some-password"},
+        clear=True,
     ):
         settings = Settings(_env_file=None)  # type: ignore[call-arg]
         assert settings.DATABASE_URL == "sqlite:///./jobhunter.db"

@@ -4,6 +4,7 @@ import os
 import subprocess
 from playwright.sync_api import Page, expect
 
+
 @pytest.fixture(scope="module", autouse=True)
 def streamlit_server():
     # Setup environment
@@ -13,7 +14,15 @@ def streamlit_server():
     env["PYTHONPATH"] = "src"
 
     # Run streamlit
-    cmd = ["uv", "run", "streamlit", "run", "src/jobhunter/dashboard/streamlit_app.py", "--server.port=8501", "--server.headless=true"]
+    cmd = [
+        "uv",
+        "run",
+        "streamlit",
+        "run",
+        "src/jobhunter/dashboard/streamlit_app.py",
+        "--server.port=8501",
+        "--server.headless=true",
+    ]
     process = subprocess.Popen(cmd, env=env)
 
     # Wait for server to start
@@ -24,6 +33,7 @@ def streamlit_server():
     # Kill server
     process.terminate()
     process.wait()
+
 
 def test_login_flow(page: Page):
     page.goto("http://localhost:8501")
@@ -46,6 +56,7 @@ def test_login_flow(page: Page):
     expect(page.get_by_text("Automated job search system")).to_be_visible()
     expect(page.get_by_text("System Status")).to_be_visible()
 
+
 def test_page_protection(page: Page):
     # Try to access a page directly
     # Note: Streamlit pages URLs are usually /Page_Name
@@ -54,6 +65,7 @@ def test_page_protection(page: Page):
 
     # Should be redirected or shown login
     expect(page.get_by_role("textbox", name="Password")).to_be_visible()
+
 
 def test_logout(page: Page):
     # Login first

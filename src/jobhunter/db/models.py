@@ -3,6 +3,7 @@ from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -291,6 +292,44 @@ class LLMCall(Base):
 
     def __repr__(self) -> str:
         return f"<LLMCall(model={self.model}, cost_usd={self.cost_usd}, success={self.success})>"
+
+
+class NotificationSent(Base):
+    """
+    SQLAlchemy model for the 'notifications_sent' table.
+    Tracks sent notifications to ensure idempotency and for auditing.
+    """
+
+    __tablename__ = "notifications_sent"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    channel: Mapped[str] = mapped_column(String(50), nullable=False)
+    dedup_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=True
+    )
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    provider_message_id: Mapped[str | None] = mapped_column(Text)
+    success: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
+
+    # Relationships
+    job: Mapped["Job"] = relationship()
+
+    # Indices and Constraints
+    __table_args__ = (
+        Index("idx_notifications_sent_dedup", "channel", "dedup_key", unique=True),
+        Index("idx_notifications_sent_job_channel", "job_id", "channel"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<NotificationSent(channel={self.channel}, dedup_key={self.dedup_key}, success={self.success})>"
 
 
 @event.listens_for(Application.status, "set")

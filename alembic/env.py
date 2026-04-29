@@ -12,6 +12,7 @@ from jobhunter.db.models import (  # noqa: F401
     ApplicationEvent,
     Job,
     LLMCall,
+    NotificationSent,
     OutreachContact,
     SourceHealth,
 )

@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 
-def run_tests():
+def run_tests() -> None:
     env = os.environ.copy()
     env["ANTHROPIC_API_KEY"] = "dummy"
     env["DASHBOARD_PASSWORD"] = "secret123"

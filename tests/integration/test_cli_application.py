@@ -122,7 +122,7 @@ def test_letter_cli_basic(tmp_path: Path) -> None:
         patch("jobhunter.__main__.AnthropicLLMClient"),
         patch("jobhunter.__main__.generate_cover_letter", return_value=mock_letter),
         patch("jobhunter.__main__.load_cv"),
-            patch("jobhunter.application.variant_selector.recommend_cv_variant") as mock_rec,
+        patch("jobhunter.application.variant_selector.recommend_cv_variant") as mock_rec,
     ):
         mock_rec.return_value = VariantRecommendation(
             variant_name="fullstack", confidence=1.0, reasoning="test"
@@ -174,7 +174,9 @@ def test_apply_cli_persistence_from_db_cache(mock_package: ApplicationPackage) -
 
         # Verify Application record was created with data from cache
         added_objects = [
-            call.args[0] for call in mock_session.add.call_args_list if isinstance(call.args[0], Application)
+            call.args[0]
+            for call in mock_session.add.call_args_list
+            if isinstance(call.args[0], Application)
         ]
         assert len(added_objects) == 1
         app_record = added_objects[0]

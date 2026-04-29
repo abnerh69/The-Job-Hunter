@@ -811,7 +811,9 @@ def assist(
 @app.command()
 def letter(
     job_id: Annotated[str, typer.Argument(help="UUID of the job to generate letter for")],
-    output: Annotated[Path | None, typer.Option(help="File to write letter (default: stdout)")] = None,
+    output: Annotated[
+        Path | None, typer.Option(help="File to write letter (default: stdout)")
+    ] = None,
     cv_variant: Annotated[str | None, typer.Option(help="CV variant to use")] = None,
 ) -> None:
     """Generate only the cover letter for a job."""
@@ -833,6 +835,7 @@ def letter(
 
             if not cv_variant:
                 from jobhunter.application.variant_selector import recommend_cv_variant
+
                 rec = recommend_cv_variant(job)
                 cv_variant = rec.variant_name
                 typer.echo(f"Auto-selected CV variant: {cv_variant} ({rec.reasoning})")
@@ -866,7 +869,10 @@ def letter(
 @app.command()
 def apply(
     job_id: Annotated[str, typer.Argument(help="UUID of the job applied to")],
-    method: Annotated[str, typer.Option(help="Application method (web/email/linkedin/referral)", show_default=False)],
+    method: Annotated[
+        str,
+        typer.Option(help="Application method (web/email/linkedin/referral)", show_default=False),
+    ],
     cv_variant: Annotated[str, typer.Option(help="CV variant used", show_default=False)],
     contact_name: Annotated[str | None, typer.Option(help="Name of contact person")] = None,
     contact_email: Annotated[str | None, typer.Option(help="Email of contact person")] = None,
@@ -903,7 +909,9 @@ def apply(
                 if "cover_letter_text" in cache:
                     app_record.cover_letter_text = cache["cover_letter_text"]
                     app_record.cover_letter_model = cache.get("cover_letter_model")
-                    typer.echo("Persisting cover letter from database cache (from previous assist).")
+                    typer.echo(
+                        "Persisting cover letter from database cache (from previous assist)."
+                    )
 
             session.add(app_record)
 

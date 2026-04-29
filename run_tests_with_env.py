@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 
+
 def run_tests():
     env = os.environ.copy()
     env["ANTHROPIC_API_KEY"] = "dummy"
@@ -19,6 +20,7 @@ def run_tests():
         sys.exit(result.returncode)
     else:
         print("Tests passed!")
+
 
 if __name__ == "__main__":
     run_tests()

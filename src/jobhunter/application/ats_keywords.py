@@ -5,7 +5,7 @@ Logic for extracting ATS keywords from job descriptions and checking their prese
 import json
 import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field

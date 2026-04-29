@@ -4,7 +4,6 @@ from pathlib import Path
 from jobhunter.application.ats_keywords import (
     extract_ats_keywords,
     _check_presence_in_cv,
-    Keyword,
     ATSKeywordsResult
 )
 from jobhunter.db.models import Job

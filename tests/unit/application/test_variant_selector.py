@@ -156,3 +156,22 @@ def test_recommend_absolute_fallback() -> None:
     assert recommendation.variant_name == "fullstack"
     assert recommendation.confidence <= 0.5
     assert "No structured scoring data or clear keyword matches" in recommendation.reasoning
+
+
+def test_recommend_fullstack_via_is_full_stack_flag() -> None:
+    """Case 5: Fullstack variant recommended via explicit flag in score_data."""
+    job = Job(
+        title="Software Engineer",
+        description="Generic",
+        score_data={
+            "valid": True,
+            "role": {
+                "is_full_stack": True,
+                "primary_stack_match": ["React", "Node.js"],
+            },
+        },
+    )
+    recommendation = recommend_cv_variant(job)
+    assert recommendation.variant_name == "fullstack"
+    assert recommendation.confidence >= 0.8
+    assert "explicitly flagged as Full Stack" in recommendation.reasoning

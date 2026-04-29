@@ -1,0 +1,16 @@
+Dear Hiring Manager,
+
+I am thrilled to apply for the Senior Flutter Developer position at MobileFirst. As a dedicated mobile developer with a deep passion for creating seamless, high-performance user experiences, I have followed MobileFirst’s growth with great interest and would love to contribute to your mission.
+
+For the past several years, I have specialized in Flutter and Dart, building and maintaining complex mobile applications for both iOS and Android. My expertise includes implementing intricate architectural patterns such as BLoC and Provider to ensure code maintainability and scalability. I am particularly proud of my contributions to the open-source Flutter community, which have allowed me to stay at the forefront of the latest framework developments and best practices.
+
+At my previous company, I led the transition of our core product to a Flutter-based codebase, resulting in a 40% reduction in development time for new features across platforms while improving the overall app performance. This experience has given me a deep understanding of how to leverage Flutter’s capabilities to deliver exceptional products under tight deadlines.
+
+I am highly comfortable working in a remote-first environment and value the autonomy and responsibility it entails. My professional journey has taught me the importance of clear, asynchronous communication and the value of robust documentation in distributed teams.
+
+MobileFirst’s reputation for innovation in the mobile space is truly inspiring. I am confident that my technical skills in Flutter and Dart, combined with my architectural mindset and experience in remote collaboration, make me an ideal fit for your team.
+
+Thank you for your time and consideration. I am excited about the opportunity to discuss how I can help MobileFirst continue to build world-class mobile experiences.
+
+Best regards,
+Jules

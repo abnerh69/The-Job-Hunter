@@ -1,0 +1,12 @@
+{
+  "must_have": [
+    {"term": "Python", "category": "technical", "weight": 10},
+    {"term": "PyTorch", "category": "technical", "weight": 9},
+    {"term": "Machine Learning", "category": "technical", "weight": 9}
+  ],
+  "nice_to_have": [
+    {"term": "Docker", "category": "tool", "weight": 7},
+    {"term": "AWS", "category": "tool", "weight": 6},
+    {"term": "FastAPI", "category": "technical", "weight": 5}
+  ]
+}

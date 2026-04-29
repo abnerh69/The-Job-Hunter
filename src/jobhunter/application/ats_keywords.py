@@ -146,9 +146,7 @@ async def extract_ats_keywords(
         jd_truncated = jd_truncated[:max_jd_chars] + "..."
 
     user_prompt = user_template.format(
-        title=job.title,
-        company=job.company,
-        description=jd_truncated
+        title=job.title, company=job.company, description=jd_truncated
     )
 
     model = "claude-haiku-4-5-20251001"

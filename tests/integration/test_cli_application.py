@@ -144,8 +144,12 @@ def test_apply_cli_persistence_from_db_cache(mock_package: ApplicationPackage) -
         title="Dev",
         score_data={
             "assistant_cache": {
-                "cover_letter_text": mock_package.cover_letter.text,
-                "cover_letter_model": mock_package.cover_letter.model,
+                "cover_letter_text": mock_package.cover_letter.text
+                if mock_package.cover_letter
+                else None,
+                "cover_letter_model": mock_package.cover_letter.model
+                if mock_package.cover_letter
+                else None,
             }
         },
     )
@@ -183,6 +187,7 @@ def test_apply_cli_persistence_from_db_cache(mock_package: ApplicationPackage) -
         assert app_record.job_id == job_id
         assert app_record.application_method == "linkedin"
         assert app_record.cv_variant == "ai_python"
+        assert mock_package.cover_letter is not None
         assert app_record.cover_letter_text == mock_package.cover_letter.text
         assert app_record.notes == "Some notes"
 

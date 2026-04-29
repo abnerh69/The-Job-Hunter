@@ -143,26 +143,22 @@ async def assist_application(
         return keywords, tweaks
 
     # Launch cover letter and (keywords+tweaks) in parallel
-    tasks = [get_keywords_and_tweaks()]
-    if not no_letter:
-        tasks.append(
-            generate_cover_letter(
-                job=job,
-                cv_variant=cv_variant,
-                llm_client=llm_client,
-                model=settings.COVER_LETTER_MODEL,
-                session=session,
-            )
-        )
-
-    results = await asyncio.gather(*tasks)
-
     if no_letter:
-        ats_keywords, cv_tweaks = results[0]
+        ats_keywords, cv_tweaks = await get_keywords_and_tweaks()
         cover_letter = None
     else:
-        ats_keywords, cv_tweaks = results[0]
-        cover_letter = results[1]
+        # We use explicit variables for clarity and to help mypy inference
+        keywords_tweaks_task = get_keywords_and_tweaks()
+        cover_letter_task = generate_cover_letter(
+            job=job,
+            cv_variant=cv_variant,
+            llm_client=llm_client,
+            model=settings.COVER_LETTER_MODEL,
+            session=session,
+        )
+        (ats_keywords, cv_tweaks), cover_letter = await asyncio.gather(
+            keywords_tweaks_task, cover_letter_task
+        )
 
     # 6. Calculate Totals
     end_time = time.perf_counter()

@@ -128,3 +128,27 @@ To enable email notifications using Gmail:
     ```bash
     uv run jobhunter notify test --channel email --subject "Test Email" --message "Hello from Job Hunter!"
     ```
+
+### Diagnosticar notificaciones que no llegan
+
+Si esperas notificaciones y no se están recibiendo:
+
+1.  **Verificar estado del canal**:
+    ```bash
+    uv run jobhunter notify status
+    ```
+    Revisa si el canal aparece como `ENABLED`. Si está `DISABLED`, comprueba que las variables de entorno en `.env` coinciden con los nombres esperados.
+
+2.  **Revisar intentos recientes**:
+    El mismo comando `notify status` muestra los últimos 10 intentos. Busca errores específicos en la columna de status.
+
+3.  **Comprobar fallos en 24h**:
+    Si hay una cuenta de fallos alta, es probable que haya un problema de red o de credenciales (ej. App Password de Google revocado).
+
+4.  **Verificar políticas de idempotencia**:
+    - **Tier-A**: Solo se envía una notificación por `job_id`. Si ya se intentó (con éxito o fallo), no se reintenta automáticamente para evitar spam.
+    - **Digest**: Solo se envía uno por semana ISO.
+    Puedes consultar la tabla `notifications_sent` para ver qué llaves de deduplicación ya existen.
+
+5.  **Probar manualmente**:
+    Usa el comando `notify test` para descartar problemas de configuración del canal independientemente de la lógica de negocio.

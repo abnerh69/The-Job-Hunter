@@ -248,6 +248,43 @@ def compute_digest_context(session: Session, week_ending: date) -> WeeklyDigestC
     )
 
 
+def prepare_weekly_digest(
+    session: Session, week_ending: date | None = None
+) -> tuple[NotificationMessage, str]:
+    """
+    Computes metrics and renders templates for the weekly digest.
+
+    Args:
+        session: SQLAlchemy session.
+        week_ending: The end date of the week. Defaults to today.
+
+    Returns:
+        tuple[NotificationMessage, str]: The rendered notification message and its dedup key.
+    """
+    if week_ending is None:
+        week_ending = date.today()
+
+    iso_year, iso_week, _ = week_ending.isocalendar()
+    dedup_key = f"digest:{iso_year}:{iso_week}"
+
+    # Compute context
+    context = compute_digest_context(session, week_ending)
+    context_dict = context.model_dump()
+
+    # Render templates
+    body_html = render("notifications/weekly_digest_email.html", context_dict)
+    body_text = render("notifications/weekly_digest_email.txt", context_dict)
+
+    message = NotificationMessage(
+        channel="email",
+        subject=f"Weekly Job Hunt Summary - {week_ending.strftime('%b %d, %Y')}",
+        body_text=body_text,
+        body_html=body_html,
+    )
+
+    return message, dedup_key
+
+
 async def send_weekly_digest(
     session: Session, week_ending: date | None = None
 ) -> NotificationResult | None:
@@ -262,31 +299,12 @@ async def send_weekly_digest(
         NotificationResult | None: The result of the notification attempt,
                                    or None if it was already sent.
     """
-    if week_ending is None:
-        week_ending = date.today()
-
-    iso_year, iso_week, _ = week_ending.isocalendar()
-    dedup_key = f"digest:{iso_year}:{iso_week}"
+    message, dedup_key = prepare_weekly_digest(session, week_ending)
     channel = "email"
 
     repo = NotificationsRepo(session)
     if repo.was_sent(channel, dedup_key):
         return None
-
-    # Compute context
-    context = compute_digest_context(session, week_ending)
-    context_dict = context.model_dump()
-
-    # Render templates
-    body_html = render("notifications/weekly_digest_email.html", context_dict)
-    body_text = render("notifications/weekly_digest_email.txt", context_dict)
-
-    message = NotificationMessage(
-        channel=channel,
-        subject=f"Weekly Job Hunt Summary - {week_ending.strftime('%b %d, %Y')}",
-        body_text=body_text,
-        body_html=body_html,
-    )
 
     notifier = EmailNotifier()
     result = await notifier.send(message)

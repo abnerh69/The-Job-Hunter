@@ -88,3 +88,35 @@ class NotificationsRepo(BaseRepo[NotificationSent]):
             .where(self.model.success.is_(False), self.model.sent_at >= since)
         )
         return self.session.scalar(stmt) or 0
+
+    def get_recent(self, limit: int = 10) -> list[NotificationSent]:
+        """
+        Retrieves the most recent notification attempts.
+
+        Args:
+            limit: The maximum number of records to retrieve.
+
+        Returns:
+            list[NotificationSent]: The list of recent notifications.
+        """
+        stmt = select(self.model).order_by(self.model.sent_at.desc()).limit(limit)
+        return list(self.session.scalars(stmt).all())
+
+    def get_failure_breakdown(self, hours: int = 24) -> dict[str, int]:
+        """
+        Retrieves the number of failures per channel in the last N hours.
+
+        Args:
+            hours: The number of hours to look back.
+
+        Returns:
+            dict[str, int]: A dictionary mapping channel names to failure counts.
+        """
+        since = datetime.now(timezone.utc) - timedelta(hours=hours)
+        stmt = (
+            select(self.model.channel, func.count())
+            .where(self.model.success.is_(False), self.model.sent_at >= since)
+            .group_by(self.model.channel)
+        )
+        results = self.session.execute(stmt).all()
+        return {row[0]: row[1] for row in results}

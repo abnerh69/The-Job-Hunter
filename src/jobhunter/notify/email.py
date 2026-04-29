@@ -57,8 +57,8 @@ class EmailNotifier(BaseNotifier):
             # Create the root message
             msg = MIMEMultipart("alternative")
             msg["Subject"] = message.subject or "Job Hunter Notification"
-            msg["From"] = settings.SMTP_USER
-            msg["To"] = settings.DIGEST_TO_EMAIL
+            msg["From"] = settings.SMTP_USER or ""
+            msg["To"] = settings.DIGEST_TO_EMAIL or ""
 
             # Attach plain text body
             msg.attach(MIMEText(message.body_text, "plain"))

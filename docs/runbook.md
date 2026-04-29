@@ -89,7 +89,7 @@ This usually happens when trying to connect to a fresh Postgres instance that ha
 
 ## Notification Setup
 
-### Configurar Telegram bot
+### Configure Telegram bot
 
 To enable Telegram notifications:
 
@@ -109,20 +109,20 @@ To enable Telegram notifications:
     uv run jobhunter notify test --channel telegram --message "Hello from Job Hunter!"
     ```
 
-### Configurar Gmail SMTP
+### Configure Gmail SMTP
 
-Para habilitar notificaciones por email usando Gmail:
+To enable email notifications using Gmail:
 
-1.  **Habilitar 2FA**: Asegúrate de que tu cuenta de Google tiene activada la Verificación en dos pasos.
-2.  **Generar App Password**:
-    - Ve a [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
-    - Nombre de la app: "Job-Hunter-EU".
-    - Copia la contraseña de 16 caracteres generada.
-3.  **Actualizar `.env`**:
+1.  **Enable 2FA**: Ensure your Google account has 2-Step Verification enabled.
+2.  **Generate App Password**:
+    - Go to [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+    - App name: "Job-Hunter-EU".
+    - Copy the generated 16-character password.
+3.  **Update `.env`**:
     ```env
-    SMTP_USER="tu_email@gmail.com"
-    SMTP_PASSWORD="tu_app_password_sin_espacios"
-    DIGEST_TO_EMAIL="donde_recibir_el_digest@email.com"
+    SMTP_USER="your_email@gmail.com"
+    SMTP_PASSWORD="your_app_password_without_spaces"
+    DIGEST_TO_EMAIL="where_to_receive_the_digest@email.com"
     ```
 4.  **Test the setup**:
     ```bash

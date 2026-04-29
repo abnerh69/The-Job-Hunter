@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from jobhunter.application.cv import load_cv, list_available_variants, CVVariant, Experience
+from jobhunter.application.cv import load_cv, list_available_variants
 from jobhunter.config import Settings
 
 def test_list_available_variants(tmp_path):

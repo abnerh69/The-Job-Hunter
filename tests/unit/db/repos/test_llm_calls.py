@@ -44,12 +44,8 @@ def test_monthly_total_usd(session: Session) -> None:
     repo = LLMCallRepo(session)
     now = datetime.now(timezone.utc)
 
-    repo.record_call(
-        model="m1", purpose=LLMPurpose.SCORING, success=True, cost_usd=1.0
-    )
-    repo.record_call(
-        model="m1", purpose=LLMPurpose.SCORING, success=True, cost_usd=2.0
-    )
+    repo.record_call(model="m1", purpose=LLMPurpose.SCORING, success=True, cost_usd=1.0)
+    repo.record_call(model="m1", purpose=LLMPurpose.SCORING, success=True, cost_usd=2.0)
 
     # Another month
     # last_month = now.replace(day=1) - datetime.resolution
@@ -65,9 +61,7 @@ def test_weekly_total_usd(session: Session) -> None:
     repo = LLMCallRepo(session)
     now = datetime.now(timezone.utc)
 
-    repo.record_call(
-        model="m1", purpose=LLMPurpose.SCORING, success=True, cost_usd=0.5
-    )
+    repo.record_call(model="m1", purpose=LLMPurpose.SCORING, success=True, cost_usd=0.5)
 
     total = repo.weekly_total_usd(now)
     assert total == 0.5

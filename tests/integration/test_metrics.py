@@ -10,6 +10,7 @@ from jobhunter.db.enums import ApplicationStatus, JobStatus
 
 import pytest
 
+
 def test_weekly_metrics_materialized_view(session: Session) -> None:
     """
     Test that the weekly_metrics materialized view correctly aggregates data.

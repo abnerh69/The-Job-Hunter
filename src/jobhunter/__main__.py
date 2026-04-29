@@ -247,7 +247,9 @@ def scoring_stats() -> None:
             total_success = 0
 
             for s in stats:
-                success_rate = (s["success_count"] / s["total_calls"]) * 100 if s["total_calls"] > 0 else 0
+                success_rate = (
+                    (s["success_count"] / s["total_calls"]) * 100 if s["total_calls"] > 0 else 0
+                )
                 table.add_row(
                     s["model"],
                     str(s["total_calls"]),

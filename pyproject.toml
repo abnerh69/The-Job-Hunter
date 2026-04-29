@@ -58,6 +58,9 @@ build-backend = "uv_build"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests as integration tests",
+]
 
 [tool.coverage.run]
 source = ["src/jobhunter"]

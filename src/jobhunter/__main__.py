@@ -28,8 +28,10 @@ from jobhunter.scoring.schema import ScoringResult, Tier
 from jobhunter.scoring.scorer import JobScorer
 from jobhunter.sources.orchestrator import run_ingestion
 from jobhunter.sources.registry import get_all_sources
-from jobhunter.notify import get_notifier_cls, NotificationMessage
-from jobhunter.notify.digest import send_weekly_digest
+from jobhunter.notify import get_all_notifiers, get_notifier_cls, NotificationMessage
+from jobhunter.notify.digest import prepare_weekly_digest, send_weekly_digest
+from jobhunter.notify.dispatcher import dispatch_tier_a_notifications
+from jobhunter.db.repos.notifications import NotificationsRepo
 
 logger = structlog.get_logger()
 app = typer.Typer(help="Job Hunter EU CLI")
@@ -64,14 +66,48 @@ def db_refresh_metrics() -> None:
         raise typer.Exit(code=1)
 
 
+@notify_app.command("dispatch")
+def notify_dispatch() -> None:
+    """Dispatch pending Tier-A notifications."""
+    logger.info("Starting manual notification dispatch")
+    try:
+        with get_session() as session:
+            report = asyncio.run(dispatch_tier_a_notifications(session))
+
+        console = Console()
+        table = Table(title="Notification Dispatch Report", header_style="bold magenta")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+
+        table.add_row("Total Pending", str(report.total_pending))
+        table.add_row("Sent Successfully", f"[green]{report.success_count}[/green]")
+        table.add_row("Failed", f"[red]{report.failure_count}[/red]")
+        table.add_row("Duration", f"{report.duration_ms}ms")
+
+        console.print(table)
+
+        if report.errors:
+            console.print("\n[bold red]Errors:[/bold red]")
+            for err in report.errors:
+                console.print(f"- {err}")
+
+    except Exception as e:
+        logger.error("Dispatch failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
 @notify_app.command("digest")
 def notify_digest(
     week_ending: Annotated[
         str | None, typer.Option(help="End date of the week (YYYY-MM-DD), defaults to today")
     ] = None,
+    send: Annotated[
+        bool, typer.Option(help="Actually send the email instead of just previewing")
+    ] = False,
 ) -> None:
-    """Send the weekly digest email summary."""
-    logger.info("Triggering weekly digest notification", week_ending=week_ending)
+    """Preview or send the weekly digest email summary."""
+    logger.info("Triggering weekly digest command", week_ending=week_ending, send=send)
 
     ending_date: date | None = None
     if week_ending:
@@ -83,17 +119,27 @@ def notify_digest(
 
     try:
         with get_session() as session:
-            result = asyncio.run(send_weekly_digest(session, ending_date))
-
-            if result is None:
-                typer.echo("Digest was already sent for this week. Skipping.")
-            elif result.success:
-                typer.echo(f"Successfully sent weekly digest. (Duration: {result.duration_ms}ms)")
+            if send:
+                result = asyncio.run(send_weekly_digest(session, ending_date))
+                if result is None:
+                    typer.echo("Digest was already sent for this week. Skipping.")
+                elif result.success:
+                    typer.echo(
+                        f"Successfully sent weekly digest. (Duration: {result.duration_ms}ms)"
+                    )
+                else:
+                    typer.echo(f"Failed to send weekly digest: {result.error}", err=True)
+                    raise typer.Exit(code=1)
             else:
-                typer.echo(f"Failed to send weekly digest: {result.error}", err=True)
-                raise typer.Exit(code=1)
+                message, _ = prepare_weekly_digest(session, ending_date)
+                typer.echo(f"Subject: {message.subject}")
+                typer.echo("-" * 40)
+                typer.echo(message.body_text)
+                typer.echo("-" * 40)
+                typer.echo("NOTE: Use --send to actually deliver the email.")
+
     except Exception as e:
-        logger.error("Failed to send weekly digest", error=str(e))
+        logger.error("Weekly digest command failed", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 
@@ -554,6 +600,7 @@ def rescore(
 def notify_test(
     channel: Annotated[str, typer.Option(help="Channel to test (e.g., 'telegram')")],
     message: Annotated[str, typer.Option(help="Message to send")],
+    subject: Annotated[str | None, typer.Option(help="Subject of the message (for email)")] = None,
 ) -> None:
     """Send a test notification to a specific channel."""
     logger.info("Sending test notification", channel=channel)
@@ -572,6 +619,7 @@ def notify_test(
 
     msg = NotificationMessage(
         channel=channel,
+        subject=subject,
         body_text=message,
         metadata={"test": True},
     )
@@ -585,6 +633,74 @@ def notify_test(
             raise typer.Exit(code=1)
     except Exception as e:
         logger.error("Failed to send test notification", channel=channel, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@notify_app.command("status")
+def notify_status() -> None:
+    """Display the status of notification channels and recent attempts."""
+    console = Console()
+    settings = Settings()  # type: ignore[call-arg]
+
+    # 1. Channel Status
+    table_channels = Table(title="Notification Channels Status", header_style="bold blue")
+    table_channels.add_column("Channel")
+    table_channels.add_column("Status")
+    table_channels.add_column("Reason")
+
+    for notifier_cls in get_all_notifiers():
+        notifier = notifier_cls()
+        enabled = notifier.is_enabled(settings)
+        status_str = "[green]ENABLED[/green]" if enabled else "[red]DISABLED[/red]"
+
+        reason = "-"
+        if not enabled:
+            if notifier.name == "telegram":
+                reason = "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID"
+            elif notifier.name == "email":
+                reason = "Missing SMTP credentials or DIGEST_TO_EMAIL"
+
+        table_channels.add_row(notifier.name, status_str, reason)
+
+    console.print(table_channels)
+
+    try:
+        with get_session() as session:
+            repo = NotificationsRepo(session)
+
+            # 2. Recent Notifications
+            recent = repo.get_recent(limit=10)
+            table_recent = Table(title="Recent Notification Attempts", header_style="bold magenta")
+            table_recent.add_column("Sent At")
+            table_recent.add_column("Channel")
+            table_recent.add_column("Dedup Key")
+            table_recent.add_column("Status")
+
+            for n in recent:
+                status_style = "green" if n.success else "red"
+                table_recent.add_row(
+                    n.sent_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    n.channel,
+                    n.dedup_key,
+                    f"[{status_style}]{'SUCCESS' if n.success else 'FAILED'}[/{status_style}]",
+                )
+            console.print(table_recent)
+
+            # 3. Failures in last 24h
+            failures = repo.get_failure_breakdown(hours=24)
+            if failures:
+                table_failures = Table(title="Failures in Last 24h", header_style="bold red")
+                table_failures.add_column("Channel")
+                table_failures.add_column("Count", justify="right")
+                for chan, count in failures.items():
+                    table_failures.add_row(chan, str(count))
+                console.print(table_failures)
+            else:
+                console.print("\n[green]No notification failures in the last 24 hours.[/green]")
+
+    except Exception as e:
+        logger.error("Failed to retrieve notification status", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

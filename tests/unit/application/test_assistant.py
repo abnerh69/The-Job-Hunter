@@ -103,15 +103,21 @@ async def test_assist_application_success(
     mock_session.get.return_value = sample_job
     mock_session.execute.return_value.scalar_one_or_none.return_value = None
 
-    with patch(
-        "jobhunter.application.assistant.recommend_cv_variant",
-        return_value=VariantRecommendation(variant_name="fullstack", confidence=1.0, reasoning="test"),
-    ), patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant), patch(
-        "jobhunter.application.assistant.generate_cover_letter", return_value=mock_cover_letter
-    ), patch(
-        "jobhunter.application.assistant.extract_ats_keywords", return_value=mock_ats_keywords
-    ), patch(
-        "jobhunter.application.assistant.suggest_cv_tweaks", return_value=mock_cv_tweaks
+    with (
+        patch(
+            "jobhunter.application.assistant.recommend_cv_variant",
+            return_value=VariantRecommendation(
+                variant_name="fullstack", confidence=1.0, reasoning="test"
+            ),
+        ),
+        patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant),
+        patch(
+            "jobhunter.application.assistant.generate_cover_letter", return_value=mock_cover_letter
+        ),
+        patch(
+            "jobhunter.application.assistant.extract_ats_keywords", return_value=mock_ats_keywords
+        ),
+        patch("jobhunter.application.assistant.suggest_cv_tweaks", return_value=mock_cv_tweaks),
     ):
         # Act
         package = await assist_application(mock_session, sample_job.id, mock_llm_client)
@@ -146,15 +152,21 @@ async def test_assist_application_persistence(
     mock_app = MagicMock(spec=Application)
     mock_session.execute.return_value.scalar_one_or_none.return_value = mock_app
 
-    with patch(
-        "jobhunter.application.assistant.recommend_cv_variant",
-        return_value=VariantRecommendation(variant_name="fullstack", confidence=1.0, reasoning="test"),
-    ), patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant), patch(
-        "jobhunter.application.assistant.generate_cover_letter", return_value=mock_cover_letter
-    ), patch(
-        "jobhunter.application.assistant.extract_ats_keywords", return_value=mock_ats_keywords
-    ), patch(
-        "jobhunter.application.assistant.suggest_cv_tweaks", return_value=mock_cv_tweaks
+    with (
+        patch(
+            "jobhunter.application.assistant.recommend_cv_variant",
+            return_value=VariantRecommendation(
+                variant_name="fullstack", confidence=1.0, reasoning="test"
+            ),
+        ),
+        patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant),
+        patch(
+            "jobhunter.application.assistant.generate_cover_letter", return_value=mock_cover_letter
+        ),
+        patch(
+            "jobhunter.application.assistant.extract_ats_keywords", return_value=mock_ats_keywords
+        ),
+        patch("jobhunter.application.assistant.suggest_cv_tweaks", return_value=mock_cv_tweaks),
     ):
         # Act
         await assist_application(mock_session, sample_job.id, mock_llm_client)
@@ -208,15 +220,19 @@ async def test_assist_application_parallelization(
         await asyncio.sleep(0.1)
         return mock_cv_tweaks
 
-    with patch(
-        "jobhunter.application.assistant.recommend_cv_variant",
-        return_value=VariantRecommendation(variant_name="fullstack", confidence=1.0, reasoning="test"),
-    ), patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant), patch(
-        "jobhunter.application.assistant.generate_cover_letter", side_effect=slow_cover_letter
-    ), patch(
-        "jobhunter.application.assistant.extract_ats_keywords", side_effect=slow_keywords
-    ), patch(
-        "jobhunter.application.assistant.suggest_cv_tweaks", side_effect=slow_tweaks
+    with (
+        patch(
+            "jobhunter.application.assistant.recommend_cv_variant",
+            return_value=VariantRecommendation(
+                variant_name="fullstack", confidence=1.0, reasoning="test"
+            ),
+        ),
+        patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant),
+        patch(
+            "jobhunter.application.assistant.generate_cover_letter", side_effect=slow_cover_letter
+        ),
+        patch("jobhunter.application.assistant.extract_ats_keywords", side_effect=slow_keywords),
+        patch("jobhunter.application.assistant.suggest_cv_tweaks", side_effect=slow_tweaks),
     ):
         # Act
         start = time.perf_counter()
@@ -246,16 +262,24 @@ async def test_assist_application_cache(
     mock_session.get.return_value = sample_job
     mock_session.execute.return_value.scalar_one_or_none.return_value = None
 
-    with patch(
-        "jobhunter.application.assistant.recommend_cv_variant",
-        return_value=VariantRecommendation(variant_name="fullstack", confidence=1.0, reasoning="test"),
-    ), patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant), patch(
-        "jobhunter.application.assistant.generate_cover_letter", return_value=mock_cover_letter
-    ) as mock_cl, patch(
-        "jobhunter.application.assistant.extract_ats_keywords", return_value=mock_ats_keywords
-    ) as mock_ak, patch(
-        "jobhunter.application.assistant.suggest_cv_tweaks", return_value=mock_cv_tweaks
-    ) as mock_ct:
+    with (
+        patch(
+            "jobhunter.application.assistant.recommend_cv_variant",
+            return_value=VariantRecommendation(
+                variant_name="fullstack", confidence=1.0, reasoning="test"
+            ),
+        ),
+        patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant),
+        patch(
+            "jobhunter.application.assistant.generate_cover_letter", return_value=mock_cover_letter
+        ) as mock_cl,
+        patch(
+            "jobhunter.application.assistant.extract_ats_keywords", return_value=mock_ats_keywords
+        ) as mock_ak,
+        patch(
+            "jobhunter.application.assistant.suggest_cv_tweaks", return_value=mock_cv_tweaks
+        ) as mock_ct,
+    ):
         # Act
         # First call
         package1 = await assist_application(mock_session, sample_job.id, mock_llm_client)
@@ -285,16 +309,24 @@ async def test_assist_application_cache_expiration(
     mock_session.get.return_value = sample_job
     mock_session.execute.return_value.scalar_one_or_none.return_value = None
 
-    with patch(
-        "jobhunter.application.assistant.recommend_cv_variant",
-        return_value=VariantRecommendation(variant_name="fullstack", confidence=1.0, reasoning="test"),
-    ), patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant), patch(
-        "jobhunter.application.assistant.generate_cover_letter", return_value=mock_cover_letter
-    ) as mock_cl, patch(
-        "jobhunter.application.assistant.extract_ats_keywords", return_value=mock_ats_keywords
-    ) as mock_ak, patch(
-        "jobhunter.application.assistant.suggest_cv_tweaks", return_value=mock_cv_tweaks
-    ) as mock_ct:
+    with (
+        patch(
+            "jobhunter.application.assistant.recommend_cv_variant",
+            return_value=VariantRecommendation(
+                variant_name="fullstack", confidence=1.0, reasoning="test"
+            ),
+        ),
+        patch("jobhunter.application.assistant.load_cv", return_value=mock_cv_variant),
+        patch(
+            "jobhunter.application.assistant.generate_cover_letter", return_value=mock_cover_letter
+        ) as mock_cl,
+        patch(
+            "jobhunter.application.assistant.extract_ats_keywords", return_value=mock_ats_keywords
+        ) as mock_ak,
+        patch(
+            "jobhunter.application.assistant.suggest_cv_tweaks", return_value=mock_cv_tweaks
+        ) as mock_ct,
+    ):
         # Act
         # First call
         await assist_application(mock_session, sample_job.id, mock_llm_client)

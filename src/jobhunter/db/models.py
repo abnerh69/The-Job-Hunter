@@ -2,7 +2,18 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text, event, func
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    event,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
@@ -241,6 +252,39 @@ class SourceHealth(Base):
 
     def __repr__(self) -> str:
         return f"<SourceHealth(source_name={self.source_name}, state={self.state}, failures={self.failure_count})>"
+
+
+class LLMCall(Base):
+    """
+    SQLAlchemy model for the 'llm_calls' table.
+    Tracks individual calls to LLM APIs for cost and performance monitoring.
+    """
+
+    __tablename__ = "llm_calls"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=True
+    )
+    model: Mapped[str] = mapped_column(String(50), nullable=False)
+    prompt_version: Mapped[str | None] = mapped_column(String(20))
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    cost_usd: Mapped[float] = mapped_column(Numeric(10, 6), nullable=False)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    # Relationships
+    job: Mapped["Job"] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<LLMCall(model={self.model}, cost_usd={self.cost_usd})>"
 
 
 @event.listens_for(Application.status, "set")

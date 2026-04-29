@@ -7,7 +7,14 @@ from alembic import context
 
 from jobhunter.config import Settings
 from jobhunter.db.base import Base
-from jobhunter.db.models import Job, Application, ApplicationEvent, OutreachContact, SourceHealth  # noqa: F401
+from jobhunter.db.models import (  # noqa: F401
+    Application,
+    ApplicationEvent,
+    Job,
+    LLMCall,
+    OutreachContact,
+    SourceHealth,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from jobhunter.db.models import Job, Application
 from jobhunter.db.enums import JobStatus, JobTier, ApplicationStatus
 from jobhunter.application.assistant import assist_application, JobNotAssistableError
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
 from typer.testing import CliRunner
 from jobhunter.__main__ import app
 from unittest.mock import patch

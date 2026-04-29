@@ -4,7 +4,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 import typer
@@ -12,12 +12,20 @@ from rich.console import Console
 from rich.table import Table
 
 from jobhunter import __version__
+import uuid
+
 from jobhunter.config import Settings
+from jobhunter.db.enums import JobStatus, JobTier
 from jobhunter.db.maintenance import refresh_weekly_metrics
+from jobhunter.db.repos.job import JobRepo
 from jobhunter.db.repos.llm_calls import LLMCallRepo
 from jobhunter.db.repos.source_health import SourceHealthRepo
 from jobhunter.db.seed import seed_database
 from jobhunter.db.session import get_session
+from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.scoring.pipeline import rescore_jobs, score_pending_jobs
+from jobhunter.scoring.schema import ScoringResult, Tier
+from jobhunter.scoring.scorer import JobScorer
 from jobhunter.sources.orchestrator import run_ingestion
 from jobhunter.sources.registry import get_all_sources
 
@@ -273,6 +281,232 @@ def scoring_stats() -> None:
 
     except Exception as e:
         logger.error("Failed to retrieve scoring stats", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def score(
+    limit: Annotated[int, typer.Option(help="Maximum number of jobs to score")] = 100,
+    concurrency: Annotated[int, typer.Option(help="Maximum concurrent LLM calls")] = 5,
+    model: Annotated[str | None, typer.Option(help="LLM model to use")] = None,
+    prompt_version: Annotated[str, typer.Option(help="Prompt version to use")] = "latest",
+    dry_run: Annotated[bool, typer.Option(help="Do not persist results to database")] = False,
+) -> None:
+    """Score pending jobs using LLM."""
+    logger.info(
+        "Starting job scoring",
+        limit=limit,
+        concurrency=concurrency,
+        model=model,
+        prompt_version=prompt_version,
+        dry_run=dry_run,
+    )
+
+    settings = Settings()  # type: ignore[call-arg]
+    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+
+    scorer_kwargs = {"llm_client": llm_client, "prompt_version": prompt_version}
+    if model:
+        scorer_kwargs["model"] = model
+
+    scorer = JobScorer(**scorer_kwargs)  # type: ignore[arg-type]
+
+    try:
+        with get_session() as session:
+            # We use a simple spinner for now as the pipeline doesn't report incremental progress
+            from rich.progress import Progress, SpinnerColumn, TextColumn
+
+            console = Console()
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+            ) as progress:
+                progress.add_task(description="Scoring jobs...", total=None)
+                report = asyncio.run(
+                    score_pending_jobs(
+                        session=session,
+                        scorer=scorer,
+                        limit=limit,
+                        concurrency=concurrency,
+                        dry_run=dry_run,
+                    )
+                )
+
+            # Output results table
+            table = Table(
+                title=f"Scoring Report {'(DRY RUN)' if dry_run else ''}",
+                show_footer=True,
+                header_style="bold magenta",
+            )
+            table.add_column("Metric", footer="Total")
+            table.add_column("Value", justify="right")
+
+            table.add_row("Processed", str(report.total_processed))
+            table.add_row("Success", f"[green]{report.success_count}[/green]")
+            table.add_row("Failed", f"[red]{report.failed_count}[/red]")
+            table.add_row("Total Cost", f"${report.total_cost_usd:.4f}", style="bold")
+            table.add_row("Duration", f"{report.duration_seconds:.2f}s")
+
+            console.print(table)
+
+            if report.tier_distribution:
+                tier_table = Table(title="Tier Distribution", header_style="bold blue")
+                tier_table.add_column("Tier")
+                tier_table.add_column("Count", justify="right")
+                for tier, count in sorted(report.tier_distribution.items()):
+                    tier_table.add_row(tier, str(count))
+                console.print(tier_table)
+
+            # Exit code 1 if success rate < 90%
+            if report.total_processed > 0:
+                success_rate = (report.success_count / report.total_processed) * 100
+                if success_rate < 90:
+                    typer.echo(f"Low success rate: {success_rate:.1f}%", err=True)
+                    raise typer.Exit(code=1)
+
+            if report.total_processed == 0:
+                typer.echo("No pending jobs to score.")
+
+    except Exception as e:
+        if isinstance(e, typer.Exit):
+            raise
+        logger.error("Scoring failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def score_job(
+    job_id: Annotated[str, typer.Argument(help="UUID of the job to score")],
+    persist: Annotated[bool, typer.Option(help="Persist result to database")] = False,
+) -> None:
+    """Score a specific job and show raw response."""
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {job_id}", err=True)
+        raise typer.Exit(code=1)
+
+    logger.info("Scoring specific job", job_id=job_id, persist=persist)
+
+    settings = Settings()  # type: ignore[call-arg]
+    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    scorer = JobScorer(llm_client=llm_client)
+
+    try:
+        with get_session() as session:
+            repo = JobRepo(session)
+            job = repo.get(job_uuid)
+            if not job:
+                typer.echo(f"Error: Job {job_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            outcome = asyncio.run(scorer.score(job, session=session))
+
+            typer.echo("--- RAW RESPONSE ---")
+            typer.echo(outcome.raw_response)
+            typer.echo("--- END RAW RESPONSE ---")
+
+            console = Console()
+            table = Table(title="Scoring Result")
+            table.add_column("Field")
+            table.add_column("Value")
+
+            table.add_row("Model", outcome.model)
+            table.add_row("Cost", f"${outcome.cost_usd:.4f}")
+            table.add_row("Tokens", f"I:{outcome.input_tokens} / O:{outcome.output_tokens}")
+
+            if hasattr(outcome.result, "tier"):
+                table.add_row("Tier", str(outcome.result.tier))
+            if hasattr(outcome.result, "fit_score"):
+                table.add_row("Fit Score", str(outcome.result.fit_score))
+
+            console.print(table)
+
+            if persist:
+                job.scored_at = datetime.now(timezone.utc)
+                job.score_model = outcome.model
+                job.score_version = outcome.prompt_version
+                job.score_data = outcome.result.model_dump()
+
+                if isinstance(outcome.result, ScoringResult):
+                    job.fit_score = outcome.result.fit_score
+                    job.tier = JobTier(outcome.result.tier.value)
+
+                    if outcome.result.tier in (Tier.A, Tier.B):
+                        job.status = JobStatus.QUEUED
+                    elif outcome.result.tier == Tier.C:
+                        job.status = JobStatus.MANUAL_REVIEW
+                    elif outcome.result.tier == Tier.REJECT:
+                        job.status = JobStatus.REJECTED
+                else:
+                    job.status = JobStatus.ARCHIVED
+
+                session.commit()
+                typer.echo("Result persisted to database.")
+            else:
+                session.rollback()
+                typer.echo("Result NOT persisted (use --persist to save).")
+
+    except Exception as e:
+        logger.error("Job scoring failed", job_id=job_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def rescore(
+    tier: Annotated[JobTier, typer.Option(help="Tier of jobs to rescore")] = JobTier.A,
+    with_model: Annotated[str | None, typer.Option(help="LLM model to use for rescoring")] = None,
+    limit: Annotated[int, typer.Option(help="Maximum number of jobs to rescore")] = 100,
+) -> None:
+    """Re-score jobs already scored."""
+    logger.info("Starting job rescoring", tier=tier, model=with_model, limit=limit)
+
+    settings = Settings()  # type: ignore[call-arg]
+    client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+
+    scorer_kwargs: dict[str, Any] = {"llm_client": client}
+    if with_model:
+        scorer_kwargs["model"] = with_model
+
+    scorer = JobScorer(**scorer_kwargs)
+
+    try:
+        with get_session() as session:
+            from rich.progress import Progress, SpinnerColumn, TextColumn
+
+            console = Console()
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+            ) as progress:
+                progress.add_task(description=f"Rescoring Tier {tier} jobs...", total=None)
+                report = asyncio.run(
+                    rescore_jobs(
+                        session=session,
+                        scorer=scorer,
+                        filters={"tier": tier},
+                        limit=limit,
+                    )
+                )
+
+            table = Table(title=f"Rescoring Report (Tier {tier})")
+            table.add_column("Metric")
+            table.add_column("Value", justify="right")
+
+            table.add_row("Processed", str(report.total_processed))
+            table.add_row("Success", str(report.success_count))
+            table.add_row("Failed", str(report.failed_count))
+            table.add_row("Total Cost", f"${report.total_cost_usd:.4f}")
+
+            console.print(table)
+
+    except Exception as e:
+        logger.error("Rescoring failed", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

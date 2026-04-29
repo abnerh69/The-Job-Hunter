@@ -40,6 +40,7 @@ async def score_pending_jobs(
     scorer: JobScorer,
     limit: int = 100,
     concurrency: int = 5,
+    dry_run: bool = False,
 ) -> ScoringBatchReport:
     """
     Scores jobs in 'new' status.
@@ -49,6 +50,7 @@ async def score_pending_jobs(
         scorer: The JobScorer instance to use.
         limit: Maximum number of jobs to process.
         concurrency: Maximum number of concurrent scoring operations.
+        dry_run: If True, do not persist changes to the database.
 
     Returns:
         A ScoringBatchReport summarizing the results.
@@ -72,33 +74,38 @@ async def score_pending_jobs(
     async def score_job_task(job: Job) -> None:
         async with semaphore:
             try:
+                # We still pass session to scorer.score to track LLM cost and check budget
                 outcome = await scorer.score(job, session=session)
 
-                # Apply changes to job
-                job.scored_at = datetime.now(timezone.utc)
-                job.score_model = outcome.model
-                job.score_version = outcome.prompt_version
-                job.score_data = outcome.result.model_dump()
+                if not dry_run:
+                    # Apply changes to job
+                    job.scored_at = datetime.now(timezone.utc)
+                    job.score_model = outcome.model
+                    job.score_version = outcome.prompt_version
+                    job.score_data = outcome.result.model_dump()
 
+                    if isinstance(outcome.result, ScoringResult):
+                        job.fit_score = outcome.result.fit_score
+                        job.tier = JobTier(outcome.result.tier.value)
+
+                        # State transition logic
+                        if outcome.result.tier in (Tier.A, Tier.B):
+                            job.status = JobStatus.QUEUED
+                        elif outcome.result.tier == Tier.C:
+                            job.status = JobStatus.MANUAL_REVIEW
+                        elif outcome.result.tier == Tier.REJECT:
+                            job.status = JobStatus.REJECTED
+                    else:
+                        # InvalidScoringResponse
+                        job.status = JobStatus.ARCHIVED
+
+                # Update report regardless of dry_run
                 if isinstance(outcome.result, ScoringResult):
-                    job.fit_score = outcome.result.fit_score
-                    job.tier = JobTier(outcome.result.tier.value)
-
-                    # State transition logic
-                    if outcome.result.tier in (Tier.A, Tier.B):
-                        job.status = JobStatus.QUEUED
-                    elif outcome.result.tier == Tier.C:
-                        job.status = JobStatus.MANUAL_REVIEW
-                    elif outcome.result.tier == Tier.REJECT:
-                        job.status = JobStatus.REJECTED
-
-                    tier_key = str(job.tier)
+                    tier_key = outcome.result.tier.value
                     report.tier_distribution[tier_key] = (
                         report.tier_distribution.get(tier_key, 0) + 1
                     )
                 else:
-                    # InvalidScoringResponse
-                    job.status = JobStatus.ARCHIVED
                     report.tier_distribution["INVALID"] = (
                         report.tier_distribution.get("INVALID", 0) + 1
                     )
@@ -119,7 +126,11 @@ async def score_pending_jobs(
     await asyncio.gather(*(score_job_task(job) for job in jobs))
 
     # Finalize session
-    session.commit()
+    if not dry_run:
+        session.commit()
+    else:
+        # Rollback any changes (including recorded LLM calls for this session)
+        session.rollback()
 
     report.duration_seconds = asyncio.get_event_loop().time() - start_time
     return report
@@ -129,6 +140,8 @@ async def rescore_jobs(
     session: Session,
     scorer: JobScorer,
     filters: Dict[str, Any],
+    limit: int = 100,
+    concurrency: int = 5,
 ) -> ScoringBatchReport:
     """
     Re-scores jobs based on filters.
@@ -137,6 +150,8 @@ async def rescore_jobs(
         session: The SQLAlchemy session.
         scorer: The JobScorer instance to use.
         filters: Dictionary of filters to apply to the job selection.
+        limit: Maximum number of jobs to process.
+        concurrency: Maximum number of concurrent scoring operations.
 
     Returns:
         A ScoringBatchReport summarizing the results.
@@ -147,6 +162,7 @@ async def rescore_jobs(
     for key, value in filters.items():
         stmt = stmt.where(getattr(Job, key) == value)
 
+    stmt = stmt.limit(limit)
     jobs = session.scalars(stmt).all()
 
     if not jobs:
@@ -155,9 +171,7 @@ async def rescore_jobs(
     report = ScoringBatchReport()
     report.total_processed = len(jobs)
 
-    # For rescoring we might want to be more careful with concurrency
-    # but for now let's use the same logic
-    semaphore = asyncio.Semaphore(5)
+    semaphore = asyncio.Semaphore(concurrency)
 
     async def score_job_task(job: Job) -> None:
         async with semaphore:
@@ -175,9 +189,6 @@ async def rescore_jobs(
                     job.tier = JobTier(outcome.result.tier.value)
 
                     # In rescore, we also update status if it changed drastically?
-                    # The prompt says Tier A atuais com Sonnet para segunda opinião.
-                    # Usually we just update the score and tier.
-                    # But let's follow the same transition logic if desired.
                     if outcome.result.tier in (Tier.A, Tier.B):
                         job.status = JobStatus.QUEUED
                     elif outcome.result.tier == Tier.C:
@@ -185,7 +196,7 @@ async def rescore_jobs(
                     elif outcome.result.tier == Tier.REJECT:
                         job.status = JobStatus.REJECTED
 
-                    tier_key = str(job.tier)
+                    tier_key = outcome.result.tier.value
                     report.tier_distribution[tier_key] = (
                         report.tier_distribution.get(tier_key, 0) + 1
                     )

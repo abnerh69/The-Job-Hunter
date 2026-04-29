@@ -1,12 +1,12 @@
 import uuid
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
 
 from jobhunter.__main__ import app
-from jobhunter.application.assistant import ApplicationPackage, clear_assistant_cache
+from jobhunter.application.assistant import ApplicationPackage
 from jobhunter.application.ats_keywords import ATSKeywordsResult, Keyword
 from jobhunter.application.cover_letter import CoverLetterResult
 from jobhunter.application.cv_tweaks import CVTweaksResult, Tweak

@@ -33,11 +33,10 @@ from jobhunter.notify import get_all_notifiers, get_notifier_cls, NotificationMe
 from jobhunter.notify.digest import prepare_weekly_digest, send_weekly_digest
 from jobhunter.notify.dispatcher import dispatch_tier_a_notifications
 from jobhunter.db.repos.notifications import NotificationsRepo
-from jobhunter.application.assistant import assist_application, clear_assistant_cache
+from jobhunter.application.assistant import assist_application
 from jobhunter.application.cover_letter import generate_cover_letter
 from jobhunter.application.cv import load_cv
 from jobhunter.db.models import Application, Job
-from sqlalchemy import select
 
 logger = structlog.get_logger()
 app = typer.Typer(help="Job Hunter EU CLI")

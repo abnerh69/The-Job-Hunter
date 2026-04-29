@@ -207,8 +207,8 @@ async def assist_application(
             logger.info("assistant_persisted_to_app", job_id=str(job_id), app_id=str(app.id))
 
     # Persist assistant data in Job.score_data for cross-command CLI usage
-    if job.score_data is None:
-        job.score_data = {}
+    # We use reassignment to ensure SQLAlchemy tracks the change in the JSONB column
+    new_score_data = dict(job.score_data or {})
 
     assistant_cache = {
         "cv_variant": cv_recommendation.variant_name,
@@ -218,7 +218,8 @@ async def assist_application(
         assistant_cache["cover_letter_text"] = cover_letter.text
         assistant_cache["cover_letter_model"] = cover_letter.model
 
-    job.score_data["assistant_cache"] = assistant_cache
+    new_score_data["assistant_cache"] = assistant_cache
+    job.score_data = new_score_data
     session.commit()
 
     # 10. Cache and Return

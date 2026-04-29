@@ -86,3 +86,25 @@ If a job source API changes its schema or you add new fields, you may need to re
 
 ### "role 'jobhunter' does not exist"
 This usually happens when trying to connect to a fresh Postgres instance that hasn't been initialized by the Docker Compose script. Ensure the environment variables match the expected user.
+
+## Notification Setup
+
+### Configurar Telegram bot
+
+To enable Telegram notifications:
+
+1.  **Create a Bot**: Open Telegram and message [@BotFather](https://t.me/botfather). Send `/newbot` and follow instructions to get your **Bot Token**.
+2.  **Get your Chat ID**:
+    - Start a conversation with your new bot (click the link in BotFather's message and press **Start**).
+    - Send a dummy message to the bot.
+    - Visit `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` in your browser.
+    - Look for `"chat":{"id":123456789...}`. That number is your **Chat ID**.
+3.  **Update `.env`**:
+    ```env
+    TELEGRAM_BOT_TOKEN="your_token_here"
+    TELEGRAM_CHAT_ID="your_chat_id_here"
+    ```
+4.  **Test the setup**:
+    ```bash
+    uv run jobhunter notify test --channel telegram --message "Hello from Job Hunter!"
+    ```

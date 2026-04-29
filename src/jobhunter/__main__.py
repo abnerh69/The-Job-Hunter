@@ -28,6 +28,7 @@ from jobhunter.scoring.schema import ScoringResult, Tier
 from jobhunter.scoring.scorer import JobScorer
 from jobhunter.sources.orchestrator import run_ingestion
 from jobhunter.sources.registry import get_all_sources
+from jobhunter.notify import get_notifier_cls, NotificationMessage
 
 logger = structlog.get_logger()
 app = typer.Typer(help="Job Hunter EU CLI")
@@ -37,6 +38,9 @@ app.add_typer(sources_app, name="sources")
 
 scoring_app = typer.Typer(help="LLM scoring statistics and management")
 app.add_typer(scoring_app, name="scoring")
+
+notify_app = typer.Typer(help="Manage and test notifications")
+app.add_typer(notify_app, name="notify")
 
 
 @app.command()
@@ -507,6 +511,45 @@ def rescore(
 
     except Exception as e:
         logger.error("Rescoring failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@notify_app.command("test")
+def notify_test(
+    channel: Annotated[str, typer.Option(help="Channel to test (e.g., 'telegram')")],
+    message: Annotated[str, typer.Option(help="Message to send")],
+) -> None:
+    """Send a test notification to a specific channel."""
+    logger.info("Sending test notification", channel=channel)
+
+    settings = Settings()  # type: ignore[call-arg]
+    notifier_cls = get_notifier_cls(channel)
+
+    if not notifier_cls:
+        typer.echo(f"Error: Notifier '{channel}' not found.", err=True)
+        raise typer.Exit(code=1)
+
+    notifier = notifier_cls()
+    if not notifier.is_enabled(settings):
+        typer.echo(f"Error: Notifier '{channel}' is not enabled in settings.", err=True)
+        raise typer.Exit(code=1)
+
+    msg = NotificationMessage(
+        channel=channel,
+        body_text=message,
+        metadata={"test": True},
+    )
+
+    try:
+        result = asyncio.run(notifier.send(msg))
+        if result.success:
+            typer.echo(f"Successfully sent message to {channel}.")
+        else:
+            typer.echo(f"Failed to send message: {result.error}", err=True)
+            raise typer.Exit(code=1)
+    except Exception as e:
+        logger.error("Failed to send test notification", channel=channel, error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

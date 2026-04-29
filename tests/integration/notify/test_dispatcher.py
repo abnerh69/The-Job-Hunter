@@ -166,9 +166,7 @@ async def test_dispatch_tier_a_exception_handling(session: Session, sample_jobs,
 
     # The exception should be recorded as a failure
     failed_notif = (
-        session.query(NotificationSent)
-        .filter(NotificationSent.success == False)
-        .first()
+        session.query(NotificationSent).filter(NotificationSent.success.is_(False)).first()
     )
     assert failed_notif is not None
     assert "Crashed!" in failed_notif.error

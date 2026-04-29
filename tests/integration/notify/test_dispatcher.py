@@ -1,16 +1,18 @@
 import uuid
-import pytest
+from typing import Generator
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from sqlalchemy.orm import Session
 
-from jobhunter.db.enums import JobTier, JobStatus
+from jobhunter.db.enums import JobStatus, JobTier
 from jobhunter.db.models import Job, NotificationSent
-from jobhunter.notify.dispatcher import dispatch_tier_a_notifications
 from jobhunter.notify.base import NotificationResult
+from jobhunter.notify.dispatcher import dispatch_tier_a_notifications
 
 
 @pytest.fixture
-def mock_telegram_notifier():
+def mock_telegram_notifier() -> Generator[AsyncMock, None, None]:
     with patch("jobhunter.notify.dispatcher.TelegramNotifier") as mock_cls:
         notifier = mock_cls.return_value
         notifier.is_enabled.return_value = True
@@ -22,7 +24,7 @@ def mock_telegram_notifier():
 
 
 @pytest.fixture
-def sample_jobs(session: Session):
+def sample_jobs(session: Session) -> list[Job]:
     # Clear any existing data to avoid conflicts
     session.query(NotificationSent).delete()
     session.query(Job).delete()
@@ -63,7 +65,9 @@ def sample_jobs(session: Session):
 
 
 @pytest.mark.asyncio
-async def test_dispatch_tier_a_success(session: Session, sample_jobs, mock_telegram_notifier):
+async def test_dispatch_tier_a_success(
+    session: Session, sample_jobs: list[Job], mock_telegram_notifier: AsyncMock
+) -> None:
     # Act
     report = await dispatch_tier_a_notifications(session)
 
@@ -83,7 +87,9 @@ async def test_dispatch_tier_a_success(session: Session, sample_jobs, mock_teleg
 
 
 @pytest.mark.asyncio
-async def test_dispatch_tier_a_idempotency(session: Session, sample_jobs, mock_telegram_notifier):
+async def test_dispatch_tier_a_idempotency(
+    session: Session, sample_jobs: list[Job], mock_telegram_notifier: AsyncMock
+) -> None:
     # First run
     await dispatch_tier_a_notifications(session)
     assert mock_telegram_notifier.send.call_count == 3
@@ -97,8 +103,8 @@ async def test_dispatch_tier_a_idempotency(session: Session, sample_jobs, mock_t
 
 @pytest.mark.asyncio
 async def test_dispatch_tier_a_no_retry_on_failure(
-    session: Session, sample_jobs, mock_telegram_notifier
-):
+    session: Session, sample_jobs: list[Job], mock_telegram_notifier: AsyncMock
+) -> None:
     # Make one fail
     mock_telegram_notifier.send.side_effect = [
         NotificationResult(success=False, error="Rate limited", duration_ms=10),
@@ -132,8 +138,8 @@ async def test_dispatch_tier_a_no_retry_on_failure(
 
 @pytest.mark.asyncio
 async def test_dispatch_tier_a_disabled_notifier(
-    session: Session, sample_jobs, mock_telegram_notifier
-):
+    session: Session, sample_jobs: list[Job], mock_telegram_notifier: AsyncMock
+) -> None:
     # Disable notifier
     mock_telegram_notifier.is_enabled.return_value = False
 
@@ -152,8 +158,8 @@ async def test_dispatch_tier_a_disabled_notifier(
 
 @pytest.mark.asyncio
 async def test_dispatch_tier_a_exception_handling(
-    session: Session, sample_jobs, mock_telegram_notifier
-):
+    session: Session, sample_jobs: list[Job], mock_telegram_notifier: AsyncMock
+) -> None:
     # One call raises an exception
     mock_telegram_notifier.send.side_effect = [
         NotificationResult(success=True, provider_message_id="msg1", duration_ms=10),
@@ -175,4 +181,5 @@ async def test_dispatch_tier_a_exception_handling(
         session.query(NotificationSent).filter(NotificationSent.success.is_(False)).first()
     )
     assert failed_notif is not None
+    assert failed_notif.error is not None
     assert "Crashed!" in failed_notif.error

@@ -1,0 +1,7 @@
+{
+  "valid": true,
+  "fit_score": 85,
+  "tier": "A",
+  "company": {
+    "name": "Broken JSON",
+    "stage": "early_startup",

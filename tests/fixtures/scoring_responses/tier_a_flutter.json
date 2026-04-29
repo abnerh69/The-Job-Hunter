@@ -1,0 +1,50 @@
+{
+  "valid": true,
+  "fit_score": 92,
+  "tier": "A",
+  "company": {
+    "name": "MobileFirst",
+    "stage": "growth_startup",
+    "domain_inferred": "Mobile Apps"
+  },
+  "role": {
+    "title_normalized": "Senior Flutter Developer",
+    "seniority_inferred": "senior",
+    "primary_stack_match": ["Flutter", "Dart", "Firebase"],
+    "stack_overlap_pct": 90,
+    "is_ai_ml_role": false,
+    "is_flutter_role": true,
+    "is_full_stack": false
+  },
+  "compensation": {
+    "salary_min_usd_month": 7000.0,
+    "salary_max_usd_month": 10000.0,
+    "salary_explicit_in_offer": true,
+    "currency_original": "USD",
+    "meets_floor": true,
+    "meets_target": true,
+    "notes": "Equity included"
+  },
+  "logistics": {
+    "remote_type": "remote_global",
+    "timezone_requirement": "any",
+    "overlap_hours_required_with_CET": 0,
+    "latam_friendly": true,
+    "colombia_explicitly_blocked": false,
+    "contract_type_offered": "either",
+    "language_requirements": ["English"]
+  },
+  "match_analysis": {
+    "key_match_points": ["Extensive Flutter experience", "Remote global setup"],
+    "key_gaps": ["None significant"],
+    "differentiators_to_emphasize": ["Open source contributions to Flutter"]
+  },
+  "red_flags": [],
+  "yellow_flags": [],
+  "recommendation": {
+    "action": "apply_now",
+    "priority": "high",
+    "reason_short": "Top Flutter role with global remote.",
+    "cover_letter_angle": "Emphasize Flutter architectural patterns and remote autonomy."
+  }
+}

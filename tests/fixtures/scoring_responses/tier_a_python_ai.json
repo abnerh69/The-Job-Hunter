@@ -1,0 +1,50 @@
+{
+  "valid": true,
+  "fit_score": 95,
+  "tier": "A",
+  "company": {
+    "name": "AI Innovations",
+    "stage": "scaleup",
+    "domain_inferred": "Artificial Intelligence"
+  },
+  "role": {
+    "title_normalized": "Senior Python/AI Engineer",
+    "seniority_inferred": "senior",
+    "primary_stack_match": ["Python", "PyTorch", "TensorFlow"],
+    "stack_overlap_pct": 95,
+    "is_ai_ml_role": true,
+    "is_flutter_role": false,
+    "is_full_stack": false
+  },
+  "compensation": {
+    "salary_min_usd_month": 8000.0,
+    "salary_max_usd_month": 12000.0,
+    "salary_explicit_in_offer": true,
+    "currency_original": "EUR",
+    "meets_floor": true,
+    "meets_target": true,
+    "notes": "Competitive B2B rate"
+  },
+  "logistics": {
+    "remote_type": "remote_global",
+    "timezone_requirement": "any",
+    "overlap_hours_required_with_CET": 0,
+    "latam_friendly": true,
+    "colombia_explicitly_blocked": false,
+    "contract_type_offered": "B2B",
+    "language_requirements": ["English"]
+  },
+  "match_analysis": {
+    "key_match_points": ["Deep expertise in Python and ML", "B2B friendly", "Remote global"],
+    "key_gaps": [],
+    "differentiators_to_emphasize": ["Prior experience with LLM orchestration"]
+  },
+  "red_flags": [],
+  "yellow_flags": [],
+  "recommendation": {
+    "action": "apply_now",
+    "priority": "high",
+    "reason_short": "Perfect match for AI/Python profile with high salary.",
+    "cover_letter_angle": "Focus on ML deployment experience and B2B availability."
+  }
+}

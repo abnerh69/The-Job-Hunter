@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Sequence
+
 
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text

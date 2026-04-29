@@ -1,8 +1,7 @@
-import uuid
 from datetime import date, timedelta, datetime, timezone
 import pytest
 from sqlalchemy.orm import Session
-from jobhunter.db.models import Job, Application, NotificationSent
+from jobhunter.db.models import Job, Application
 from jobhunter.db.enums import JobTier, JobStatus, ApplicationStatus
 from jobhunter.notify.digest import compute_digest_context, send_weekly_digest
 from jobhunter.db.repos.notifications import NotificationsRepo

@@ -45,7 +45,7 @@ class ApplicationPackage(BaseModel):
 
     job_id: UUID
     cv_variant: VariantRecommendation
-    cover_letter: CoverLetterResult
+    cover_letter: Optional[CoverLetterResult] = None
     ats_keywords: ATSKeywordsResult
     cv_tweaks: CVTweaksResult
     total_cost_usd: float
@@ -64,6 +64,8 @@ async def assist_application(
     job_id: UUID,
     llm_client: AnthropicLLMClient,
     settings: Optional[Settings] = None,
+    no_letter: bool = False,
+    cv_variant_override: Optional[str] = None,
 ) -> ApplicationPackage:
     """
     Orchestrates the application assistance process for a specific job.
@@ -73,6 +75,8 @@ async def assist_application(
         job_id: ID of the job to assist.
         llm_client: LLM client for API calls.
         settings: Application settings.
+        no_letter: If True, skips cover letter generation.
+        cv_variant_override: If provided, uses this variant instead of recommending one.
 
     Returns:
         An ApplicationPackage containing all generated components.
@@ -108,7 +112,15 @@ async def assist_application(
     start_time = time.perf_counter()
 
     # 4. Step 1: Recommend CV and Load it (Fast, synchronous)
-    cv_recommendation = recommend_cv_variant(job)
+    if cv_variant_override:
+        cv_recommendation = VariantRecommendation(
+            variant_name=cv_variant_override,
+            confidence=1.0,
+            reasoning="Variant explicitly requested via override.",
+        )
+    else:
+        cv_recommendation = recommend_cv_variant(job)
+
     cv_variant = load_cv(cv_recommendation.variant_name, settings=settings)
 
     # 5. Parallel Execution
@@ -131,23 +143,29 @@ async def assist_application(
         return keywords, tweaks
 
     # Launch cover letter and (keywords+tweaks) in parallel
-    cover_letter_task = generate_cover_letter(
-        job=job,
-        cv_variant=cv_variant,
-        llm_client=llm_client,
-        model=settings.COVER_LETTER_MODEL,
-        session=session,
-    )
-    keywords_tweaks_task = get_keywords_and_tweaks()
-
-    cover_letter, (ats_keywords, cv_tweaks) = await asyncio.gather(
-        cover_letter_task, keywords_tweaks_task
-    )
+    if no_letter:
+        ats_keywords, cv_tweaks = await get_keywords_and_tweaks()
+        cover_letter = None
+    else:
+        # We use explicit variables for clarity and to help mypy inference
+        keywords_tweaks_task = get_keywords_and_tweaks()
+        cover_letter_task = generate_cover_letter(
+            job=job,
+            cv_variant=cv_variant,
+            llm_client=llm_client,
+            model=settings.COVER_LETTER_MODEL,
+            session=session,
+        )
+        (ats_keywords, cv_tweaks), cover_letter = await asyncio.gather(
+            keywords_tweaks_task, cover_letter_task
+        )
 
     # 6. Calculate Totals
     end_time = time.perf_counter()
     duration_ms = int((end_time - start_time) * 1000)
-    total_cost = cover_letter.cost_usd + ats_keywords.cost_usd + cv_tweaks.cost_usd
+    total_cost = ats_keywords.cost_usd + cv_tweaks.cost_usd
+    if cover_letter:
+        total_cost += cover_letter.cost_usd
 
     # 7. Estimated Apply Time Heuristic
     # Baseline 8 min, +1 min per tweak, -2 min if all keywords are present
@@ -176,13 +194,29 @@ async def assist_application(
     # 9. Persistence (redundant but explicit as per requirements)
     # generate_cover_letter already does this if session is passed,
     # but we ensure it here to be explicit in the orchestrator.
-    stmt = select(Application).where(Application.job_id == job_id)
-    app = session.execute(stmt).scalar_one_or_none()
-    if app:
-        app.cover_letter_text = cover_letter.text
-        app.cover_letter_model = cover_letter.model
-        session.commit()
-        logger.info("assistant_persisted_to_app", job_id=str(job_id), app_id=str(app.id))
+    if cover_letter:
+        stmt = select(Application).where(Application.job_id == job_id)
+        app = session.execute(stmt).scalar_one_or_none()
+        if app:
+            app.cover_letter_text = cover_letter.text
+            app.cover_letter_model = cover_letter.model
+            logger.info("assistant_persisted_to_app", job_id=str(job_id), app_id=str(app.id))
+
+    # Persist assistant data in Job.score_data for cross-command CLI usage
+    # We use reassignment to ensure SQLAlchemy tracks the change in the JSONB column
+    new_score_data = dict(job.score_data or {})
+
+    assistant_cache = {
+        "cv_variant": cv_recommendation.variant_name,
+        "estimated_apply_time_min": estimated_time,
+    }
+    if cover_letter:
+        assistant_cache["cover_letter_text"] = cover_letter.text
+        assistant_cache["cover_letter_model"] = cover_letter.model
+
+    new_score_data["assistant_cache"] = assistant_cache
+    job.score_data = new_score_data
+    session.commit()
 
     # 10. Cache and Return
     _CACHE[job_id] = (package, now + _CACHE_TTL)

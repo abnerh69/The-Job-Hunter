@@ -22,7 +22,7 @@ async def test_compute_digest_context_with_data(session: Session):
         status=JobStatus.QUEUED,
         scraped_at=scraped_at,
         description="Desc A",
-        source="linkedin"
+        source="linkedin",
     )
     job_b = Job(
         title="Frontend Developer",
@@ -33,7 +33,7 @@ async def test_compute_digest_context_with_data(session: Session):
         status=JobStatus.QUEUED,
         scraped_at=scraped_at,
         description="Desc B",
-        source="linkedin"
+        source="linkedin",
     )
     job_c = Job(
         title="Backend dev",
@@ -44,7 +44,7 @@ async def test_compute_digest_context_with_data(session: Session):
         status=JobStatus.MANUAL_REVIEW,
         scraped_at=scraped_at,
         description="Desc C",
-        source="linkedin"
+        source="linkedin",
     )
     session.add_all([job_a, job_b, job_c])
     session.flush()
@@ -54,7 +54,7 @@ async def test_compute_digest_context_with_data(session: Session):
         applied_at=datetime.now(timezone.utc),
         status=ApplicationStatus.APPLIED,
         next_action="Follow up",
-        next_action_due=date.today() - timedelta(days=1)
+        next_action_due=date.today() - timedelta(days=1),
     )
     session.add(app_a)
     session.commit()
@@ -100,6 +100,7 @@ async def test_send_weekly_digest_idempotency(session: Session, monkeypatch):
         return MockResult()
 
     from jobhunter.notify.email import EmailNotifier
+
     monkeypatch.setattr(EmailNotifier, "send", mock_send)
     monkeypatch.setenv("SMTP_USER", "test@example.com")
     monkeypatch.setenv("SMTP_PASSWORD", "secret")

@@ -67,10 +67,16 @@ class TelegramNotifier(BaseNotifier):
 
         bot = Bot(token=token)
 
-        # Telegram message limit is 4096 characters
-        text = message.body_text
+        # Telegram message limit is 4096 characters.
+        # We escape first, then truncate.
+        text = escape_telegram_markdown_v2(message.body_text)
+
         if len(text) > 4096:
-            text = text[:4095] + "…"
+            text = text[:4095]
+            # Ensure we don't end with a trailing backslash that would break escaping
+            if text.endswith("\\"):
+                text = text[:-1]
+            text += "…"
 
         start_time = time.perf_counter()
 

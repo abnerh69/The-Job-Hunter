@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -53,13 +52,14 @@ async def test_send_success(notifier: TelegramNotifier, settings_mock: Settings)
         mock_bot_instance.send_message = AsyncMock()
         mock_bot_instance.send_message.return_value.message_id = 123
 
-        msg = NotificationMessage(channel="telegram", body_text="Hello")
+        msg = NotificationMessage(channel="telegram", body_text="Hello. World!")
         result = await notifier.send(msg)
 
         assert result.success is True
         assert result.provider_message_id == "123"
+        # Verify it was escaped
         mock_bot_instance.send_message.assert_called_once_with(
-            chat_id="chat_id", text="Hello", parse_mode="MarkdownV2"
+            chat_id="chat_id", text="Hello\\. World\\!", parse_mode="MarkdownV2"
         )
 
 
@@ -152,3 +152,25 @@ async def test_truncation(notifier: TelegramNotifier, settings_mock: Settings) -
         sent_text = kwargs["text"]
         assert len(sent_text) == 4096
         assert sent_text.endswith("…")
+
+
+@pytest.mark.asyncio
+async def test_truncation_escaping_boundary(notifier: TelegramNotifier, settings_mock: Settings) -> None:
+    # A text where truncation would leave a trailing backslash
+    body = "A" * 4094 + "."  # Escaped: A...A\. (len 4096)
+    # If we had "A" * 4095 + "." -> Escaped: A...A\. (len 4097) -> truncated to 4095: A...A\
+    body = "A" * 4095 + "."
+    msg = NotificationMessage(channel="telegram", body_text=body)
+
+    with patch("jobhunter.notify.telegram.Bot") as MockBot:
+        mock_bot_instance = MockBot.return_value
+        mock_bot_instance.send_message = AsyncMock()
+        mock_bot_instance.send_message.return_value.message_id = 999
+
+        await notifier.send(msg)
+
+        _args, kwargs = mock_bot_instance.send_message.call_args
+        sent_text = kwargs["text"]
+        assert len(sent_text) <= 4096
+        assert not sent_text.endswith("\\…")
+        assert sent_text.endswith("A…")

@@ -13,7 +13,7 @@ from jobhunter.db.enums import LLMPurpose
 
 
 @pytest.fixture
-def mock_job():
+def mock_job() -> Job:
     return Job(
         id="00000000-0000-0000-0000-000000000001",
         title="Senior Python Engineer",
@@ -25,7 +25,7 @@ def mock_job():
 
 
 @pytest.fixture
-def mock_cv():
+def mock_cv() -> CVVariant:
     return CVVariant(
         name="test_cv",
         path=Path("test.md"),
@@ -39,7 +39,7 @@ def mock_cv():
 
 
 @pytest.mark.asyncio
-async def test_extract_ats_keywords_success(mock_job, mock_cv):
+async def test_extract_ats_keywords_success(mock_job: Job, mock_cv: CVVariant) -> None:
     mock_llm_client = MagicMock()
     mock_llm_client.complete = AsyncMock(
         return_value=LLMResponse(
@@ -75,7 +75,7 @@ async def test_extract_ats_keywords_success(mock_job, mock_cv):
     assert kwargs["model"] == "claude-haiku-4-5-20251001"
 
 
-def test_check_presence_in_cv():
+def test_check_presence_in_cv() -> None:
     cv_text = "I am a Python developer using Py3 and Django. I also use k8s."
 
     # Case insensitive
@@ -93,7 +93,7 @@ def test_check_presence_in_cv():
     assert _check_presence_in_cv("React", cv_text) is False
 
 
-def test_check_presence_in_cv_word_boundaries():
+def test_check_presence_in_cv_word_boundaries() -> None:
     cv_text = "Experience with Java and Javascript."
 
     # Should match Java
@@ -106,7 +106,7 @@ def test_check_presence_in_cv_word_boundaries():
 
 
 @pytest.mark.asyncio
-async def test_extract_ats_keywords_sorting(mock_job):
+async def test_extract_ats_keywords_sorting(mock_job: Job) -> None:
     mock_llm_client = MagicMock()
     mock_llm_client.complete = AsyncMock(
         return_value=LLMResponse(

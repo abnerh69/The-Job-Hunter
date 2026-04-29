@@ -97,7 +97,8 @@ def compute_digest_context(session: Session, week_ending: date) -> WeeklyDigestC
         .where(Job.scraped_at >= start_dt, Job.scraped_at <= end_dt)
         .group_by(Job.tier)
     )
-    new_jobs_by_tier = dict(session.execute(new_jobs_stmt).all())
+    new_jobs_rows = session.execute(new_jobs_stmt).all()
+    new_jobs_by_tier: dict[JobTier | None, int] = {row[0]: row[1] for row in new_jobs_rows}
 
     # 2. Applications sent this week
     apps_sent_stmt = select(func.count(Application.id)).where(
@@ -148,7 +149,7 @@ def compute_digest_context(session: Session, week_ending: date) -> WeeklyDigestC
     response_rate = 0.0
     monthly_trends: list[MonthlyMetric] = []
 
-    if session.bind.dialect.name == "postgresql":
+    if session.bind and session.bind.dialect.name == "postgresql":
         try:
             # Monthly trends from weekly_metrics view
             trends_stmt = text("""

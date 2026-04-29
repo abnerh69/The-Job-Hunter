@@ -1,4 +1,5 @@
 from datetime import date, timedelta, datetime, timezone
+from typing import Any
 import pytest
 from sqlalchemy.orm import Session
 from jobhunter.db.models import Job, Application
@@ -8,7 +9,7 @@ from jobhunter.db.repos.notifications import NotificationsRepo
 
 
 @pytest.mark.asyncio
-async def test_compute_digest_context_with_data(session: Session):
+async def test_compute_digest_context_with_data(session: Session) -> None:
     # Setup: Create some jobs and apps for the week
     week_ending = date.today()
     scraped_at = datetime.now(timezone.utc)
@@ -78,7 +79,7 @@ async def test_compute_digest_context_with_data(session: Session):
 
 
 @pytest.mark.asyncio
-async def test_compute_digest_context_empty(session: Session):
+async def test_compute_digest_context_empty(session: Session) -> None:
     week_ending = date.today()
     context = compute_digest_context(session, week_ending)
 
@@ -88,15 +89,17 @@ async def test_compute_digest_context_empty(session: Session):
 
 
 @pytest.mark.asyncio
-async def test_send_weekly_digest_idempotency(session: Session, monkeypatch):
+async def test_send_weekly_digest_idempotency(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Mock EmailNotifier.send to always succeed
     class MockResult:
-        success = True
-        provider_message_id = "test-msg-id"
-        error = None
-        duration_ms = 100
+        success: bool = True
+        provider_message_id: str | None = "test-msg-id"
+        error: str | None = None
+        duration_ms: int = 100
 
-    async def mock_send(self, message):
+    async def mock_send(self: Any, message: Any) -> MockResult:
         return MockResult()
 
     from jobhunter.notify.email import EmailNotifier

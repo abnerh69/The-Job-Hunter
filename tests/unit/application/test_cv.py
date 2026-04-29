@@ -1,10 +1,11 @@
 import pytest
 from pathlib import Path
+from pydantic import SecretStr
 from jobhunter.application.cv import load_cv, list_available_variants
 from jobhunter.config import Settings
 
 
-def test_list_available_variants(tmp_path):
+def test_list_available_variants(tmp_path: Path) -> None:
     # Setup mock directories
     local_dir = tmp_path / ".local" / "cv_variants"
     repo_dir = tmp_path / "cv_variants"
@@ -14,7 +15,7 @@ def test_list_available_variants(tmp_path):
     (local_dir / "expert.md").write_text("dummy")
     (repo_dir / "template.template.md").write_text("dummy")
 
-    settings = Settings(ANTHROPIC_API_KEY="dummy", CV_VARIANTS_DIR=local_dir)
+    settings = Settings(ANTHROPIC_API_KEY=SecretStr("dummy"), CV_VARIANTS_DIR=local_dir)
 
     # We need to mock Path("cv_variants") or just rely on the fact that we can't easily mock it without monkeypatch
     # but we can at least check if it finds the ones in CV_VARIANTS_DIR
@@ -22,7 +23,7 @@ def test_list_available_variants(tmp_path):
     assert "expert" in variants
 
 
-def test_load_cv_success(tmp_path):
+def test_load_cv_success(tmp_path: Path) -> None:
     cv_content = """# My CV
 ## SUMMARY
 Experienced dev.
@@ -42,7 +43,7 @@ Experienced dev.
     cv_file = cv_dir / "ai_python.md"
     cv_file.write_text(cv_content)
 
-    settings = Settings(ANTHROPIC_API_KEY="dummy", CV_VARIANTS_DIR=cv_dir)
+    settings = Settings(ANTHROPIC_API_KEY=SecretStr("dummy"), CV_VARIANTS_DIR=cv_dir)
 
     cv = load_cv("ai_python", settings=settings)
 
@@ -57,7 +58,7 @@ Experienced dev.
     assert cv.skills == ["Testing", "Architecture"]
 
 
-def test_load_cv_malformed(tmp_path):
+def test_load_cv_malformed(tmp_path: Path) -> None:
     cv_content = """# My CV
 ## SUMMARY
 Missing experience section.
@@ -67,19 +68,19 @@ Missing experience section.
     cv_file = cv_dir / "bad.md"
     cv_file.write_text(cv_content)
 
-    settings = Settings(ANTHROPIC_API_KEY="dummy", CV_VARIANTS_DIR=cv_dir)
+    settings = Settings(ANTHROPIC_API_KEY=SecretStr("dummy"), CV_VARIANTS_DIR=cv_dir)
 
     with pytest.raises(ValueError, match="missing an EXPERIENCE section"):
         load_cv("bad", settings=settings)
 
 
-def test_load_cv_not_found(tmp_path):
-    settings = Settings(ANTHROPIC_API_KEY="dummy", CV_VARIANTS_DIR=tmp_path)
+def test_load_cv_not_found(tmp_path: Path) -> None:
+    settings = Settings(ANTHROPIC_API_KEY=SecretStr("dummy"), CV_VARIANTS_DIR=tmp_path)
     with pytest.raises(FileNotFoundError):
         load_cv("non_existent", settings=settings)
 
 
-def test_fallback_to_repo_variants(tmp_path, monkeypatch):
+def test_fallback_to_repo_variants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # This test is a bit trickier because Path("cv_variants") is hardcoded
     # We will create the directory in the current working directory (sandbox root)
     repo_dir = Path("cv_variants")
@@ -93,7 +94,7 @@ Fallback worked.
 """)
 
     try:
-        settings = Settings(ANTHROPIC_API_KEY="dummy", CV_VARIANTS_DIR=tmp_path / "empty")
+        settings = Settings(ANTHROPIC_API_KEY=SecretStr("dummy"), CV_VARIANTS_DIR=tmp_path / "empty")
         cv = load_cv("test_fallback", settings=settings)
         assert cv.summary == "Fallback worked."
     finally:

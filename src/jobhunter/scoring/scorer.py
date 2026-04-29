@@ -28,6 +28,8 @@ class ScoringOutcome(BaseModel):
     result: ScoringResult | InvalidScoringResponse
     model: str
     prompt_version: str
+    input_tokens: int
+    output_tokens: int
     cost_usd: float
     duration_ms: int
     raw_response: str
@@ -164,6 +166,8 @@ class JobScorer:
             result=result,
             model=llm_response.model,
             prompt_version=self.prompt.version,
+            input_tokens=llm_response.input_tokens,
+            output_tokens=llm_response.output_tokens,
             cost_usd=llm_response.cost_usd,
             duration_ms=llm_response.duration_ms,
             raw_response=llm_response.text,

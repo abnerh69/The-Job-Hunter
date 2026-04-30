@@ -7,6 +7,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# El orquestador debe reclamar estos permisos para poder delegarlos a la Acción de Jules
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 jobs:
   # 1. Acción Asíncrona 1
   validacion_ci:

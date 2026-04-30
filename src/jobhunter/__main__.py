@@ -33,6 +33,7 @@ from jobhunter.notify import get_all_notifiers, get_notifier_cls, NotificationMe
 from jobhunter.notify.digest import prepare_weekly_digest, send_weekly_digest
 from jobhunter.notify.dispatcher import dispatch_tier_a_notifications
 from jobhunter.db.repos.notifications import NotificationsRepo
+from jobhunter.pipeline import RunCycleStatus, run_cycle
 from jobhunter.application.assistant import assist_application
 from jobhunter.application.cover_letter import generate_cover_letter
 from jobhunter.application.cv import load_cv
@@ -49,6 +50,9 @@ app.add_typer(scoring_app, name="scoring")
 
 notify_app = typer.Typer(help="Manage and test notifications")
 app.add_typer(notify_app, name="notify")
+
+pipeline_app = typer.Typer(help="Orchestrate full pipeline cycles")
+app.add_typer(pipeline_app, name="pipeline")
 
 
 @app.command()
@@ -923,6 +927,124 @@ def apply(
 
     except Exception as e:
         logger.error("Apply registration failed", job_id=job_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@pipeline_app.command("run-cycle")
+def pipeline_run_cycle(
+    skip_step: Annotated[
+        list[str] | None, typer.Option(help="Steps to skip (ingest, score, notify)")
+    ] = None,
+    since: Annotated[
+        str, typer.Option(help="Fetch jobs since this date (YYYY-MM-DD or 'N days ago')")
+    ] = "1 day ago",
+) -> None:
+    """Run the full ingestion -> scoring -> notification cycle."""
+    logger.info("Starting pipeline run-cycle", skip_steps=skip_step, since=since)
+
+    # Resolve 'since' parameter
+    since_dt: datetime
+    if "days ago" in since or "day ago" in since:
+        try:
+            days = int(since.split()[0])
+            since_dt = datetime.now(timezone.utc) - timedelta(days=days)
+        except (ValueError, IndexError):
+            typer.echo(f"Error: Invalid 'since' format: {since}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        try:
+            since_dt = datetime.fromisoformat(since).replace(tzinfo=timezone.utc)
+        except ValueError:
+            typer.echo(f"Error: Invalid 'since' date format: {since}. Use YYYY-MM-DD.", err=True)
+            raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            report = asyncio.run(
+                run_cycle(
+                    session=session,
+                    skip_steps=skip_step,
+                    since=since_dt,
+                )
+            )
+
+        console = Console()
+        table = Table(title="Pipeline Run Cycle Report", header_style="bold magenta")
+        table.add_column("Step")
+        table.add_column("Status")
+        table.add_column("Details")
+
+        # Ingestion Row
+        if report.ingestion:
+            ing = report.ingestion
+            table.add_row(
+                "Ingestion",
+                "[green]SUCCESS[/green]" if ing.total_errors == 0 else "[yellow]PARTIAL[/yellow]",
+                f"New: {ing.total_new}, Dups: {ing.total_duplicates}, Errs: {ing.total_errors}",
+            )
+        elif skip_step and "ingest" in skip_step:
+            table.add_row("Ingestion", "[blue]SKIPPED[/blue]", "-")
+        else:
+            table.add_row(
+                "Ingestion",
+                "[red]FAILED[/red]",
+                report.errors[0] if report.errors else "Unknown error",
+            )
+
+        # Scoring Row
+        if report.scoring:
+            sc = report.scoring
+            table.add_row(
+                "Scoring",
+                "[green]SUCCESS[/green]" if sc.failed_count == 0 else "[yellow]PARTIAL[/yellow]",
+                f"Processed: {sc.total_processed}, Success: {sc.success_count}, Fail: {sc.failed_count}",
+            )
+        elif skip_step and "score" in skip_step:
+            table.add_row("Scoring", "[blue]SKIPPED[/blue]", "-")
+        else:
+            table.add_row("Scoring", "[red]FAILED[/red]", "Check logs for details")
+
+        # Notification Row
+        if report.dispatch:
+            disp = report.dispatch
+            table.add_row(
+                "Notification",
+                "[green]SUCCESS[/green]" if disp.failure_count == 0 else "[yellow]PARTIAL[/yellow]",
+                f"Pending: {disp.total_pending}, Success: {disp.success_count}, Fail: {disp.failure_count}",
+            )
+        elif skip_step and "notify" in skip_step:
+            table.add_row("Notification", "[blue]SKIPPED[/blue]", "-")
+        else:
+            table.add_row("Notification", "[red]FAILED[/red]", "Check logs for details")
+
+        table.add_section()
+        status_style = "green" if report.overall_status == RunCycleStatus.SUCCESS else "yellow"
+        if report.overall_status == RunCycleStatus.TOTAL_FAILURE:
+            status_style = "red"
+
+        table.add_row(
+            "OVERALL",
+            f"[{status_style}]{report.overall_status.value.upper()}[/{status_style}]",
+            f"Duration: {report.total_duration_ms}ms",
+            style="bold",
+        )
+
+        console.print(table)
+
+        # Machine output: JSON at the end
+        import json
+
+        console.print("\n[bold]Machine Report (JSON):[/bold]")
+        console.print(json.dumps(report.model_dump(mode="json"), indent=2))
+
+        if report.overall_status == RunCycleStatus.TOTAL_FAILURE:
+            raise typer.Exit(code=1)
+
+    except Exception as e:
+        if isinstance(e, typer.Exit):
+            raise
+        logger.exception("Pipeline run-cycle failed")
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

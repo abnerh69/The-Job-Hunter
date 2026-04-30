@@ -1,13 +1,13 @@
 import asyncio
 import base64
-import logging
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any, Callable, cast
 
 import google.oauth2.credentials
+import structlog
 from google.auth.transport.requests import Request
-from googleapiclient.discovery import Resource, build
-from googleapiclient.errors import HttpError
+from googleapiclient.discovery import Resource, build  # type: ignore
+from googleapiclient.errors import HttpError  # type: ignore
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from jobhunter.config import Settings
@@ -15,7 +15,7 @@ from jobhunter.crypto import decrypt, encrypt
 from jobhunter.db.repos.oauth_tokens import OAuthTokenRepo
 from jobhunter.email.schemas import GmailMessage, GmailMessageDetail, Label
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class GmailClient:
@@ -27,7 +27,7 @@ class GmailClient:
         self.token_repo = token_repo
         self.account_email = account_email
         self.settings = settings
-        self._semaphore = asyncio.Semaphore(1)  # 1 request per 200ms is roughly handled by sleeping
+        self._semaphore = asyncio.Semaphore(1)
         self._service: Resource | None = None
 
     async def _get_service(self) -> Resource:
@@ -56,7 +56,7 @@ class GmailClient:
         if not self.settings.GMAIL_CLIENT_ID or not self.settings.GMAIL_CLIENT_SECRET:
             raise ValueError("GMAIL credentials not configured")
 
-        credentials = google.oauth2.credentials.Credentials(
+        credentials = google.oauth2.credentials.Credentials(  # type: ignore[no-untyped-call]
             token=access_token,
             refresh_token=refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
@@ -85,6 +85,16 @@ class GmailClient:
         self._service = build("gmail", "v1", credentials=credentials)
         return self._service
 
+    def _base64_decode(self, data: str) -> str:
+        """
+        Decodes a base64url encoded string, handling missing padding.
+        """
+        # Add padding if necessary
+        padding = 4 - (len(data) % 4)
+        if padding < 4:
+            data += "=" * padding
+        return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+
     def _parse_message(self, raw: dict[str, Any]) -> dict[str, Any]:
         """
         Parses a raw Gmail message into a structured dictionary.
@@ -104,9 +114,7 @@ class GmailClient:
             "from_email": header_map.get("from", ""),
             "to_email": header_map.get("to", ""),
             "subject": header_map.get("subject", ""),
-            "received_at": datetime.fromtimestamp(
-                int(raw["internalDate"]) / 1000, tz=timezone.utc
-            ),
+            "received_at": datetime.fromtimestamp(int(raw["internalDate"]) / 1000, tz=timezone.utc),
         }
 
         # Parse body
@@ -120,7 +128,7 @@ class GmailClient:
             data = body.get("data")
 
             if data:
-                decoded_data = base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+                decoded_data = self._base64_decode(data)
                 if mime_type == "text/plain":
                     body_text += decoded_data
                 elif mime_type == "text/html":
@@ -137,7 +145,7 @@ class GmailClient:
             body = payload.get("body", {})
             data = body.get("data")
             if data:
-                decoded_data = base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+                decoded_data = self._base64_decode(data)
                 if payload.get("mimeType") == "text/plain":
                     body_text = decoded_data
                 elif payload.get("mimeType") == "text/html":
@@ -151,29 +159,24 @@ class GmailClient:
     @retry(
         retry=retry_if_exception_type(HttpError),
         stop=stop_after_attempt(2),
-        wait=wait_fixed(0),  # Immediate retry if we refreshed tokens
+        wait=wait_fixed(0),
         reraise=True,
     )
-    async def _execute_with_refresh(self, request: Any) -> Any:
+    async def _execute_with_retry(self, request_factory: Callable[[], Any]) -> Any:
         """
         Executes a Google API request with automatic token refresh on 401.
+        Takes a factory to rebuild the request with new credentials.
         """
         async with self._semaphore:
-            # We enforce 200ms between requests (very simple rate limiting)
             await asyncio.sleep(0.2)
             try:
+                request = await request_factory()
                 return request.execute()
             except HttpError as e:
                 if e.resp.status == 401:
                     logger.info("Access token expired, forcing refresh", email=self.account_email)
                     self._service = None  # Force re-creation and refresh
                     await self._get_service()
-                    # Re-bind the request to the new service if possible?
-                    # Actually, if we use the request object passed, it might still have old credentials.
-                    # Better to let the caller handle the service re-acquisition.
-                    # But wait, request.execute() uses the credentials from the service it was built from.
-                    # If we refresh, we need a NEW request object.
-                    # So this retry logic is better placed in methods or using a lambda.
                     raise
                 raise
 
@@ -184,31 +187,30 @@ class GmailClient:
         try:
             full_messages = []
 
-            async def _do_list() -> dict[str, Any]:
+            async def get_list_request() -> Any:
                 service = await self._get_service()
-                return await self._execute_with_refresh(
-                    service.users().messages().list(userId="me", q=query, maxResults=max_results)
-                )
+                return service.users().messages().list(userId="me", q=query, maxResults=max_results)
 
-            results = await _do_list()
+            results = await self._execute_with_retry(get_list_request)
             messages_summaries = results.get("messages", [])
 
             for summary in messages_summaries:
 
-                async def _do_get() -> dict[str, Any]:
+                async def get_msg_request() -> Any:
                     service = await self._get_service()
-                    return await self._execute_with_refresh(
+                    # metadata format includes headers
+                    return (
                         service.users()
                         .messages()
-                        .get(userId="me", id=summary["id"], format="minimal")
+                        .get(userId="me", id=summary["id"], format="metadata")
                     )
 
-                raw_msg = await _do_get()
+                raw_msg = await self._execute_with_retry(get_msg_request)
                 parsed = self._parse_message(raw_msg)
                 full_messages.append(GmailMessage(**parsed))
 
             return full_messages
-        except HttpError as e:
+        except Exception as e:
             logger.error("Failed to list messages", error=str(e))
             raise
 
@@ -218,16 +220,14 @@ class GmailClient:
         """
         try:
 
-            async def _do_get() -> dict[str, Any]:
+            async def get_msg_request() -> Any:
                 service = await self._get_service()
-                return await self._execute_with_refresh(
-                    service.users().messages().get(userId="me", id=message_id)
-                )
+                return service.users().messages().get(userId="me", id=message_id)
 
-            raw_msg = await _do_get()
+            raw_msg = await self._execute_with_retry(get_msg_request)
             parsed = self._parse_message(raw_msg)
             return GmailMessageDetail(**parsed)
-        except HttpError as e:
+        except Exception as e:
             logger.error("Failed to get message", message_id=message_id, error=str(e))
             raise
 
@@ -237,13 +237,16 @@ class GmailClient:
         """
         try:
 
-            async def _do_list() -> dict[str, Any]:
+            async def get_labels_request() -> Any:
                 service = await self._get_service()
-                return await self._execute_with_refresh(service.users().labels().list(userId="me"))
+                return service.users().labels().list(userId="me")
 
-            results = await _do_list()
+            results = await self._execute_with_retry(get_labels_request)
             labels = results.get("labels", [])
-            return [Label(id=l["id"], name=l["name"], type=l.get("type")) for l in labels]
+            return [
+                Label(id=label["id"], name=label["name"], type=label.get("type"))
+                for label in labels
+            ]
         except HttpError as e:
             logger.error("Failed to list labels", error=str(e))
             raise
@@ -255,34 +258,34 @@ class GmailClient:
         try:
             # Check if label exists
             labels = await self.list_labels()
-            label_id = next((l.id for l in labels if l.name == label_name), None)
+            label_id = next((label.id for label in labels if label.name == label_name), None)
 
             if not label_id:
-                # Create label
 
-                async def _do_create() -> dict[str, Any]:
+                async def create_label_request() -> Any:
                     service = await self._get_service()
-                    return await self._execute_with_refresh(
+                    return (
                         service.users()
                         .labels()
                         .create(
-                            userId="me", body={"name": label_name, "labelListVisibility": "labelShow"}
+                            userId="me",
+                            body={"name": label_name, "labelListVisibility": "labelShow"},
                         )
                     )
 
-                new_label = await _do_create()
+                new_label = await self._execute_with_retry(create_label_request)
                 label_id = new_label["id"]
 
-            async def _do_modify() -> dict[str, Any]:
+            async def modify_msg_request() -> Any:
                 service = await self._get_service()
-                return await self._execute_with_refresh(
+                return (
                     service.users()
                     .messages()
                     .modify(userId="me", id=message_id, body={"addLabelIds": [label_id]})
                 )
 
-            await _do_modify()
-        except HttpError as e:
+            await self._execute_with_retry(modify_msg_request)
+        except Exception as e:
             logger.error(
                 "Failed to add label", message_id=message_id, label=label_name, error=str(e)
             )
@@ -294,22 +297,22 @@ class GmailClient:
         """
         try:
             labels = await self.list_labels()
-            label_id = next((l.id for l in labels if l.name == label_name), None)
+            label_id = next((label.id for label in labels if label.name == label_name), None)
 
             if not label_id:
                 logger.warning("Label not found for removal", label=label_name)
                 return
 
-            async def _do_modify() -> dict[str, Any]:
+            async def modify_msg_request() -> Any:
                 service = await self._get_service()
-                return await self._execute_with_refresh(
+                return (
                     service.users()
                     .messages()
                     .modify(userId="me", id=message_id, body={"removeLabelIds": [label_id]})
                 )
 
-            await _do_modify()
-        except HttpError as e:
+            await self._execute_with_retry(modify_msg_request)
+        except Exception as e:
             logger.error(
                 "Failed to remove label", message_id=message_id, label=label_name, error=str(e)
             )

@@ -1,0 +1,66 @@
+name: Abner Hernández
+seniority: senior (20+ años experiencia, perfil staff-capable)
+primary_stack: [Python, FastAPI, Django, AI/ML, LLMs, RAG, AWS SageMaker]
+secondary_stack: [Flutter/Dart, Firebase, PostgreSQL]
+domains: [GenAI infrastructure, backend, mobile cross-platform, data pipelines]
+years_experience: 20+
+
+location_legal:
+  country: Colombia
+  id_type: Permiso por Protección Temporal (PPT)
+  work_authorization: legal en Colombia
+  payment_methods_ok: [Payoneer, Deel, Binance/USDT, Wise]
+
+contract_preferences:
+  - international_contractor (B2B) -- preferido
+  - EOR (Deel, Remote.com, Velocity Global) -- aceptable
+  - direct_employment_eu -- solo si patrocinan o si es 100% remoto sin restricción
+
+timezone:
+  home: UTC-5 (Colombia)
+  overlap_max_acceptable_hours_with_CET: 5  # hasta 21:00 hora Colombia = 03:00 CET
+  preferred_overlap_CET: 4  # 14:00–18:00 CET = 09:00–13:00 Colombia
+
+compensation:
+  floor_usd_month: 5500
+  target_usd_month: 7500
+  stretch_usd_month: 10000
+  floor_eur_year: 65000
+  target_eur_year: 90000
+  stretch_eur_year: 120000
+  notes: |
+    Para B2B contractor, el bruto debe estar 15-20% por encima de salarios
+    empleado-equivalente para compensar ausencia de benefits.
+    Para EOR, el monto neto recibido es lo que cuenta (Deel cobra ~$50/mes flat,
+    Remote.com varía por país).
+
+language:
+  english: fluent (professional)
+  spanish: native
+  german: none -- evitar ofertas que requieran alemán a nivel de trabajo
+
+hard_blockers:
+  - on-site requirement
+  - relocation required (no abierto a mudarse a corto plazo)
+  - jobs requiring EU citizenship/work permit (a menos que el candidato sea contratista B2B externo)
+  - jobs requiring German fluency
+  - jobs explicitly excluding LATAM/Colombia/Venezuela
+  - companies on US/EU sanctions list
+  - crypto-only payment with no fiat option
+  - clearance/security-cleared roles (US gov, NATO, etc.)
+
+soft_negatives:
+  - timezone overlap > 5h con CET
+  - stack 100% no-Python/no-Flutter (ej. Java enterprise puro, .NET puro, Ruby on Rails)
+  - early-stage startup pre-seed sin runway claro
+  - "rockstar/ninja" job descriptions (señal de cultura tóxica)
+  - rangos salariales por debajo del floor cuando son visibles
+
+positive_signals:
+  - GenAI / LLM / RAG / vector DB / agents
+  - Python + AWS (especialmente SageMaker, Bedrock)
+  - empresas con remote-first formal (no "remote-friendly")
+  - empresas que ya contratan desde LATAM (mencionan Deel, Remote.com, Worldwide hiring)
+  - product companies > consultoras (mejor pago, mejor cultura)
+  - rangos salariales transparentes
+  - Series B+ o profitable

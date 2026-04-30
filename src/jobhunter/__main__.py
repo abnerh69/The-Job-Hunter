@@ -65,6 +65,9 @@ app.add_typer(email_app, name="email")
 outreach_app = typer.Typer(help="Manage proactive outreach contacts")
 app.add_typer(outreach_app, name="outreach")
 
+telegram_app = typer.Typer(help="Manage Telegram bot interactions")
+app.add_typer(telegram_app, name="telegram")
+
 
 @app.command()
 def version() -> None:
@@ -1410,6 +1413,27 @@ def outreach_stats(
 
     except Exception as e:
         logger.error("Outreach stats failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@telegram_app.command("process-callbacks")
+def telegram_process_callbacks() -> None:
+    """Process pending Telegram callback updates."""
+    logger.info("Starting Telegram callback processing")
+    try:
+        from jobhunter.notify.telegram import TelegramNotifier
+
+        notifier = TelegramNotifier()
+        with get_session() as session:
+            count = asyncio.run(notifier.process_callback_updates(session))
+
+        if count > 0:
+            typer.echo(f"Successfully processed {count} Telegram callbacks.")
+        else:
+            typer.echo("No pending Telegram callbacks found.")
+    except Exception as e:
+        logger.error("Failed to process Telegram callbacks", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

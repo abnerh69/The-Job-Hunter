@@ -61,7 +61,7 @@ async def test_send_success(notifier: TelegramNotifier, settings_mock: Settings)
         assert result.provider_message_id == "123"
         # Verify it was escaped
         mock_bot_instance.send_message.assert_called_once_with(
-            chat_id="chat_id", text="Hello\\. World\\!", parse_mode="MarkdownV2"
+            chat_id="chat_id", text="Hello\\. World\\!", parse_mode="MarkdownV2", reply_markup=None
         )
 
 

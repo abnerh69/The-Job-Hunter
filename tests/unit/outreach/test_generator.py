@@ -57,7 +57,8 @@ async def test_generate_message_success(
 
     # Verify
     assert result.body == body
-    assert result.word_count >= 80 and result.word_count <= 150
+    word_count = len(result.body.split())
+    assert word_count >= 80 and word_count <= 150
     mock_llm_client.complete.assert_called_once()
     mock_session.commit.assert_called_once()
 

@@ -27,6 +27,7 @@ dependencies = [
     "streamlit>=1.57.0",
     "playwright>=1.59.0",
     "pytest-playwright>=0.7.2",
+    "plotly>=6.7.0",
 ]
 
 [dependency-groups]
@@ -40,6 +41,7 @@ dev = [
     "detect-secrets",
     "vcrpy>=8.1.1",
     "pytest-recording>=0.13.4",
+    "pandas-stubs>=3.0.0.260204",
 ]
 
 [tool.ruff]

@@ -11,8 +11,9 @@ from jobhunter.db.base import Base
 from jobhunter.db.models import Job
 from jobhunter.db.enums import JobStatus, JobTier
 
+
 @pytest.fixture(scope="module")
-def test_db():
+def test_db() -> Generator[str, None, None]:
     db_path = "test_e2e_new_matches.db"
     if os.path.exists(db_path):
         os.remove(db_path)
@@ -39,8 +40,8 @@ def test_db():
                 "role": {"title_normalized": "Python Developer", "primary_stack_match": ["Python"]},
                 "compensation": {"salary_max_usd_month": 10000},
                 "match_analysis": {"key_match_points": ["Point A", "Point B"]},
-                "yellow_flags": ["Test yellow flag"]
-            }
+                "yellow_flags": ["Test yellow flag"],
+            },
         )
         session.add(job)
     session.commit()
@@ -51,8 +52,9 @@ def test_db():
     if os.path.exists(db_path):
         os.remove(db_path)
 
+
 @pytest.fixture(scope="module")
-def streamlit_server(test_db) -> Generator[None, None, None]:
+def streamlit_server(test_db: str) -> Generator[None, None, None]:
     # Kill any existing streamlit server on 8501
     subprocess.run("kill $(lsof -t -i :8501) 2>/dev/null || true", shell=True)
 
@@ -83,7 +85,8 @@ def streamlit_server(test_db) -> Generator[None, None, None]:
     process.terminate()
     process.wait()
 
-def test_new_matches_flow(streamlit_server) -> None:
+
+def test_new_matches_flow(streamlit_server: None) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
@@ -109,7 +112,7 @@ def test_new_matches_flow(streamlit_server) -> None:
         time.sleep(2)
 
         # Now only Tier A should be visible (Python Developer 0, 1, 2)
-        expect(page.get_by_text("Python Developer 4")).not_to_be_visible() # This was Tier B
+        expect(page.get_by_text("Python Developer 4")).not_to_be_visible()  # This was Tier B
         expect(page.get_by_text("Python Developer 2")).to_be_visible()
 
         # 3. Test Skip

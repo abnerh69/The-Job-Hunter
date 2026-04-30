@@ -2,6 +2,7 @@ import streamlit as st
 import time
 from jobhunter.dashboard.auth import require_auth
 from jobhunter.dashboard.layout import render_header, render_sidebar
+from typing import Sequence
 from jobhunter.dashboard.components import render_job_card
 from jobhunter.db.session import get_session
 from jobhunter.db.repos.job import JobRepo
@@ -29,10 +30,9 @@ st.sidebar.divider()
 st.sidebar.subheader("Filtros")
 
 selected_tiers = st.sidebar.multiselect(
-    "Tier",
-    options=[JobTier.A, JobTier.B],
-    default=[JobTier.A, JobTier.B]
+    "Tier", options=[JobTier.A, JobTier.B], default=[JobTier.A, JobTier.B]
 )
+
 
 @st.cache_data(ttl=60)
 def get_available_sources() -> list[str]:
@@ -40,20 +40,17 @@ def get_available_sources() -> list[str]:
         available_sources = session.query(Job.source).distinct().all()
         return [s[0] for s in available_sources]
 
+
 available_sources = get_available_sources()
 
 selected_sources = st.sidebar.multiselect(
-    "Source",
-    options=available_sources,
-    default=available_sources
+    "Source", options=available_sources, default=available_sources
 )
 
 min_score = st.sidebar.slider("Min fit score", 50, 100, 70)
 
 selected_stacks = st.sidebar.multiselect(
-    "Stack predominante",
-    options=["Python", "Flutter", "AI/ML", "Backend"],
-    default=[]
+    "Stack predominante", options=["Python", "Flutter", "AI/ML", "Backend"], default=[]
 )
 
 min_salary = st.sidebar.number_input("Salario mínimo (USD/mes)", min_value=0, value=0, step=500)
@@ -78,6 +75,7 @@ if auto_refresh and not modal_open:
         height=0,
     )
 
+
 @st.dialog("Confirmar Skip")
 def skip_dialog(job: Job) -> None:
     st.write(f"¿Estás seguro de que deseas archivar el job: **{job.title}** en **{job.company}**?")
@@ -95,6 +93,7 @@ def skip_dialog(job: Job) -> None:
         st.session_state.show_skip_modal = False
         st.session_state.job_to_skip = None
         st.rerun()
+
 
 @st.dialog("Mark as Applied")
 def apply_dialog(job: Job) -> None:
@@ -114,7 +113,7 @@ def apply_dialog(job: Job) -> None:
                 application_method=method,
                 cv_variant=cv_variant,
                 notes=notes,
-                status=ApplicationStatus.APPLIED
+                status=ApplicationStatus.APPLIED,
             )
 
             # Transition Job status
@@ -132,16 +131,19 @@ def apply_dialog(job: Job) -> None:
         st.session_state.job_to_apply = None
         st.rerun()
 
+
 # Actions Handlers
 def handle_skip(job: Job) -> None:
     st.session_state.show_skip_modal = True
     st.session_state.job_to_skip = job
     st.rerun()
 
+
 def handle_apply(job: Job) -> None:
     st.session_state.show_apply_modal = True
     st.session_state.job_to_apply = job
     st.rerun()
+
 
 # Show dialogs if requested
 if st.session_state.show_skip_modal and st.session_state.job_to_skip:
@@ -153,12 +155,14 @@ if st.session_state.show_apply_modal and st.session_state.job_to_apply:
 # Main Content
 st.header("📥 New Matches")
 
+
 # Metrics
 @st.cache_data(ttl=60)
 def get_metrics() -> dict[str, int]:
     with get_session() as session:
         repo = JobRepo(session)
         return repo.get_dashboard_metrics()
+
 
 metrics = get_metrics()
 
@@ -173,8 +177,17 @@ if "page_num" not in st.session_state:
 
 offset = (st.session_state.page_num - 1) * page_size
 
+
 @st.cache_data(ttl=60)
-def fetch_jobs(tiers, sources, min_score, stacks, min_salary, limit, offset):
+def fetch_jobs(
+    tiers: list[JobTier],
+    sources: list[str],
+    min_score: int,
+    stacks: list[str],
+    min_salary: int,
+    limit: int,
+    offset: int,
+) -> Sequence[Job]:
     with get_session() as session:
         repo = JobRepo(session)
         return repo.list_new_matches(
@@ -184,8 +197,9 @@ def fetch_jobs(tiers, sources, min_score, stacks, min_salary, limit, offset):
             stacks=stacks,
             min_salary=min_salary,
             limit=limit,
-            offset=offset
+            offset=offset,
         )
+
 
 jobs = fetch_jobs(
     tiers=selected_tiers,
@@ -194,7 +208,7 @@ jobs = fetch_jobs(
     stacks=selected_stacks,
     min_salary=min_salary,
     limit=page_size,
-    offset=offset
+    offset=offset,
 )
 
 if not jobs:

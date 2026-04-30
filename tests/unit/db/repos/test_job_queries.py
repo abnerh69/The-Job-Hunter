@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Generator
 import pytest
@@ -10,6 +9,7 @@ from jobhunter.db.models import Job
 from jobhunter.db.enums import JobStatus, JobTier
 from jobhunter.db.repos.job import JobRepo
 
+
 @pytest.fixture
 def session() -> Generator[Session, None, None]:
     engine = create_engine("sqlite:///:memory:")
@@ -18,6 +18,7 @@ def session() -> Generator[Session, None, None]:
     session = Session_factory()
     yield session
     session.close()
+
 
 def test_list_new_matches_filtering(session: Session) -> None:
     repo = JobRepo(session)
@@ -35,8 +36,8 @@ def test_list_new_matches_filtering(session: Session) -> None:
         fit_score=90,
         score_data={
             "role": {"title_normalized": "Backend Developer", "primary_stack_match": ["Python"]},
-            "compensation": {"salary_max_usd_month": 8000}
-        }
+            "compensation": {"salary_max_usd_month": 8000},
+        },
     )
 
     job2 = Job(
@@ -51,8 +52,8 @@ def test_list_new_matches_filtering(session: Session) -> None:
         fit_score=75,
         score_data={
             "role": {"title_normalized": "Mobile Developer", "is_flutter_role": True},
-            "compensation": {"salary_max_usd_month": 5000}
-        }
+            "compensation": {"salary_max_usd_month": 5000},
+        },
     )
 
     job3 = Job(
@@ -67,8 +68,8 @@ def test_list_new_matches_filtering(session: Session) -> None:
         fit_score=95,
         score_data={
             "role": {"title_normalized": "AI Engineer", "is_ai_ml_role": True},
-            "compensation": {"salary_max_usd_month": 12000}
-        }
+            "compensation": {"salary_max_usd_month": 12000},
+        },
     )
 
     job4 = Job(
@@ -83,7 +84,7 @@ def test_list_new_matches_filtering(session: Session) -> None:
         fit_score=85,
         score_data={
             "role": {"title_normalized": "Python dev", "primary_stack_match": ["Python"]},
-        }
+        },
     )
 
     session.add_all([job1, job2, job3, job4])
@@ -119,24 +120,46 @@ def test_list_new_matches_filtering(session: Session) -> None:
     matches = repo.list_new_matches(stacks=["Python", "AI/ML"])
     assert len(matches) == 2
 
+
 def test_get_dashboard_metrics(session: Session) -> None:
     repo = JobRepo(session)
     now = datetime.now(timezone.utc)
 
     # Jobs scraped today
     job1 = Job(
-        source="Source1", url="url1", url_hash="h1", title="T1", company="C1", description="D1",
-        scraped_at=now, status=JobStatus.QUEUED, tier=JobTier.A
+        source="Source1",
+        url="url1",
+        url_hash="h1",
+        title="T1",
+        company="C1",
+        description="D1",
+        scraped_at=now,
+        status=JobStatus.QUEUED,
+        tier=JobTier.A,
     )
     job2 = Job(
-        source="Source2", url="url2", url_hash="h2", title="T2", company="C2", description="D2",
-        scraped_at=now, status=JobStatus.QUEUED, tier=JobTier.B
+        source="Source2",
+        url="url2",
+        url_hash="h2",
+        title="T2",
+        company="C2",
+        description="D2",
+        scraped_at=now,
+        status=JobStatus.QUEUED,
+        tier=JobTier.B,
     )
 
     # Job scraped yesterday
     job3 = Job(
-        source="Source3", url="url3", url_hash="h3", title="T3", company="C3", description="D3",
-        scraped_at=now - timedelta(days=1), status=JobStatus.QUEUED, tier=JobTier.A
+        source="Source3",
+        url="url3",
+        url_hash="h3",
+        title="T3",
+        company="C3",
+        description="D3",
+        scraped_at=now - timedelta(days=1),
+        status=JobStatus.QUEUED,
+        tier=JobTier.A,
     )
 
     session.add_all([job1, job2, job3])
@@ -145,4 +168,4 @@ def test_get_dashboard_metrics(session: Session) -> None:
     metrics = repo.get_dashboard_metrics()
 
     assert metrics["jobs_today"] == 2
-    assert metrics["pending_a"] == 2 # job1 and job3
+    assert metrics["pending_a"] == 2  # job1 and job3

@@ -161,7 +161,9 @@ class JobRepo(BaseRepo[Job]):
         if min_score is not None:
             stmt = stmt.where(Job.fit_score >= min_score)
 
-        is_postgres = self.session.bind.dialect.name == "postgresql"
+        is_postgres = False
+        if self.session.bind:
+            is_postgres = self.session.bind.dialect.name == "postgresql"
 
         if stacks:
             stack_filters = []
@@ -177,16 +179,22 @@ class JobRepo(BaseRepo[Job]):
                     if is_postgres:
                         stack_filters.append(Job.score_data["role"]["is_flutter_role"].as_boolean())
                     else:
-                        stack_filters.append(cast(Job.score_data, SAText).like('%"is_flutter_role": true%'))
+                        stack_filters.append(
+                            cast(Job.score_data, SAText).like('%"is_flutter_role": true%')
+                        )
                 elif stack == "AI/ML":
                     if is_postgres:
                         stack_filters.append(Job.score_data["role"]["is_ai_ml_role"].as_boolean())
                     else:
-                        stack_filters.append(cast(Job.score_data, SAText).like('%"is_ai_ml_role": true%'))
+                        stack_filters.append(
+                            cast(Job.score_data, SAText).like('%"is_ai_ml_role": true%')
+                        )
                 elif stack == "Backend":
                     if is_postgres:
                         stack_filters.append(
-                            Job.score_data["role"]["title_normalized"].as_string().ilike("%backend%")
+                            Job.score_data["role"]["title_normalized"]
+                            .as_string()
+                            .ilike("%backend%")
                         )
                     else:
                         stack_filters.append(cast(Job.score_data, SAText).ilike("%backend%"))

@@ -4,6 +4,7 @@ from typing import Callable
 from jobhunter.db.models import Job
 from jobhunter.db.enums import JobTier
 
+
 def format_relative_time(dt: datetime) -> str:
     """
     Returns a human-readable relative time string in Spanish.
@@ -35,10 +36,9 @@ def format_relative_time(dt: datetime) -> str:
 
     return f"hace {int(days)}d"
 
+
 def render_job_card(
-    job: Job,
-    on_skip: Callable[[Job], None],
-    on_apply: Callable[[Job], None]
+    job: Job, on_skip: Callable[[Job], None], on_apply: Callable[[Job], None]
 ) -> None:
     """
     Renders a visual card for a job match.
@@ -47,8 +47,8 @@ def render_job_card(
         JobTier.A: "🔥",
         JobTier.B: "✅",
         JobTier.C: "⚖️",
-        JobTier.REJECT: "❌"
-    }.get(job.tier, "❓")
+        JobTier.REJECT: "❌",
+    }.get(job.tier if job.tier else JobTier.C, "❓")
 
     with st.container(border=True):
         col1, col2 = st.columns([0.8, 0.2])

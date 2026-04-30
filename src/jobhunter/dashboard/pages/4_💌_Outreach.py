@@ -533,7 +533,7 @@ else:
                     if contact.linkedin_url:
                         st.link_button("🔗", contact.linkedin_url, help="Open LinkedIn")
                     else:
-                        st.button("🔗", disabled=True)
+                        st.button("🔗", key=f"link_disabled_{contact.id}", disabled=True)
                 with l_col2:
                     if st.button("🤖", key=f"gen_{contact.id}", help="Generate Message"):
                         st.session_state.show_gen_modal = True

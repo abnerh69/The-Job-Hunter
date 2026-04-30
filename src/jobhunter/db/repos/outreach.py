@@ -237,3 +237,22 @@ class OutreachRepo(BaseRepo[OutreachContact]):
             raise IOError(f"File not found: {path}")
         except Exception as e:
             raise Exception(f"Error parsing CSV: {str(e)}")
+
+    def list_warmest_contacts(self, limit: int = 5) -> Sequence[OutreachContact]:
+        """
+        Lists top warmest contacts.
+        Criteria: status='warm' or status='replied', ordered by last_contacted_at DESC.
+
+        Args:
+            limit (int): Maximum number of contacts to return.
+
+        Returns:
+            Sequence[OutreachContact]: Top warmest contacts.
+        """
+        stmt = (
+            select(OutreachContact)
+            .where(OutreachContact.status.in_([OutreachStatus.WARM, OutreachStatus.REPLIED]))
+            .order_by(OutreachContact.last_contacted_at.desc().nulls_last())
+            .limit(limit)
+        )
+        return self.session.scalars(stmt).all()

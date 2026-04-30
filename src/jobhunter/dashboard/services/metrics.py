@@ -11,6 +11,8 @@ from jobhunter.db.enums import (
     SourceState,
 )
 from jobhunter.db.models import Application, Job, LLMCall, SourceHealth
+from jobhunter.db.repos.outreach import OutreachRepo
+from jobhunter.db.repos.outreach_messages import OutreachMessageRepo
 
 
 class MetricsService:
@@ -426,6 +428,43 @@ class MetricsService:
                 )
 
         return results
+
+    def get_outreach_stats(self, start_date: date) -> Dict[str, Any]:
+        """
+        Retrieves outreach statistics.
+
+        Args:
+            start_date: Start of the period for stats.
+
+        Returns:
+            A dictionary with outreach metrics.
+        """
+        msg_repo = OutreachMessageRepo(self.session)
+        # Convert date to datetime at start of day
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        return msg_repo.get_stats(start_dt)
+
+    def get_warmest_contacts(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Retrieves top warmest outreach contacts.
+
+        Args:
+            limit: Maximum number of contacts to return.
+
+        Returns:
+            A list of dictionaries with contact info.
+        """
+        outreach_repo = OutreachRepo(self.session)
+        contacts = outreach_repo.list_warmest_contacts(limit=limit)
+        return [
+            {
+                "name": c.name,
+                "company": c.company,
+                "status": c.status,
+                "last_contacted_at": c.last_contacted_at,
+            }
+            for c in contacts
+        ]
 
 
 def get_metrics_service(session: Session) -> MetricsService:

@@ -1272,25 +1272,141 @@ def outreach_check_cadence() -> None:
     try:
         with get_session() as session:
             results = asyncio.run(run_outreach_cadence_checks(session))
+
+            console = Console()
+            table = Table(title="Outreach Cadence Report", header_style="bold magenta")
+            table.add_column("Metric")
+            table.add_column("Value", justify="right")
+
+            table.add_row("Follow-ups Due", str(len(results["pending_followups"])))
+            table.add_row("Messages Ghosted", str(results["ghosted_count"]))
+
+            console.print(table)
+
+            if results["pending_followups"]:
+                console.print("\n[bold]Contacts due for follow-up:[/bold]")
+                for contact in results["pending_followups"]:
+                    console.print(f"- {contact.name} at {contact.company or 'Unknown'}")
+
             session.commit()
-
-        console = Console()
-        table = Table(title="Outreach Cadence Report", header_style="bold magenta")
-        table.add_column("Metric")
-        table.add_column("Value", justify="right")
-
-        table.add_row("Follow-ups Due", str(len(results["pending_followups"])))
-        table.add_row("Messages Ghosted", str(results["ghosted_count"]))
-
-        console.print(table)
-
-        if results["pending_followups"]:
-            console.print("\n[bold]Contacts due for follow-up:[/bold]")
-            for contact in results["pending_followups"]:
-                console.print(f"- {contact.name} at {contact.company or 'Unknown'}")
 
     except Exception as e:
         logger.exception("Outreach cadence checks failed")
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("stats")
+def outreach_stats(
+    since: Annotated[
+        str, typer.Option(help="Calculate stats since this date (YYYY-MM-DD or 'N weeks ago')")
+    ] = "4 weeks ago",
+) -> None:
+    """Display outreach effectiveness statistics and response rates."""
+    from jobhunter.dashboard.services.metrics import get_metrics_service
+
+    # Resolve 'since' parameter
+    since_dt: datetime
+    if "weeks ago" in since:
+        try:
+            weeks = int(since.split()[0])
+            since_dt = datetime.now() - timedelta(weeks=weeks)
+        except (ValueError, IndexError):
+            typer.echo(f"Error: Invalid 'since' format: {since}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        try:
+            since_dt = datetime.fromisoformat(since)
+        except ValueError:
+            typer.echo(f"Error: Invalid 'since' date format: {since}. Use YYYY-MM-DD.", err=True)
+            raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            service = get_metrics_service(session)
+            stats = service.get_outreach_stats(since_dt.date())
+            warmest = service.get_warmest_contacts(limit=5)
+
+        console = Console()
+        console.print(f"\n[bold blue]Outreach Statistics (Since {since_dt.date()})[/bold blue]\n")
+
+        # Overview Table
+        overview = Table(title="Global Overview", header_style="bold magenta")
+        overview.add_column("Metric")
+        overview.add_column("Value", justify="right")
+
+        overview.add_row("Total Messages Sent", str(stats["total_sent"]))
+        overview.add_row("Total Replies Received", str(stats["total_replied"]))
+        overview.add_row(
+            "Global Response Rate", f"[bold green]{stats['response_rate'] * 100:.1f}%[/bold green]"
+        )
+        overview.add_row("Mean Response Time", f"{stats['mean_response_time'] / 3600:.1f} hours")
+        console.print(overview)
+
+        # Status Counts Table
+        status_table = Table(title="Message Lifecycle Status", header_style="bold cyan")
+        status_table.add_column("Status")
+        status_table.add_column("Count", justify="right")
+        for status, count in stats["status_counts"].items():
+            status_name = status.value if hasattr(status, "value") else str(status)
+            status_table.add_row(status_name, str(count))
+        console.print(status_table)
+
+        # Breakdown by Template
+        template_table = Table(title="Effectiveness by Template Type", header_style="bold yellow")
+        template_table.add_column("Template Type")
+        template_table.add_column("Sent", justify="right")
+        template_table.add_column("Replied", justify="right")
+        template_table.add_column("Rate", justify="right")
+        for s in stats["template_stats"]:
+            template_table.add_row(
+                s["template_type"], str(s["sent"]), str(s["replied"]), f"{s['rate'] * 100:.1f}%"
+            )
+        console.print(template_table)
+
+        # Breakdown by Market
+        market_table = Table(title="Effectiveness by Market", header_style="bold green")
+        market_table.add_column("Market")
+        market_table.add_column("Sent", justify="right")
+        market_table.add_column("Replied", justify="right")
+        market_table.add_column("Rate", justify="right")
+        for s in stats["market_stats"]:
+            market_table.add_row(
+                s["market"] or "Unknown",
+                str(s["sent"]),
+                str(s["replied"]),
+                f"{s['rate'] * 100:.1f}%",
+            )
+        console.print(market_table)
+
+        # Breakdown by Quality Score
+        quality_table = Table(title="Effectiveness by Quality Score", header_style="bold blue")
+        quality_table.add_column("Score Bin")
+        quality_table.add_column("Sent", justify="right")
+        quality_table.add_column("Replied", justify="right")
+        quality_table.add_column("Rate", justify="right")
+        for s in stats["quality_stats"]:
+            quality_table.add_row(
+                s["score_bin"], str(s["sent"]), str(s["replied"]), f"{s['rate'] * 100:.1f}%"
+            )
+        console.print(quality_table)
+
+        # Warmest Contacts
+        if warmest:
+            warm_table = Table(title="Top 5 Warmest Contacts", header_style="bold red")
+            warm_table.add_column("Name")
+            warm_table.add_column("Company")
+            warm_table.add_column("Status")
+            warm_table.add_column("Last Contact")
+            for c in warmest:
+                last_contact = (
+                    c["last_contacted_at"].strftime("%Y-%m-%d") if c["last_contacted_at"] else "-"
+                )
+                warm_table.add_row(c["name"], c["company"] or "-", c["status"], last_contact)
+            console.print(warm_table)
+
+    except Exception as e:
+        logger.error("Outreach stats failed", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

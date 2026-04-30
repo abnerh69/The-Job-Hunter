@@ -33,7 +33,35 @@ jobs:
         env:
           LOG_FORMAT: json
         run: |
-          uv run jobhunter health-check
+          uv run jobhunter health-check > health-check-${{ github.run_id }}.jsonl 2>&1
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-check-logs-${{ github.run_id }}
+          path: health-check-${{ github.run_id }}.jsonl
+          retention-days: 30
+
+      - name: Action Summary
+        if: always()
+        run: |
+          if [ -f health-check-${{ github.run_id }}.jsonl ]; then
+            echo "### 🏥 Health Check Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Simple heuristic: if any line contains "🚨", it's a failure (RED)
+            if grep -q "🚨" health-check-${{ github.run_id }}.jsonl; then
+              echo "Status: 🔴 **RED**" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "#### Active Alerts:" >> $GITHUB_STEP_SUMMARY
+              grep "🚨" health-check-${{ github.run_id }}.jsonl | sed 's/.*event": "//' | sed 's/\\n/ /g' | sed 's/".*//' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "Status: 🟢 **GREEN**" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "All systems healthy." >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
 
       - name: Alert on failure
         if: failure()
@@ -41,3 +69,4 @@ jobs:
         with:
           telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          log_file: health-check-${{ github.run_id }}.jsonl

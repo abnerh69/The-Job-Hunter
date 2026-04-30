@@ -166,3 +166,4 @@ cython_debug/
 
 # Local storage for sensitive data
 .local/
+.logs_cache

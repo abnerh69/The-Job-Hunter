@@ -36,14 +36,15 @@ jobs:
         env:
           LOG_FORMAT: json
         run: |
-          uv run jobhunter pipeline check-followups > followup_checks.jsonl 2>&1
+          uv run jobhunter pipeline check-followups > followup-checks-${{ github.run_id }}.jsonl 2>&1
 
       - name: Upload execution logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: followup-checks-logs
-          path: followup_checks.jsonl
+          name: followup-checks-logs-${{ github.run_id }}
+          path: followup-checks-${{ github.run_id }}.jsonl
+          retention-days: 30
 
       - name: Alert on failure
         if: failure()
@@ -51,4 +52,4 @@ jobs:
         with:
           telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
-          log_file: followup_checks.jsonl
+          log_file: followup-checks-${{ github.run_id }}.jsonl

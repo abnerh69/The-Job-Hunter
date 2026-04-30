@@ -13,6 +13,7 @@ from rich.table import Table
 from rich.markdown import Markdown
 
 from jobhunter import __version__
+from jobhunter.logging_config import setup_logging
 import uuid
 
 from jobhunter.config import Settings
@@ -54,6 +55,9 @@ app.add_typer(notify_app, name="notify")
 
 pipeline_app = typer.Typer(help="Orchestrate full pipeline cycles")
 app.add_typer(pipeline_app, name="pipeline")
+
+logs_app = typer.Typer(help="Inspect and download system logs")
+app.add_typer(logs_app, name="logs")
 
 
 @app.command()
@@ -1096,6 +1100,16 @@ def pipeline_run_cycle(
         # Machine output: JSON at the end
         import json
 
+        # Structured log for Action Summary
+        logger.info(
+            "pipeline_cycle_machine_report",
+            overall_status=report.overall_status.value,
+            total_duration_ms=report.total_duration_ms,
+            ingestion=report.ingestion.model_dump(mode="json") if report.ingestion else None,
+            scoring=report.scoring.model_dump(mode="json") if report.scoring else None,
+            dispatch=report.dispatch.model_dump(mode="json") if report.dispatch else None,
+        )
+
         console.print("\n[bold]Machine Report (JSON):[/bold]")
         console.print(json.dumps(report.model_dump(mode="json"), indent=2))
 
@@ -1106,6 +1120,140 @@ def pipeline_run_cycle(
         if isinstance(e, typer.Exit):
             raise
         logger.exception("Pipeline run-cycle failed")
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@logs_app.command("tail")
+def logs_tail(
+    since: Annotated[
+        str | None, typer.Option(help="Filter logs since this date/time (YYYY-MM-DD or relative)")
+    ] = "1 day ago",
+    level: Annotated[str | None, typer.Option(help="Filter by log level")] = None,
+    event: Annotated[str | None, typer.Option(help="Filter by event type")] = None,
+) -> None:
+    """Download and display the latest log artifacts from GitHub Actions."""
+    logger.info("Starting logs tail", since=since, level=level, event=event)
+
+    # 1. Download latest artifacts using gh CLI
+    # We assume 'gh' is installed and authenticated in the environment where this runs
+    # (e.g., local dev with gh login)
+    try:
+        console = Console()
+        with console.status("[bold green]Downloading latest log artifacts..."):
+            # List runs, get latest successful or failed pipeline-cycle
+            # We use gh run list --workflow pipeline-cycle.yml --limit 1 --json databaseId
+            import json
+
+            run_info_cmd = [
+                "gh",
+                "run",
+                "list",
+                "--workflow",
+                "pipeline-cycle.yml",
+                "--limit",
+                "1",
+                "--json",
+                "databaseId",
+            ]
+            run_result = subprocess.run(run_info_cmd, capture_output=True, text=True, check=True)
+            runs = json.loads(run_result.stdout)
+
+            if not runs:
+                typer.echo("No recent pipeline-cycle runs found.")
+                raise typer.Exit(code=1)
+
+            run_id = runs[0]["databaseId"]
+            temp_dir = Path(".logs_cache")
+            temp_dir.mkdir(exist_ok=True)
+
+            # Download artifact
+            download_cmd = ["gh", "run", "download", str(run_id), "--dir", str(temp_dir)]
+            subprocess.run(download_cmd, check=True, capture_output=True)
+
+        # 2. Find and parse .jsonl files (using rglob to find in subdirs)
+        log_files = list(temp_dir.rglob("*.jsonl"))
+        if not log_files:
+            typer.echo(f"No log files found in artifacts for run {run_id}.")
+            raise typer.Exit(code=1)
+
+        # 3. Process and filter
+        from datetime import datetime, timedelta
+
+        since_dt = datetime.min
+        if since:
+            if "day ago" in since or "days ago" in since:
+                days = int(since.split()[0])
+                since_dt = datetime.now() - timedelta(days=days)
+            else:
+                try:
+                    since_dt = datetime.fromisoformat(since)
+                except ValueError:
+                    pass
+
+        table = Table(box=None, header_style="bold blue")
+        table.add_column("Timestamp", style="dim")
+        table.add_column("Level")
+        table.add_column("Event")
+        table.add_column("Message")
+
+        for log_file in log_files:
+            with open(log_file, "r") as f:
+                for line in f:
+                    try:
+                        data = json.loads(line)
+                        # Filter by since
+                        ts_str = data.get("timestamp")
+                        if ts_str:
+                            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                            # Make ts naive for comparison if since_dt is naive
+                            if ts.tzinfo is not None:
+                                ts = ts.replace(tzinfo=None)
+                            if ts < since_dt:
+                                continue
+
+                        # Filter by level
+                        log_lvl = data.get("level", "info").upper()
+                        if level and log_lvl != level.upper():
+                            continue
+
+                        # Filter by event
+                        evt = data.get("event", "")
+                        if event and event.lower() not in evt.lower():
+                            continue
+
+                        # Format level color
+                        lvl_style = "green"
+                        if log_lvl == "WARNING":
+                            lvl_style = "yellow"
+                        elif log_lvl in ("ERROR", "CRITICAL"):
+                            lvl_style = "red"
+
+                        # Extract message (some logs use 'event' as msg, others have extra info)
+                        msg_parts = []
+                        for k, v in data.items():
+                            if k not in ("timestamp", "level", "event"):
+                                msg_parts.append(f"{k}={v}")
+                        msg = " ".join(msg_parts)
+
+                        table.add_row(
+                            ts_str[:19] if ts_str else "-",
+                            f"[{lvl_style}]{log_lvl}[/{lvl_style}]",
+                            evt,
+                            msg,
+                        )
+                    except Exception:
+                        # Skip malformed lines (e.g. non-JSON output captured in .jsonl)
+                        continue
+
+        console.print(table)
+
+    except subprocess.CalledProcessError as e:
+        typer.echo(f"Error calling GitHub CLI: {e.stderr}", err=True)
+        typer.echo("Ensure 'gh' is installed and authenticated (`gh auth login`).")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        logger.exception("Logs tail failed")
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 
@@ -1184,6 +1332,7 @@ def callback() -> None:
 
 def main() -> None:
     """Main entry point for the application."""
+    setup_logging()
     app()
 
 

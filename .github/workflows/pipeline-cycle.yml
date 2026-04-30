@@ -81,6 +81,46 @@ jobs:
           path: pipeline-${{ github.run_id }}.jsonl
           retention-days: 30
 
+      - name: Action Summary
+        if: always()
+        run: |
+          if [ -f pipeline-${{ github.run_id }}.jsonl ]; then
+            echo "### 🚀 Pipeline Cycle Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Extract JSON block and format it as a table
+            # We use tail -n +1 to ensure we process everything, then grep for a characteristic field
+            JSON_BLOCK=$(grep "overall_status" pipeline-${{ github.run_id }}.jsonl | tail -n 1)
+
+            if [ -n "$JSON_BLOCK" ]; then
+              STATUS=$(echo $JSON_BLOCK | jq -r '.overall_status')
+              DURATION=$(echo $JSON_BLOCK | jq -r '.total_duration_ms')
+
+              echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+              echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Status** | $STATUS |" >> $GITHUB_STEP_SUMMARY
+              echo "| **Duration** | ${DURATION}ms |" >> $GITHUB_STEP_SUMMARY
+
+              # Ingestion stats
+              ING_NEW=$(echo $JSON_BLOCK | jq -r '.ingestion.total_new // 0')
+              ING_ERR=$(echo $JSON_BLOCK | jq -r '.ingestion.total_errors // 0')
+              echo "| **Ingested (New/Err)** | $ING_NEW / $ING_ERR |" >> $GITHUB_STEP_SUMMARY
+
+              # Scoring stats
+              SC_OK=$(echo $JSON_BLOCK | jq -r '.scoring.success_count // 0')
+              SC_FAIL=$(echo $JSON_BLOCK | jq -r '.scoring.failed_count // 0')
+              SC_COST=$(echo $JSON_BLOCK | jq -r '.scoring.total_cost_usd // 0')
+              echo "| **Scored (OK/Fail)** | $SC_OK / $SC_FAIL |" >> $GITHUB_STEP_SUMMARY
+              echo "| **LLM Cost** | \$$SC_COST |" >> $GITHUB_STEP_SUMMARY
+
+              # Dispatch stats
+              DISP_OK=$(echo $JSON_BLOCK | jq -r '.dispatch.success_count // 0')
+              echo "| **Notified** | $DISP_OK |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ Could not parse machine report from logs." >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
       - name: Alert on Failure
         if: failure()
         uses: ./.github/actions/alert-on-failure

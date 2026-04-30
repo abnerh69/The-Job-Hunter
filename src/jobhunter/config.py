@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,6 +11,7 @@ class Settings(BaseSettings):
     Environment variables can override these values.
     """
 
+    LOG_FORMAT: Literal["json", "pretty"] = "pretty"
     DATABASE_URL: str = "sqlite:///./jobhunter.db"
     ANTHROPIC_API_KEY: SecretStr
     TELEGRAM_BOT_TOKEN: SecretStr | None = None
@@ -36,6 +38,7 @@ class Settings(BaseSettings):
     def safe_dict(self) -> dict[str, str | int | float | None]:
         """Returns a dictionary with sensitive values masked."""
         return {
+            "LOG_FORMAT": self.LOG_FORMAT,
             "DATABASE_URL": self.DATABASE_URL,
             "ANTHROPIC_API_KEY": "***" if self.ANTHROPIC_API_KEY else None,
             "TELEGRAM_BOT_TOKEN": "***" if self.TELEGRAM_BOT_TOKEN else None,

@@ -15,8 +15,9 @@ from jobhunter.config import Settings
 from jobhunter.db.enums import ApplicationStatus
 from jobhunter.db.maintenance import refresh_weekly_metrics
 from jobhunter.db.repos.application import ApplicationRepo
+from jobhunter.db.repos.notifications import NotificationsRepo
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
-from jobhunter.notify.base import NotificationMessage
+from jobhunter.notify.base import NotificationMessage, NotificationResult
 from jobhunter.notify.dispatcher import DispatchReport, dispatch_tier_a_notifications
 from jobhunter.notify.telegram import TelegramNotifier
 from jobhunter.notify.templates import render
@@ -191,6 +192,20 @@ async def run_cycle(
     report.finished_at = datetime.now(timezone.utc)
     report.total_duration_ms = int((report.finished_at - report.started_at).total_seconds() * 1000)
 
+    # 4. Heartbeat
+    if report.overall_status == RunCycleStatus.SUCCESS:
+        try:
+            repo = NotificationsRepo(session)
+            repo.record_sent(
+                channel="heartbeat",
+                dedup_key="pipeline-cycle",
+                job_id=None,
+                result=NotificationResult(success=True, duration_ms=0),
+            )
+            session.commit()
+        except Exception as e:
+            logger.error("failed_to_record_pipeline_heartbeat", error=str(e))
+
     return report
 
 
@@ -272,4 +287,19 @@ async def run_followup_checks(session: Session) -> FollowupReport:
 
     report.finished_at = datetime.now(timezone.utc)
     report.duration_ms = int((time.perf_counter() - start_time) * 1000)
+
+    # 5. Heartbeat
+    if not report.errors:
+        try:
+            notif_repo = NotificationsRepo(session)
+            notif_repo.record_sent(
+                channel="heartbeat",
+                dedup_key="followup-checks",
+                job_id=None,
+                result=NotificationResult(success=True, duration_ms=0),
+            )
+            session.commit()
+        except Exception as e:
+            logger.error("failed_to_record_followup_heartbeat", error=str(e))
+
     return report

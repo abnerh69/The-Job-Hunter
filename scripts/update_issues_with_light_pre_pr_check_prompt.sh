@@ -35,7 +35,7 @@ BLOCK_TEXT=$(cat << 'EOF'
 > ANTES de interactuar con GitHub para crear un PR, DEBES:
 >
 > 1. Ejecutar el script de validación ligera en la terminal:
->    `bash light_pre_pr_check.sh`
+>    `bash tools/light_pre_pr_check.sh`
 > 2. Analizar el resultado:
 >    - Este script valida Linter (Ruff), Formato (Ruff format) y Tipos estáticos (Mypy).
 > 3. SI EL SCRIPT FALLA (exit code != 0):

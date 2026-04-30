@@ -1,5 +1,10 @@
 from datetime import datetime
+from typing import Any
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field
+
+from jobhunter.db.enums import EmailMatchStatus
 
 
 class Label(BaseModel):
@@ -30,3 +35,14 @@ class GmailMessageDetail(GmailMessage):
 
     body_text: str | None = None
     body_html: str | None = None
+
+
+class MatchResult(BaseModel):
+    """Represents the result of matching an email to an application or outreach."""
+
+    match_status: EmailMatchStatus
+    application_id: UUID | None = None
+    outreach_message_id: UUID | None = None
+    confidence: float
+    reasoning: str
+    suggested_change: dict[str, Any] | None = None

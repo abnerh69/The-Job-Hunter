@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, Dict, List
 
 import pandas as pd
 import plotly.express as px  # type: ignore
@@ -48,10 +48,11 @@ def main() -> None:
         pass
 
     # Tabs for different sections
-    tab_funnel, tab_sources, tab_trends, tab_costs, tab_health = st.tabs(
+    tab_funnel, tab_sources, tab_outreach, tab_trends, tab_costs, tab_health = st.tabs(
         [
             "🎯 Funnel",
             "🔌 Sources",
+            "💌 Outreach",
             "📈 Trends",
             "💰 LLM Costs",
             "🩺 System Health",
@@ -63,6 +64,9 @@ def main() -> None:
 
     with tab_sources:
         render_sources_section(start_date, end_date)
+
+    with tab_outreach:
+        render_outreach_section(start_date)
 
     with tab_trends:
         render_trends_section()
@@ -234,6 +238,118 @@ def get_cached_system_health() -> list[dict[str, Any]]:
     with get_session() as session:
         service = get_metrics_service(session)
         return service.get_system_health()
+
+
+@st.cache_data(ttl=300)
+def get_cached_outreach_stats(start_date: date) -> Dict[str, Any]:
+    with get_session() as session:
+        service = get_metrics_service(session)
+        return service.get_outreach_stats(start_date)
+
+
+@st.cache_data(ttl=300)
+def get_cached_warmest_contacts(limit: int = 5) -> List[Dict[str, Any]]:
+    with get_session() as session:
+        service = get_metrics_service(session)
+        return service.get_warmest_contacts(limit)
+
+
+def render_outreach_section(start_date: date) -> None:
+    st.subheader("Outreach Effectiveness")
+
+    stats = get_cached_outreach_stats(start_date)
+
+    # Key Metrics
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Sent", stats["total_sent"])
+    col2.metric("Total Replied", stats["total_replied"])
+    col3.metric("Response Rate", f"{stats['response_rate'] * 100:.1f}%")
+    col4.metric("Mean Reply Time", f"{stats['mean_response_time'] / 3600:.1f}h")
+
+    # Visualizations
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        # Template Stats
+        if stats["template_stats"]:
+            st.write("### Response Rate by Template")
+            df_template = pd.DataFrame(stats["template_stats"])
+            fig_template = px.bar(
+                df_template,
+                x="template_type",
+                y="rate",
+                text="sent",
+                labels={"rate": "Response Rate", "template_type": "Template"},
+                color="rate",
+                color_continuous_scale="Viridis",
+            )
+            fig_template.update_layout(yaxis_tickformat=".1%")
+            st.plotly_chart(fig_template, use_container_width=True)
+
+        # Market Stats
+        if stats["market_stats"]:
+            st.write("### Effectiveness by Market")
+            df_market = pd.DataFrame(stats["market_stats"])
+            fig_market = px.bar(
+                df_market,
+                x="market",
+                y="rate",
+                text="sent",
+                labels={"rate": "Response Rate", "market": "Market"},
+                color="rate",
+                color_continuous_scale="Viridis",
+            )
+            fig_market.update_layout(yaxis_tickformat=".1%")
+            st.plotly_chart(fig_market, use_container_width=True)
+
+    with col_right:
+        # Quality Stats
+        if stats["quality_stats"]:
+            st.write("### Effectiveness by Quality Score")
+            df_quality = pd.DataFrame(stats["quality_stats"])
+            fig_quality = px.bar(
+                df_quality,
+                x="score_bin",
+                y="rate",
+                text="sent",
+                labels={"rate": "Response Rate", "score_bin": "Quality Score"},
+                color="rate",
+                color_continuous_scale="Viridis",
+            )
+            fig_quality.update_layout(yaxis_tickformat=".1%")
+            st.plotly_chart(fig_quality, use_container_width=True)
+
+        # Message Status
+        st.write("### Message Status Distribution")
+        df_status = pd.DataFrame(
+            [{"status": k, "count": v} for k, v in stats["status_counts"].items()]
+        )
+        fig_status = px.pie(df_status, values="count", names="status", hole=0.4)
+        st.plotly_chart(fig_status, use_container_width=True)
+
+    # Warmest Contacts
+    st.divider()
+    st.subheader("🔥 Top 5 Warmest Contacts")
+    warm_contacts = get_cached_warmest_contacts(limit=5)
+    if warm_contacts:
+        df_warm = pd.DataFrame(warm_contacts)
+        df_warm["last_contacted_at"] = pd.to_datetime(df_warm["last_contacted_at"]).dt.strftime(
+            "%Y-%m-%d %H:%M"
+        )
+        st.dataframe(
+            df_warm.rename(
+                columns={
+                    "name": "Name",
+                    "company": "Company",
+                    "status": "Status",
+                    "last_contacted_at": "Last Contact",
+                }
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No warm contacts yet. Keep outreach active!")
 
 
 def render_health_section() -> None:

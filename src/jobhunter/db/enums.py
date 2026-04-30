@@ -100,3 +100,14 @@ class LLMPurpose(StrEnum):
     OUTREACH_MESSAGE = "outreach_message"
     ATS_KEYWORDS = "ats_keywords"
     CV_TWEAKS = "cv_tweaks"
+
+
+class EmailMatchStatus(StrEnum):
+    """Enumeration of possible match statuses for an email message."""
+
+    UNMATCHED = "unmatched"
+    AUTO_MATCHED = "auto_matched"
+    AI_MATCHED = "ai_matched"
+    USER_CONFIRMED = "user_confirmed"
+    USER_REJECTED = "user_rejected"
+    IGNORED_MARKETING = "ignored_marketing"

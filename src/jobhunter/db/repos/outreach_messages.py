@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Sequence
+from typing import Any, Sequence
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, text, case
 from sqlalchemy.orm import Session
 
 from jobhunter.db.enums import OutreachMessageStatus, OutreachStatus, OutreachTemplateType
@@ -117,6 +117,7 @@ class OutreachMessageRepo(BaseRepo[OutreachMessage]):
                 contact.last_contacted_at = now
                 contact.contact_count = (contact.contact_count or 0) + 1
                 contact.status = OutreachStatus.CONTACTED
+                self.session.add(contact)
 
             self.session.flush()
 
@@ -137,6 +138,7 @@ class OutreachMessageRepo(BaseRepo[OutreachMessage]):
             contact = self.session.get(OutreachContact, message.contact_id)
             if contact:
                 contact.status = OutreachStatus.REPLIED
+                self.session.add(contact)
 
             self.session.flush()
 
@@ -165,8 +167,36 @@ class OutreachMessageRepo(BaseRepo[OutreachMessage]):
                 contact = self.session.get(OutreachContact, message.contact_id)
                 if contact and contact.status == OutreachStatus.CONTACTED:
                     contact.status = OutreachStatus.GHOSTED
+                    self.session.add(contact)
 
             self.session.flush()
+
+    def mark_discarded(self, message_id: uuid.UUID) -> None:
+        """
+        Marks a message as discarded.
+
+        Args:
+            message_id (uuid.UUID): The ID of the message.
+        """
+        message = self.get(message_id)
+        if message:
+            message.status = OutreachMessageStatus.DISCARDED
+            self.session.flush()
+
+    def update_body(self, message_id: uuid.UUID, body: str) -> None:
+        """
+        Updates the body of a message and marks it as edited by the user.
+
+        Args:
+            message_id (uuid.UUID): The ID of the message.
+            body (str): The new body text.
+        """
+        message = self.get(message_id)
+        if message:
+            if message.body != body:
+                message.body = body
+                message.body_edited_by_user = True
+                self.session.flush()
 
     def list_by_contact(self, contact_id: uuid.UUID) -> Sequence[OutreachMessage]:
         """
@@ -182,6 +212,70 @@ class OutreachMessageRepo(BaseRepo[OutreachMessage]):
             select(OutreachMessage)
             .where(OutreachMessage.contact_id == contact_id)
             .order_by(OutreachMessage.created_at.desc())
+        )
+        return self.session.scalars(stmt).all()
+
+    def list_due_for_followup(self, today: datetime | None = None) -> Sequence[OutreachMessage]:
+        """
+        Lists messages that are due for follow-up (sent 7-10 days ago).
+        Only returns if the contact has exactly ONE sent message (2-touch policy).
+
+        Args:
+            today (datetime | None): The reference timestamp. Defaults to now.
+
+        Returns:
+            Sequence[OutreachMessage]: A sequence of messages due for follow-up.
+        """
+        ref_date = today or datetime.now(timezone.utc)
+        start_date = ref_date - timedelta(days=10)
+        end_date = ref_date - timedelta(days=7)
+
+        # Contacts who have exactly one sent or ghosted message (to respect 2-touch policy)
+        one_touch_stmt = (
+            select(OutreachMessage.contact_id)
+            .where(
+                OutreachMessage.status.in_(
+                    [OutreachMessageStatus.SENT, OutreachMessageStatus.GHOSTED]
+                )
+            )
+            .group_by(OutreachMessage.contact_id)
+            .having(func.count(OutreachMessage.id) == 1)
+        )
+
+        # Contacts who haven't replied to ANY message
+        replied_contacts_stmt = select(OutreachMessage.contact_id).where(
+            OutreachMessage.status == OutreachMessageStatus.REPLIED
+        )
+
+        stmt = select(OutreachMessage).where(
+            and_(
+                OutreachMessage.status == OutreachMessageStatus.SENT,
+                func.date(OutreachMessage.sent_at) >= start_date.date(),
+                func.date(OutreachMessage.sent_at) <= end_date.date(),
+                OutreachMessage.contact_id.in_(one_touch_stmt),
+                OutreachMessage.contact_id.not_in(replied_contacts_stmt),
+            )
+        )
+        return self.session.scalars(stmt).all()
+
+    def list_ghosted_messages(self, today: datetime | None = None) -> Sequence[OutreachMessage]:
+        """
+        Lists messages that are sent and haven't received a reply for more than 21 days.
+
+        Args:
+            today (datetime | None): The reference timestamp. Defaults to now.
+
+        Returns:
+            Sequence[OutreachMessage]: A sequence of messages that are ghosted.
+        """
+        ref_date = today or datetime.now(timezone.utc)
+        threshold_date = ref_date - timedelta(days=21)
+
+        stmt = select(OutreachMessage).where(
+            and_(
+                OutreachMessage.status == OutreachMessageStatus.SENT,
+                func.date(OutreachMessage.sent_at) < threshold_date.date(),
+            )
         )
         return self.session.scalars(stmt).all()
 
@@ -235,7 +329,179 @@ class OutreachMessageRepo(BaseRepo[OutreachMessage]):
                     OutreachMessage.sent_at == latest_msg_subq.c.latest_sent_at,
                 ),
             )
-            .where(OutreachMessage.sent_at <= threshold_date)
+            .where(func.date(OutreachMessage.sent_at) <= threshold_date.date())
         )
 
         return self.session.scalars(stmt).all()
+
+    def get_stats(self, start_date: datetime) -> dict[str, Any]:
+        """
+        Returns detailed outreach statistics since a given start date.
+
+        Args:
+            start_date (datetime): The start date for statistics.
+
+        Returns:
+            dict[str, Any]: Dictionary with outreach stats.
+        """
+        # Sent messages count
+        sent_stmt = select(func.count(OutreachMessage.id)).where(
+            and_(
+                OutreachMessage.status != OutreachMessageStatus.DRAFT,
+                OutreachMessage.sent_at >= start_date,
+            )
+        )
+        total_sent = self.session.scalar(sent_stmt) or 0
+
+        # Replied messages count
+        replied_stmt = select(func.count(OutreachMessage.id)).where(
+            and_(
+                OutreachMessage.status == OutreachMessageStatus.REPLIED,
+                OutreachMessage.sent_at >= start_date,
+            )
+        )
+        total_replied = self.session.scalar(replied_stmt) or 0
+
+        # Global response rate
+        response_rate = (total_replied / total_sent) if total_sent > 0 else 0.0
+
+        # Breakdown by template_type
+        # SQLAlchemy doesn't support the count(case...) easily with labels in all dialects,
+        # so let's do it with a list comprehension and more explicit counting.
+        template_rows = self.session.execute(
+            select(
+                OutreachMessage.template_type,
+                func.count(OutreachMessage.id).label("sent"),
+                func.sum(
+                    case((OutreachMessage.status == OutreachMessageStatus.REPLIED, 1), else_=0)
+                ).label("replied"),
+            )
+            .where(
+                and_(
+                    OutreachMessage.status != OutreachMessageStatus.DRAFT,
+                    OutreachMessage.sent_at >= start_date,
+                )
+            )
+            .group_by(OutreachMessage.template_type)
+        ).all()
+
+        template_stats = [
+            {
+                "template_type": row.template_type,
+                "sent": int(row.sent),
+                "replied": int(row.replied or 0),
+                "rate": (float(row.replied or 0) / float(row.sent)) if row.sent > 0 else 0.0,
+            }
+            for row in template_rows
+        ]
+
+        # Breakdown by market
+        market_rows = self.session.execute(
+            select(
+                OutreachContact.market,
+                func.count(OutreachMessage.id).label("sent"),
+                func.sum(
+                    case((OutreachMessage.status == OutreachMessageStatus.REPLIED, 1), else_=0)
+                ).label("replied"),
+            )
+            .join(OutreachContact, OutreachMessage.contact_id == OutreachContact.id)
+            .where(
+                and_(
+                    OutreachMessage.status != OutreachMessageStatus.DRAFT,
+                    OutreachMessage.sent_at >= start_date,
+                )
+            )
+            .group_by(OutreachContact.market)
+        ).all()
+
+        market_stats = [
+            {
+                "market": row.market,
+                "sent": int(row.sent),
+                "replied": int(row.replied or 0),
+                "rate": (float(row.replied or 0) / float(row.sent)) if row.sent > 0 else 0.0,
+            }
+            for row in market_rows
+        ]
+
+        # Breakdown by quality_score (binned: 1-2, 3-4, 5)
+        quality_score_case = case(
+            (OutreachContact.quality_score >= 5, "5"),
+            (OutreachContact.quality_score >= 3, "3-4"),
+            else_="1-2",
+        ).label("score_bin")
+
+        quality_rows = self.session.execute(
+            select(
+                quality_score_case,
+                func.count(OutreachMessage.id).label("sent"),
+                func.sum(
+                    case((OutreachMessage.status == OutreachMessageStatus.REPLIED, 1), else_=0)
+                ).label("replied"),
+            )
+            .join(OutreachContact, OutreachMessage.contact_id == OutreachContact.id)
+            .where(
+                and_(
+                    OutreachMessage.status != OutreachMessageStatus.DRAFT,
+                    OutreachMessage.sent_at >= start_date,
+                )
+            )
+            .group_by(text("score_bin"))
+        ).all()
+
+        quality_stats = [
+            {
+                "score_bin": row.score_bin,
+                "sent": int(row.sent),
+                "replied": int(row.replied or 0),
+                "rate": (float(row.replied or 0) / float(row.sent)) if row.sent > 0 else 0.0,
+            }
+            for row in quality_rows
+        ]
+
+        # Mean response time (seconds)
+        response_time_stmt = select(
+            func.avg(
+                func.julianday(OutreachMessage.replied_at) - func.julianday(OutreachMessage.sent_at)
+            )
+            * 86400
+        ).where(
+            and_(
+                OutreachMessage.status == OutreachMessageStatus.REPLIED,
+                OutreachMessage.sent_at >= start_date,
+            )
+        )
+
+        if self.session.bind and self.session.bind.dialect.name == "postgresql":
+            response_time_stmt = select(
+                func.avg(
+                    func.extract("epoch", OutreachMessage.replied_at)
+                    - func.extract("epoch", OutreachMessage.sent_at)
+                )
+            ).where(
+                and_(
+                    OutreachMessage.status == OutreachMessageStatus.REPLIED,
+                    OutreachMessage.sent_at >= start_date,
+                )
+            )
+
+        mean_response_time = self.session.scalar(response_time_stmt)
+
+        # Message status counts (all time or since start_date? usually all active messages)
+        status_counts_rows = self.session.execute(
+            select(OutreachMessage.status, func.count(OutreachMessage.id))
+            .where(OutreachMessage.status != OutreachMessageStatus.DISCARDED)
+            .group_by(OutreachMessage.status)
+        ).all()
+        status_counts = {row[0]: row[1] for row in status_counts_rows}
+
+        return {
+            "total_sent": total_sent,
+            "total_replied": total_replied,
+            "response_rate": response_rate,
+            "template_stats": template_stats,
+            "market_stats": market_stats,
+            "quality_stats": quality_stats,
+            "mean_response_time": float(mean_response_time or 0),
+            "status_counts": status_counts,
+        }

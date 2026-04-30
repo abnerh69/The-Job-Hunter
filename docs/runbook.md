@@ -144,6 +144,39 @@ To enable email notifications using Gmail:
     uv run jobhunter notify test --channel email --subject "Test Email" --message "Hello from Job Hunter!"
     ```
 
+### Configure Gmail OAuth2 (Recommended for Inbox Access)
+
+To enable reading your inbox without storing your password, use OAuth2:
+
+1.  **Google Cloud Console Setup**:
+    - Create a project at [Google Cloud Console](https://console.cloud.google.com/).
+    - Enable the **Gmail API**.
+    - Configure the **OAuth Consent Screen**:
+        - User Type: **External**.
+        - Scopes: `gmail.readonly`, `gmail.modify`.
+        - Add your email as a **Test User**.
+    - Create **OAuth 2.0 Client IDs**:
+        - Application type: **Desktop app**.
+        - Copy your `Client ID` and `Client Secret`.
+2.  **Encryption Key**:
+    - Generate a Fernet key: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+3.  **Update `.env`**:
+    ```env
+    GMAIL_CLIENT_ID="your_client_id"
+    GMAIL_CLIENT_SECRET="your_client_secret"
+    OAUTH_ENCRYPTION_KEY="your_generated_fernet_key"
+    ```
+4.  **Run Authentication Flow**:
+    ```bash
+    uv run jobhunter email auth
+    ```
+    This will open your browser. Login and grant permissions. The system will store encrypted tokens in your database.
+5.  **Revoke Tokens**:
+    If you need to disconnect:
+    ```bash
+    uv run jobhunter email auth --revoke
+    ```
+
 ## Secrets Management
 
 The system relies on several GitHub Secrets for CI/CD and production workflows.
@@ -160,6 +193,9 @@ The system relies on several GitHub Secrets for CI/CD and production workflows.
 | `SMTP_USER` | (Optional) Gmail/SMTP user for digests. |
 | `SMTP_PASSWORD` | (Optional) App password for SMTP. |
 | `DIGEST_TO_EMAIL` | (Optional) Recipient email for weekly digest. |
+| `GMAIL_CLIENT_ID` | OAuth Client ID for Gmail API. |
+| `GMAIL_CLIENT_SECRET` | OAuth Client Secret for Gmail API. |
+| `OAUTH_ENCRYPTION_KEY` | Fernet key for encrypting OAuth tokens at rest. |
 
 ### Emergency Procedures
 

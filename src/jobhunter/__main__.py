@@ -4,7 +4,7 @@ import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Optional
 
 import structlog
 import typer
@@ -39,7 +39,7 @@ from jobhunter.pipeline import RunCycleStatus, run_cycle, run_followup_checks
 from jobhunter.application.assistant import assist_application
 from jobhunter.application.cover_letter import generate_cover_letter
 from jobhunter.application.cv import load_cv
-from jobhunter.db.models import Application, Job
+from jobhunter.db.models import Application, Job, OutreachContact
 
 logger = structlog.get_logger()
 app = typer.Typer(help="Job Hunter EU CLI")
@@ -58,6 +58,12 @@ app.add_typer(pipeline_app, name="pipeline")
 
 logs_app = typer.Typer(help="Inspect and download system logs")
 app.add_typer(logs_app, name="logs")
+
+email_app = typer.Typer(help="Manage Gmail OAuth2 authentication")
+app.add_typer(email_app, name="email")
+
+outreach_app = typer.Typer(help="Manage proactive outreach contacts")
+app.add_typer(outreach_app, name="outreach")
 
 
 @app.command()
@@ -950,8 +956,10 @@ def pipeline_check_followups() -> None:
         table.add_column("Metric")
         table.add_column("Value", justify="right")
 
-        table.add_row("Pending Follow-ups", str(report.pending_followups_count))
-        table.add_row("Marked as Ghosted", str(report.ghosted_marked_count))
+        table.add_row("App Follow-ups Due", str(report.pending_followups_count))
+        table.add_row("Apps Ghosted", str(report.ghosted_marked_count))
+        table.add_row("Outreach Follow-ups Due", str(report.pending_outreach_count))
+        table.add_row("Outreach Ghosted", str(report.outreach_ghosted_count))
         table.add_row(
             "Notification Sent", "[green]YES[/green]" if report.notification_sent else "NO"
         )
@@ -1254,6 +1262,309 @@ def logs_tail(
         raise typer.Exit(code=1)
     except Exception as e:
         logger.exception("Logs tail failed")
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("check-cadence")
+def outreach_check_cadence() -> None:
+    """Run outreach cadence and ghosting checks."""
+    from jobhunter.pipeline import run_outreach_cadence_checks
+
+    logger.info("Starting outreach cadence checks")
+    try:
+        with get_session() as session:
+            results = asyncio.run(run_outreach_cadence_checks(session))
+
+            console = Console()
+            table = Table(title="Outreach Cadence Report", header_style="bold magenta")
+            table.add_column("Metric")
+            table.add_column("Value", justify="right")
+
+            table.add_row("Follow-ups Due", str(len(results["pending_followups"])))
+            table.add_row("Messages Ghosted", str(results["ghosted_count"]))
+
+            console.print(table)
+
+            if results["pending_followups"]:
+                console.print("\n[bold]Contacts due for follow-up:[/bold]")
+                for contact in results["pending_followups"]:
+                    console.print(f"- {contact.name} at {contact.company or 'Unknown'}")
+
+            session.commit()
+
+    except Exception as e:
+        logger.exception("Outreach cadence checks failed")
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("stats")
+def outreach_stats(
+    since: Annotated[
+        str, typer.Option(help="Calculate stats since this date (YYYY-MM-DD or 'N weeks ago')")
+    ] = "4 weeks ago",
+) -> None:
+    """Display outreach effectiveness statistics and response rates."""
+    from jobhunter.dashboard.services.metrics import get_metrics_service
+
+    # Resolve 'since' parameter
+    since_dt: datetime
+    if "weeks ago" in since:
+        try:
+            weeks = int(since.split()[0])
+            since_dt = datetime.now() - timedelta(weeks=weeks)
+        except (ValueError, IndexError):
+            typer.echo(f"Error: Invalid 'since' format: {since}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        try:
+            since_dt = datetime.fromisoformat(since)
+        except ValueError:
+            typer.echo(f"Error: Invalid 'since' date format: {since}. Use YYYY-MM-DD.", err=True)
+            raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            service = get_metrics_service(session)
+            stats = service.get_outreach_stats(since_dt.date())
+            warmest = service.get_warmest_contacts(limit=5)
+
+        console = Console()
+        console.print(f"\n[bold blue]Outreach Statistics (Since {since_dt.date()})[/bold blue]\n")
+
+        # Overview Table
+        overview = Table(title="Global Overview", header_style="bold magenta")
+        overview.add_column("Metric")
+        overview.add_column("Value", justify="right")
+
+        overview.add_row("Total Messages Sent", str(stats["total_sent"]))
+        overview.add_row("Total Replies Received", str(stats["total_replied"]))
+        overview.add_row(
+            "Global Response Rate", f"[bold green]{stats['response_rate'] * 100:.1f}%[/bold green]"
+        )
+        overview.add_row("Mean Response Time", f"{stats['mean_response_time'] / 3600:.1f} hours")
+        console.print(overview)
+
+        # Status Counts Table
+        status_table = Table(title="Message Lifecycle Status", header_style="bold cyan")
+        status_table.add_column("Status")
+        status_table.add_column("Count", justify="right")
+        for status, count in stats["status_counts"].items():
+            status_name = status.value if hasattr(status, "value") else str(status)
+            status_table.add_row(status_name, str(count))
+        console.print(status_table)
+
+        # Breakdown by Template
+        template_table = Table(title="Effectiveness by Template Type", header_style="bold yellow")
+        template_table.add_column("Template Type")
+        template_table.add_column("Sent", justify="right")
+        template_table.add_column("Replied", justify="right")
+        template_table.add_column("Rate", justify="right")
+        for s in stats["template_stats"]:
+            template_table.add_row(
+                s["template_type"], str(s["sent"]), str(s["replied"]), f"{s['rate'] * 100:.1f}%"
+            )
+        console.print(template_table)
+
+        # Breakdown by Market
+        market_table = Table(title="Effectiveness by Market", header_style="bold green")
+        market_table.add_column("Market")
+        market_table.add_column("Sent", justify="right")
+        market_table.add_column("Replied", justify="right")
+        market_table.add_column("Rate", justify="right")
+        for s in stats["market_stats"]:
+            market_table.add_row(
+                s["market"] or "Unknown",
+                str(s["sent"]),
+                str(s["replied"]),
+                f"{s['rate'] * 100:.1f}%",
+            )
+        console.print(market_table)
+
+        # Breakdown by Quality Score
+        quality_table = Table(title="Effectiveness by Quality Score", header_style="bold blue")
+        quality_table.add_column("Score Bin")
+        quality_table.add_column("Sent", justify="right")
+        quality_table.add_column("Replied", justify="right")
+        quality_table.add_column("Rate", justify="right")
+        for s in stats["quality_stats"]:
+            quality_table.add_row(
+                s["score_bin"], str(s["sent"]), str(s["replied"]), f"{s['rate'] * 100:.1f}%"
+            )
+        console.print(quality_table)
+
+        # Warmest Contacts
+        if warmest:
+            warm_table = Table(title="Top 5 Warmest Contacts", header_style="bold red")
+            warm_table.add_column("Name")
+            warm_table.add_column("Company")
+            warm_table.add_column("Status")
+            warm_table.add_column("Last Contact")
+            for c in warmest:
+                last_contact = (
+                    c["last_contacted_at"].strftime("%Y-%m-%d") if c["last_contacted_at"] else "-"
+                )
+                warm_table.add_row(c["name"], c["company"] or "-", c["status"], last_contact)
+            console.print(warm_table)
+
+    except Exception as e:
+        logger.error("Outreach stats failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("import")
+def outreach_import(
+    from_path: Annotated[Path, typer.Option("--from", help="Path to the CSV file to import")],
+    mapping_file: Annotated[
+        Optional[Path], typer.Option("--mapping", help="Path to a JSON file with column mapping")
+    ] = None,
+    enrich_with_ai: Annotated[
+        bool, typer.Option("--enrich-with-ai", help="Enrich contacts with AI scoring")
+    ] = False,
+) -> None:
+    """Import outreach contacts from a CSV file (LinkedIn or generic)."""
+    import json
+    import yaml
+    from jobhunter.outreach.linkedin_csv import LinkedInCSVParser
+    from jobhunter.outreach.scoring import (
+        infer_market,
+        infer_specialty_stack,
+        calculate_heuristic_score,
+        enrich_contact_with_ai,
+    )
+    from jobhunter.db.repos.outreach import OutreachRepo
+
+    if not from_path.exists():
+        typer.echo(f"Error: File not found: {from_path}", err=True)
+        raise typer.Exit(code=1)
+
+    mapping = None
+    if mapping_file:
+        if not mapping_file.exists():
+            typer.echo(f"Error: Mapping file not found: {mapping_file}", err=True)
+            raise typer.Exit(code=1)
+        with open(mapping_file, "r") as f:
+            mapping = json.load(f)
+
+    logger.info("Starting outreach import", from_path=str(from_path), enrich_with_ai=enrich_with_ai)
+
+    try:
+        content = from_path.read_text(encoding="utf-8")
+        parsed_contacts = LinkedInCSVParser.parse(content, mapping=mapping)
+
+        if not parsed_contacts:
+            typer.echo("No valid contacts found in the CSV.")
+            return
+
+        # Load candidate profile for heuristic scoring
+        profile_path = Path("prompts/candidate_profile.yaml")
+        candidate_profile = {}
+        if profile_path.exists():
+            candidate_profile = yaml.safe_load(profile_path.read_text())
+
+        # Enrich with heuristics
+        for c_data in parsed_contacts:
+            c_data["market"] = infer_market(c_data.get("company"), c_data.get("role"))
+            c_data["specialty_stack"] = infer_specialty_stack(c_data.get("role"))
+
+            # Temporary contact for scoring
+            temp_contact = OutreachContact(
+                name=c_data["name"],
+                company=c_data.get("company"),
+                role=c_data.get("role"),
+                specialty_stack=c_data.get("specialty_stack"),
+            )
+            c_data["quality_score"] = calculate_heuristic_score(temp_contact, candidate_profile)
+
+        with get_session() as session:
+            repo = OutreachRepo(session)
+
+            if enrich_with_ai:
+                settings = Settings()  # type: ignore[call-arg]
+                llm_client = AnthropicLLMClient(
+                    api_key=settings.ANTHROPIC_API_KEY.get_secret_value()
+                )
+
+                console = Console()
+                with console.status("[bold green]Enriching contacts with AI..."):
+                    for c_data in parsed_contacts:
+                        # Only enrich if it hasn't been skipped/failed (handled by repo later, but let's be efficient)
+                        existing = repo.find_by_linkedin_url(c_data["linkedin_url"])
+                        if existing:
+                            continue
+
+                        temp_contact = OutreachContact(
+                            name=c_data["name"],
+                            company=c_data.get("company"),
+                            role=c_data.get("role"),
+                            quality_score=c_data["quality_score"],
+                        )
+                        # We don't save temp_contact to DB yet, we just pass it to AI
+                        c_data["quality_score"] = asyncio.run(
+                            enrich_contact_with_ai(temp_contact, llm_client, session)
+                        )
+
+            imported, skipped, failed = repo.process_import_batch(parsed_contacts)
+            session.commit()
+
+        # Output results
+        console = Console()
+        table = Table(title="Outreach Import Results")
+        table.add_column("Status", style="bold")
+        table.add_column("Count", justify="right")
+
+        table.add_row("Imported", f"[green]{imported}[/green]")
+        table.add_row("Skipped (Duplicate)", f"[yellow]{skipped}[/yellow]")
+        table.add_row("Failed (Validation)", f"[red]{failed}[/red]")
+
+        console.print(table)
+
+    except Exception as e:
+        logger.error("Outreach import failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@email_app.command("auth")
+def email_auth(
+    revoke: Annotated[bool, typer.Option(help="Revoke existing tokens")] = False,
+) -> None:
+    """Authenticate with Gmail via OAuth2."""
+    from jobhunter.auth.google import GoogleOAuthHandler
+
+    settings = Settings()  # type: ignore[call-arg]
+    try:
+        with get_session() as session:
+            handler = GoogleOAuthHandler(session, settings)
+
+            if revoke:
+                emails = handler.list_authenticated_emails()
+                if not emails:
+                    typer.echo("No authenticated Gmail accounts found.")
+                    return
+
+                for email in emails:
+                    if typer.confirm(f"Revoke tokens for {email}?"):
+                        if handler.revoke_tokens(email):
+                            typer.echo(f"Successfully revoked tokens for {email}.")
+                        else:
+                            typer.echo(f"Failed to revoke tokens for {email}.", err=True)
+                return
+
+            typer.echo("Starting Gmail OAuth2 authentication flow...")
+            typer.echo("A browser window will open to complete the process.")
+
+            result = handler.run_local_server_flow()
+
+            typer.echo("-" * 40)
+            typer.echo(f"Authentication successful for: {result['email']}")
+            typer.echo(f"Granted scopes: {', '.join(result['scopes'])}")
+            typer.echo("-" * 40)
+
+    except Exception as e:
+        logger.error("Gmail auth failed", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

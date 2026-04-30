@@ -56,7 +56,17 @@ def render_job_card(
         JobTier.REJECT: "❌",
     }.get(job.tier if job.tier else JobTier.C, "❓")
 
+    is_focused = st.query_params.get("focus") == str(job.id)
+    border_style = "2px solid #ff4b4b" if is_focused else None
+
     with st.container(border=True):
+        if is_focused:
+            st.markdown(
+                f"""
+                <div style="border: {border_style}; border-radius: 0.5rem; padding: 1px; margin-bottom: -1px;">
+                """,
+                unsafe_allow_html=True,
+            )
         col1, col2 = st.columns([0.8, 0.2])
 
         with col1:
@@ -127,6 +137,9 @@ def render_job_card(
             with btn_col4:
                 st.link_button("🌐 View", job.url)
 
+        if is_focused:
+            st.markdown("</div>", unsafe_allow_html=True)
+
 
 def render_application_card(
     app: Application,
@@ -136,7 +149,17 @@ def render_application_card(
     """
     Renders a compact card for an application in the Kanban board.
     """
+    is_focused = st.query_params.get("focus") == str(app.id)
+    border_style = "2px solid #ff4b4b" if is_focused else None
+
     with st.container(border=True):
+        if is_focused:
+            st.markdown(
+                f"""
+                <div style="border: {border_style}; border-radius: 0.5rem; padding: 1px; margin-bottom: -1px;">
+                """,
+                unsafe_allow_html=True,
+            )
         st.markdown(f"**{app.job.company}**")
         st.caption(app.job.title)
 
@@ -167,6 +190,9 @@ def render_application_card(
             if app.status not in terminal_states:
                 if st.button("➡️", key=f"move_{app.id}", use_container_width=True):
                     on_move_next(app)
+
+        if is_focused:
+            st.markdown("</div>", unsafe_allow_html=True)
 
 
 @st.dialog("Detalle de Aplicación")

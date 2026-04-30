@@ -318,7 +318,17 @@ else:
     # We'll use a selection mechanism or just buttons for each contact in a list
     # for individual actions that are not notes/score.
     for contact in contacts:
+        is_focused = st.query_params.get("focus") == str(contact.id)
+        border_style = "2px solid #ff4b4b" if is_focused else None
+
         with st.container(border=True):
+            if is_focused:
+                st.markdown(
+                    f"""
+                    <div style="border: {border_style}; border-radius: 0.5rem; padding: 1px; margin-bottom: -1px;">
+                    """,
+                    unsafe_allow_html=True,
+                )
             c1, c2, c3 = st.columns([0.4, 0.4, 0.2])
             with c1:
                 st.write(f"**{contact.name}** @ {contact.company or '?'}")
@@ -378,3 +388,6 @@ else:
                         disabled=True,
                         help="Generate Message (Available in E9)",
                     )
+
+            if is_focused:
+                st.markdown("</div>", unsafe_allow_html=True)

@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    FetchedValue,
     ForeignKey,
     Index,
     Integer,
@@ -76,6 +77,9 @@ class Job(Base):
         String(30), nullable=False, server_default=JobStatus.NEW
     )
 
+    # Search vector (server-side generated)
+    search_vector: Mapped[Any] = mapped_column(Text, FetchedValue(), deferred=True, nullable=True)
+
     # Relationships
     applications: Mapped[list["Application"]] = relationship(back_populates="job")
 
@@ -140,6 +144,9 @@ class Application(Base):
     contract_type: Mapped[str | None] = mapped_column(String(20))
 
     notes: Mapped[str | None] = mapped_column(Text)
+
+    # Search vector (server-side generated)
+    search_vector: Mapped[Any] = mapped_column(Text, FetchedValue(), deferred=True, nullable=True)
 
     # Relationships
     job: Mapped["Job"] = relationship(back_populates="applications")
@@ -231,6 +238,9 @@ class OutreachContact(Base):
         String(30), nullable=False, server_default=OutreachStatus.NEW
     )
     notes: Mapped[str | None] = mapped_column(Text)
+
+    # Search vector (server-side generated)
+    search_vector: Mapped[Any] = mapped_column(Text, FetchedValue(), deferred=True, nullable=True)
 
     # Indices
     __table_args__ = (Index("idx_outreach_followup", "status", "last_contacted_at"),)

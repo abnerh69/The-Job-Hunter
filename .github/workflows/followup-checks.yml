@@ -51,3 +51,4 @@ jobs:
         with:
           telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          log_file: followup_checks.jsonl

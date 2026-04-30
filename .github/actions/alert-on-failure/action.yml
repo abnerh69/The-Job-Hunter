@@ -1,24 +1,47 @@
 name: 'Alert on Failure'
 description: 'Sends a Telegram notification if a workflow fails'
+inputs:
+  telegram_bot_token:
+    description: 'Telegram Bot Token'
+    required: true
+  telegram_chat_id:
+    description: 'Telegram Chat ID'
+    required: true
+  log_file:
+    description: 'Path to log file to include in alert'
+    required: false
+    default: ''
+
 runs:
   using: "composite"
   steps:
     - name: Send Telegram Alert
       shell: bash
       run: |
-        # Use Markdown and escape characters if needed, but for simple messages it's usually fine.
-        # We use a literal block to preserve newlines in the message.
         # Escape underscores for Telegram Markdown
         ESCAPED_EVENT=$(echo "${{ github.event_name }}" | sed 's/_/\\_/g')
         ESCAPED_WORKFLOW=$(echo "${{ github.workflow }}" | sed 's/_/\\_/g')
+        ESCAPED_REPO=$(echo "${{ github.repository }}" | sed 's/_/\\_/g')
 
         MESSAGE="🚨 *Workflow Failed!*
 
         *Workflow:* ${ESCAPED_WORKFLOW}
+        *Repo:* ${ESCAPED_REPO}
         *Run:* [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
         *Event:* ${ESCAPED_EVENT}"
 
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-          -d chat_id="${TELEGRAM_CHAT_ID}" \
+        if [ -n "${{ inputs.log_file }}" ] && [ -f "${{ inputs.log_file }}" ]; then
+          # Get first 10 lines and remove backticks to avoid breaking markdown code block
+          LOG_PREVIEW=$(head -n 10 "${{ inputs.log_file }}" | sed 's/`//g')
+          MESSAGE="${MESSAGE}
+
+        *Log Preview (10 lines):*
+        \`\`\`
+        ${LOG_PREVIEW}
+        \`\`\`"
+        fi
+
+        curl -s -X POST "https://api.telegram.org/bot${{ inputs.telegram_bot_token }}/sendMessage" \
+          -d chat_id="${{ inputs.telegram_chat_id }}" \
           --data-urlencode "text=${MESSAGE}" \
           -d parse_mode="Markdown"

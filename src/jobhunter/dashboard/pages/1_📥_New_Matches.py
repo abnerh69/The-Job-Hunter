@@ -84,6 +84,7 @@ def skip_dialog(job: Job) -> None:
             repo = JobRepo(session)
             repo.mark_status(job.id, JobStatus.ARCHIVED)
             session.commit()
+            st.cache_data.clear()
         st.session_state.show_skip_modal = False
         st.session_state.job_to_skip = None
         st.success("Job archivado correctamente.")
@@ -120,6 +121,7 @@ def apply_dialog(job: Job) -> None:
             job_repo.mark_status(job.id, JobStatus.APPLIED)
             session.commit()
 
+        st.cache_data.clear()
         st.session_state.show_apply_modal = False
         st.session_state.job_to_apply = None
         st.success("Aplicación registrada.")

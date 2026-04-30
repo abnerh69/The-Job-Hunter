@@ -178,6 +178,23 @@ The system relies on several GitHub Secrets for CI/CD and production workflows.
 3.  **Restore**: Import the dump.
 4.  **Update Secret**: Update `DATABASE_URL_PROD` in GitHub Secrets.
 
+## Workflow & Automation
+
+### Pipeline Cycle
+
+The `Pipeline Cycle` workflow runs every 8 hours (`00:00`, `08:00`, `16:00` UTC). It orchestrates the full cycle: ingestion, scoring, and notification dispatch.
+
+**Manual Execution:**
+- Go to the **Actions** tab in GitHub.
+- Select **Pipeline Cycle**.
+- Click **Run workflow**.
+- (Optional) Provide a `limit` or specific `source` names (comma-separated).
+
+**Monitoring & Investigation:**
+1.  **Status**: Check the workflow run list. A green checkmark means success (or partial failure that didn't crash the system).
+2.  **Logs**: Each run uploads a `pipeline-logs-{id}.jsonl` artifact. Download it to see structured logs of all steps.
+3.  **Alerts**: If a workflow fails, an alert is sent to the configured Telegram channel with a link to the failed run.
+
 ## Dashboard Deployment
 
 ### Deploy dashboard a Fly.io

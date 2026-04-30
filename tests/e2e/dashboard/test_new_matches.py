@@ -3,6 +3,7 @@ import time
 import os
 import subprocess
 import uuid
+from datetime import datetime, timezone
 from typing import Generator
 from playwright.sync_api import sync_playwright, expect
 from sqlalchemy import create_engine
@@ -10,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from jobhunter.db.base import Base
 from jobhunter.db.models import Job
 from jobhunter.db.enums import JobStatus, JobTier
+
 
 @pytest.fixture(scope="module")
 def test_db() -> Generator[str, None, None]:
@@ -39,12 +41,10 @@ def test_db() -> Generator[str, None, None]:
                 "role": {"title_normalized": "Python Developer", "primary_stack_match": ["Python"]},
                 "compensation": {"salary_max_usd_month": 10000},
                 "match_analysis": {"key_match_points": ["Point A", "Point B"]},
-                "yellow_flags": ["Test yellow flag"]
+                "yellow_flags": ["Test yellow flag"],
             },
-            scraped_at=datetime.now(timezone.utc) if 'datetime' in globals() else None
+            scraped_at=datetime.now(timezone.utc) if "datetime" in globals() else None,
         )
-        # Fix missing imports in setup
-        from datetime import datetime, timezone
         job.scraped_at = datetime.now(timezone.utc)
 
         session.add(job)
@@ -56,6 +56,7 @@ def test_db() -> Generator[str, None, None]:
     if os.path.exists(db_path):
         os.remove(db_path)
 
+
 @pytest.fixture(scope="module")
 def streamlit_server(test_db: str) -> Generator[None, None, None]:
     subprocess.run("kill $(lsof -t -i :8501) 2>/dev/null || true", shell=True)
@@ -65,14 +66,19 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     env["DASHBOARD_PASSWORD"] = "secret123"
     env["PYTHONPATH"] = "src"
     cmd = [
-        "streamlit", "run", "src/jobhunter/dashboard/streamlit_app.py",
-        "--server.port=8501", "--server.headless=true", "--browser.gatherUsageStats=false",
+        "streamlit",
+        "run",
+        "src/jobhunter/dashboard/streamlit_app.py",
+        "--server.port=8501",
+        "--server.headless=true",
+        "--browser.gatherUsageStats=false",
     ]
     process = subprocess.Popen(cmd, env=env)
     time.sleep(10)
     yield
     process.terminate()
     process.wait()
+
 
 def test_new_matches_flow(streamlit_server: None) -> None:
     with sync_playwright() as p:

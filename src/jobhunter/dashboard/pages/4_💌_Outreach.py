@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 import io
 import time
 from datetime import date

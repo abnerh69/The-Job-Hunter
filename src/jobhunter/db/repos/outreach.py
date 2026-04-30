@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Sequence
 
 from sqlalchemy import select, and_, or_, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from jobhunter.db.enums import OutreachMarket, OutreachStatus
 from jobhunter.db.models import OutreachContact
@@ -78,7 +78,7 @@ class OutreachRepo(BaseRepo[OutreachContact]):
         Returns:
             Sequence[OutreachContact]: A sequence of contacts matching the filters.
         """
-        stmt = select(OutreachContact)
+        stmt = select(OutreachContact).options(selectinload(OutreachContact.messages))
 
         if statuses:
             stmt = stmt.where(OutreachContact.status.in_(statuses))

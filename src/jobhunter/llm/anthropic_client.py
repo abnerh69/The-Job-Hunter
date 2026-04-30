@@ -129,6 +129,12 @@ class AnthropicLLMClient:
                                     ]
                                 }
                             )
+                        elif purpose == LLMPurpose.OUTREACH_MESSAGE:
+                            # Mock outreach message that passes validation (80-150 words)
+                            # and includes a term from research notes (e.g. "company")
+                            text = "Hello, I am interested in your company. " + " ".join(
+                                ["word"] * 100
+                            )
                         else:
                             # Mock cover letter that passes validation (250-450 words)
                             text = " ".join(["word"] * 300)

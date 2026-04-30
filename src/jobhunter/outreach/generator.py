@@ -51,7 +51,7 @@ async def generate_message(
     template_version: str = "latest",
     parent_message: Optional[OutreachMessage] = None,
     target_language: str = "en",
-) -> MessageGenerationResult:
+) -> OutreachMessage:
     """
     Generates an outreach message for a contact using an LLM.
 
@@ -67,7 +67,7 @@ async def generate_message(
         target_language: The target language for the message (e.g., 'en', 'es').
 
     Returns:
-        A MessageGenerationResult object.
+        The created OutreachMessage object.
 
     Raises:
         ValueError: If research_notes is too short.
@@ -199,7 +199,7 @@ async def generate_message(
 
     # 6. Persistence
     repo = OutreachMessageRepo(session)
-    repo.create_draft(
+    message = repo.create_draft(
         contact_id=contact.id,
         template_type=template_type,
         body=result.body,
@@ -215,9 +215,10 @@ async def generate_message(
     logger.info(
         "outreach_message_generated_and_persisted",
         contact_id=str(contact.id),
+        message_id=str(message.id),
         template_type=template_type,
         model=result.model,
         cost_usd=result.cost_usd,
     )
 
-    return result
+    return message

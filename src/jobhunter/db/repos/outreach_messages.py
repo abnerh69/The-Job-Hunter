@@ -168,6 +168,33 @@ class OutreachMessageRepo(BaseRepo[OutreachMessage]):
 
             self.session.flush()
 
+    def mark_discarded(self, message_id: uuid.UUID) -> None:
+        """
+        Marks a message as discarded.
+
+        Args:
+            message_id (uuid.UUID): The ID of the message.
+        """
+        message = self.get(message_id)
+        if message:
+            message.status = OutreachMessageStatus.DISCARDED
+            self.session.flush()
+
+    def update_body(self, message_id: uuid.UUID, body: str) -> None:
+        """
+        Updates the body of a message and marks it as edited by the user.
+
+        Args:
+            message_id (uuid.UUID): The ID of the message.
+            body (str): The new body text.
+        """
+        message = self.get(message_id)
+        if message:
+            if message.body != body:
+                message.body = body
+                message.body_edited_by_user = True
+                self.session.flush()
+
     def list_by_contact(self, contact_id: uuid.UUID) -> Sequence[OutreachMessage]:
         """
         Lists all messages for a specific contact.

@@ -21,6 +21,36 @@ def mock_llm_client() -> MagicMock:
 
 
 @pytest.mark.asyncio
+async def test_match_email_interview_request(
+    mock_session: MagicMock, mock_llm_client: MagicMock
+) -> None:
+    email = GmailMessageDetail(
+        id="msg_int",
+        threadId="thread_int",
+        received_at=datetime.now(),
+        from_email="hr@techcorp.com",
+        subject="Interview Invitation",
+        snippet="We'd like to schedule an interview.",
+        body_text="Are you available for a call?",
+    )
+
+    import uuid
+
+    app_id = uuid.uuid4()
+    app = Application(id=app_id, status=ApplicationStatus.SCREENING)
+
+    mock_session.scalars.return_value.all.side_effect = [[app], []]
+    mock_session.get.return_value = app
+
+    result = await match_email(email, mock_session, mock_llm_client)
+
+    assert (
+        result.suggested_change
+        and result.suggested_change["status"] == ApplicationStatus.INTERVIEW_1
+    )
+
+
+@pytest.mark.asyncio
 async def test_match_email_marketing(mock_session: MagicMock, mock_llm_client: MagicMock) -> None:
     email = GmailMessageDetail(
         id="msg1",

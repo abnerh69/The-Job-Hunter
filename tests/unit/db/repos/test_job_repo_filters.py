@@ -1,11 +1,10 @@
-import pytest
-import uuid
 from datetime import datetime, timezone
 from jobhunter.db.models import Job
 from jobhunter.db.repos.job import JobRepo
 from jobhunter.db.enums import JobTier, JobStatus
 
 from jobhunter.db.base import Base
+
 
 def test_list_new_matches_filters(session):
     Base.metadata.create_all(bind=session.get_bind())
@@ -25,8 +24,8 @@ def test_list_new_matches_filters(session):
         score_data={
             "valid": True,
             "role": {"primary_stack_match": ["Python"], "is_ai_ml_role": False},
-            "compensation": {"salary_min_usd_month": 5000}
-        }
+            "compensation": {"salary_min_usd_month": 5000},
+        },
     )
     job2 = Job(
         title="Flutter Engineer",
@@ -41,8 +40,8 @@ def test_list_new_matches_filters(session):
         score_data={
             "valid": True,
             "role": {"is_flutter_role": True, "is_ai_ml_role": False},
-            "compensation": {"salary_min_usd_month": 6000}
-        }
+            "compensation": {"salary_min_usd_month": 6000},
+        },
     )
     job3 = Job(
         title="AI Researcher",
@@ -57,8 +56,8 @@ def test_list_new_matches_filters(session):
         score_data={
             "valid": True,
             "role": {"is_ai_ml_role": True},
-            "compensation": {"salary_min_usd_month": 8000}
-        }
+            "compensation": {"salary_min_usd_month": 8000},
+        },
     )
 
     session.add_all([job1, job2, job3])
@@ -97,22 +96,36 @@ def test_list_new_matches_filters(session):
     assert len(results) == 1
     assert results[0].title == "Python Developer"
 
+
 def test_get_dashboard_metrics(session):
     Base.metadata.create_all(bind=session.get_bind())
     repo = JobRepo(session)
 
     # Job from today
     job1 = Job(
-        title="New Job", company="NewCo", source="src", url="u1", url_hash="h1",
-        description="d", tier=JobTier.A, status=JobStatus.QUEUED,
-        scraped_at=datetime.now(timezone.utc)
+        title="New Job",
+        company="NewCo",
+        source="src",
+        url="u1",
+        url_hash="h1",
+        description="d",
+        tier=JobTier.A,
+        status=JobStatus.QUEUED,
+        scraped_at=datetime.now(timezone.utc),
     )
     # Job from yesterday
     from datetime import timedelta
+
     job2 = Job(
-        title="Old Job", company="OldCo", source="src", url="u2", url_hash="h2",
-        description="d", tier=JobTier.A, status=JobStatus.QUEUED,
-        scraped_at=datetime.now(timezone.utc) - timedelta(days=1)
+        title="Old Job",
+        company="OldCo",
+        source="src",
+        url="u2",
+        url_hash="h2",
+        description="d",
+        tier=JobTier.A,
+        status=JobStatus.QUEUED,
+        scraped_at=datetime.now(timezone.utc) - timedelta(days=1),
     )
 
     session.add_all([job1, job2])

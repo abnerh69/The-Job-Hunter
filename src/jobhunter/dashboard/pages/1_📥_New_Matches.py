@@ -1,5 +1,7 @@
 import streamlit as st
 import time
+import uuid
+from typing import Any, Optional, TYPE_CHECKING
 from jobhunter.dashboard.auth import require_auth
 from jobhunter.dashboard.layout import render_header, render_sidebar
 from jobhunter.dashboard.components import render_job_card
@@ -7,6 +9,9 @@ from jobhunter.db.session import get_session
 from jobhunter.db.repos.job import JobRepo
 from jobhunter.db.repos.application import ApplicationRepo
 from jobhunter.db.enums import JobTier, JobStatus, ApplicationStatus
+
+if TYPE_CHECKING:
+    from jobhunter.db.models import Job
 
 # Page configuration
 st.set_page_config(page_title="New Matches", page_icon="📥", layout="wide")
@@ -23,13 +28,6 @@ if "show_apply_modal" not in st.session_state:
     st.session_state.show_apply_modal = False
 if "selected_job_id" not in st.session_state:
     st.session_state.selected_job_id = None
-
-
-from typing import Any, Sequence, Optional, TYPE_CHECKING
-import uuid
-
-if TYPE_CHECKING:
-    from jobhunter.db.models import Job
 
 
 @st.cache_data(ttl=60)  # type: ignore

@@ -8,6 +8,7 @@ from jobhunter.db.session import get_session
 from jobhunter.db.models import Job
 from jobhunter.db.enums import JobTier, JobStatus
 
+
 @pytest.fixture(scope="module", autouse=True)
 def streamlit_server() -> Generator[None, None, None]:
     # Kill any existing streamlit server on 8501
@@ -41,6 +42,7 @@ def streamlit_server() -> Generator[None, None, None]:
     process.terminate()
     process.wait()
 
+
 @pytest.fixture(scope="function")
 def seed_data():
     with get_session() as session:
@@ -58,7 +60,7 @@ def seed_data():
                 description="desc",
                 tier=JobTier.A,
                 status=JobStatus.QUEUED,
-                fit_score=90 + i
+                fit_score=90 + i,
             )
             session.add(job)
 
@@ -72,11 +74,12 @@ def seed_data():
                 description="desc",
                 tier=JobTier.B,
                 status=JobStatus.QUEUED,
-                fit_score=70 + i
+                fit_score=70 + i,
             )
             session.add(job)
 
         session.commit()
+
 
 def test_new_matches_filters_and_skip(seed_data) -> None:
     with sync_playwright() as p:
@@ -123,6 +126,7 @@ def test_new_matches_filters_and_skip(seed_data) -> None:
         expect(page.get_by_text("Tier A Job 4")).not_to_be_visible()
 
         browser.close()
+
 
 def test_new_matches_mark_applied(seed_data) -> None:
     with sync_playwright() as p:

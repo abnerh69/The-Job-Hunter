@@ -3,10 +3,10 @@ import uuid
 from datetime import date, datetime, timedelta
 from typing import Sequence
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import Session
 
-from jobhunter.db.enums import OutreachStatus
+from jobhunter.db.enums import OutreachMarket, OutreachStatus
 from jobhunter.db.models import OutreachContact
 from jobhunter.db.repos.base import BaseRepo
 
@@ -57,6 +57,97 @@ class OutreachRepo(BaseRepo[OutreachContact]):
             )
         )
         return self.session.scalars(stmt).all()
+
+    def list_contacts(
+        self,
+        statuses: list[OutreachStatus] | None = None,
+        markets: list[OutreachMarket] | None = None,
+        stacks: list[str] | None = None,
+        due_for_followup: bool = False,
+        today: date | None = None,
+    ) -> Sequence[OutreachContact]:
+        """
+        Lists outreach contacts with optional filtering.
+
+        Args:
+            statuses (list[OutreachStatus] | None): Filter by status.
+            markets (list[OutreachMarket] | None): Filter by market.
+            stacks (list[str] | None): Filter by specialty stack keywords.
+            due_for_followup (bool): If True, only returns contacts due for follow-up.
+            today (date | None): The reference date for follow-up check. Defaults to today.
+
+        Returns:
+            Sequence[OutreachContact]: A sequence of contacts matching the filters.
+        """
+        stmt = select(OutreachContact)
+
+        if statuses:
+            stmt = stmt.where(OutreachContact.status.in_(statuses))
+
+        if markets:
+            stmt = stmt.where(OutreachContact.market.in_(markets))
+
+        if stacks:
+            stack_filters = [OutreachContact.specialty_stack.ilike(f"%{s}%") for s in stacks]
+            stmt = stmt.where(or_(*stack_filters))
+
+        if due_for_followup:
+            ref_date = today or date.today()
+            threshold_date = ref_date - timedelta(days=7)
+            stmt = stmt.where(
+                and_(
+                    OutreachContact.status == OutreachStatus.CONTACTED,
+                    func.date(OutreachContact.last_contacted_at) <= threshold_date,
+                )
+            )
+
+        # Order by quality score DESC, then name
+        stmt = stmt.order_by(
+            OutreachContact.quality_score.desc().nulls_last(), OutreachContact.name
+        )
+
+        return self.session.scalars(stmt).all()
+
+    def get_outreach_metrics(self, today: date | None = None) -> dict[str, int]:
+        """
+        Returns metrics for outreach contacts.
+
+        Args:
+            today (date | None): Reference date for follow-up. Defaults to today.
+
+        Returns:
+            dict[str, int]: Dictionary with counts by status and pending follow-ups.
+        """
+        ref_date = today or date.today()
+        threshold_date = ref_date - timedelta(days=7)
+
+        # Count by status
+        status_stmt = select(OutreachContact.status, func.count(OutreachContact.id)).group_by(
+            OutreachContact.status
+        )
+        status_counts: dict[str, int] = {
+            str(row[0]): int(row[1]) for row in self.session.execute(status_stmt).all()
+        }
+
+        # Count pending follow-ups
+        followup_stmt = select(func.count(OutreachContact.id)).where(
+            and_(
+                OutreachContact.status == OutreachStatus.CONTACTED,
+                func.date(OutreachContact.last_contacted_at) <= threshold_date,
+            )
+        )
+        pending_followups = self.session.scalar(followup_stmt) or 0
+
+        metrics = {
+            "total": sum(status_counts.values()),
+            "pending_followups": pending_followups,
+        }
+
+        # Ensure all statuses are present in the metrics
+        for status in OutreachStatus:
+            metrics[f"status_{status.value}"] = status_counts.get(status, 0)
+
+        return metrics
 
     def mark_contacted(self, contact_id: uuid.UUID) -> None:
         """

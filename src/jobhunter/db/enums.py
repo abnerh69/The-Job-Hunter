@@ -100,6 +100,7 @@ class LLMPurpose(StrEnum):
     OUTREACH_MESSAGE = "outreach_message"
     ATS_KEYWORDS = "ats_keywords"
     CV_TWEAKS = "cv_tweaks"
+    EMAIL_MATCH = "email_match"
 
 
 class EmailMatchStatus(StrEnum):

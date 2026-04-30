@@ -121,10 +121,8 @@ def render_job_card(
                 # Green button for assist
                 if st.button("🚀 Assist", key=f"assist_{job.id}", type="primary"):
                     st.query_params["job_id"] = str(job.id)
-                    # Note: We point to Pipeline page for now as a destination for assist
-                    # if a dedicated assistant page doesn't exist yet.
-                    # Or we can just show an info message if it's not implemented.
-                    st.info("Assist page implementation in progress (E07-S08).")
+                    st.session_state["job_id"] = str(job.id)
+                    st.switch_page("pages/7_🛠_Assist.py")
 
             with btn_col2:
                 if st.button("⏭️ Skip", key=f"skip_{job.id}"):

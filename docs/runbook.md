@@ -192,8 +192,29 @@ The `Pipeline Cycle` workflow runs every 8 hours (`00:00`, `08:00`, `16:00` UTC)
 
 **Monitoring & Investigation:**
 1.  **Status**: Check the workflow run list. A green checkmark means success (or partial failure that didn't crash the system).
-2.  **Logs**: Each run uploads a `pipeline-logs-{id}.jsonl` artifact. Download it to see structured logs of all steps.
-3.  **Alerts**: If a workflow fails, an alert is sent to the configured Telegram channel with a link to the failed run.
+2.  **Action Summary**: Each run produces an **Action Summary** visible in the GitHub UI. It includes key metrics like jobs ingested, scored, notified, LLM costs, and duration.
+3.  **Logs**: Each run uploads a `pipeline-logs-{id}.jsonl` artifact. Download it to see structured JSON logs of all steps.
+4.  **CLI Tail**: Use the CLI to inspect logs without leaving the terminal:
+    ```bash
+    uv run jobhunter logs tail --since "1 hour ago"
+    ```
+5.  **Alerts**: If a workflow fails, an alert is sent to the configured Telegram channel with a link to the failed run and the last 10 lines of the log.
+
+## Structured Logging & Observability
+
+The system uses `structlog` for uniform structured logging.
+
+### Log Format
+- **Local (Pretty)**: Default format for local development. Human-readable with colors.
+- **CI/CD (JSON)**: Set `LOG_FORMAT=json` to produce machine-readable JSONL files.
+
+### Post-mortem Investigation
+1.  **Identify the Run**: Find the failed run in GitHub Actions.
+2.  **Check Summary**: Read the Action Summary for a high-level overview of what failed.
+3.  **Download Artifacts**: Retrieve the `.jsonl` files from the "Artifacts" section.
+4.  **Analyze**:
+    - Use `jq` to filter logs locally: `cat pipeline-XXX.jsonl | jq 'select(.level == "error")'`
+    - Use the CLI: `uv run jobhunter logs tail --event "ingest"`
 
 ### Weekly Digest
 

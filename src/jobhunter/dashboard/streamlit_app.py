@@ -1,6 +1,10 @@
 import streamlit as st
 from jobhunter.dashboard.auth import require_auth
 from jobhunter.dashboard.layout import render_header, render_sidebar
+from jobhunter.logging_config import setup_logging
+
+# Initialize logging
+setup_logging()
 
 # Page configuration
 st.set_page_config(

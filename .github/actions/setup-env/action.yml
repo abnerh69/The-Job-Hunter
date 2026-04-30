@@ -1,0 +1,44 @@
+name: 'Setup Environment'
+description: 'Configures environment variables from secrets for Job Hunter EU'
+inputs:
+  database_url:
+    description: 'Connection string for the database'
+    required: true
+  anthropic_api_key:
+    description: 'Anthropic API Key'
+    required: true
+  telegram_bot_token:
+    description: 'Telegram Bot Token'
+    required: false
+  telegram_chat_id:
+    description: 'Telegram Chat ID'
+    required: false
+  smtp_user:
+    description: 'SMTP User'
+    required: false
+  smtp_password:
+    description: 'SMTP Password'
+    required: false
+  digest_to_email:
+    description: 'Email address to receive the digest'
+    required: false
+  dashboard_password:
+    description: 'Password for the Streamlit dashboard'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Export Environment Variables
+      shell: bash
+      run: |
+        echo "DATABASE_URL=${{ inputs.database_url }}" >> $GITHUB_ENV
+        echo "ANTHROPIC_API_KEY=${{ inputs.anthropic_api_key }}" >> $GITHUB_ENV
+        echo "TELEGRAM_BOT_TOKEN=${{ inputs.telegram_bot_token }}" >> $GITHUB_ENV
+        echo "TELEGRAM_CHAT_ID=${{ inputs.telegram_chat_id }}" >> $GITHUB_ENV
+        echo "SMTP_USER=${{ inputs.smtp_user }}" >> $GITHUB_ENV
+        echo "SMTP_PASSWORD=${{ inputs.smtp_password }}" >> $GITHUB_ENV
+        echo "DIGEST_TO_EMAIL=${{ inputs.digest_to_email }}" >> $GITHUB_ENV
+        echo "DASHBOARD_PASSWORD=${{ inputs.dashboard_password }}" >> $GITHUB_ENV
+        echo "PYTHONPATH=src" >> $GITHUB_ENV
+        echo "LOG_FORMAT=json" >> $GITHUB_ENV

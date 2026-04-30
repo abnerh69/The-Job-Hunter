@@ -1,0 +1,45 @@
+name: DB Connection Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-db:
+    name: Test Database Connection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-env
+        with:
+          database_url: ${{ secrets.DATABASE_URL_PROD }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          smtp_user: ${{ secrets.SMTP_USER }}
+          smtp_password: ${{ secrets.SMTP_PASSWORD }}
+          digest_to_email: ${{ secrets.DIGEST_TO_EMAIL }}
+          dashboard_password: ${{ secrets.DASHBOARD_PASSWORD }}
+
+      - name: Test Connection
+        run: |
+          uv run python -c "from sqlalchemy import text; from jobhunter.db.session import engine;
+          with engine.connect() as conn:
+              result = conn.execute(text('SELECT 1')).scalar()
+              print(f'Connection successful: {result}')"

@@ -8,6 +8,7 @@ from jobhunter.db.base import Base
 
 from typing import Any
 
+
 def test_list_new_matches_filters(session: Any) -> None:
     Base.metadata.create_all(bind=session.get_bind())
     repo = JobRepo(session)

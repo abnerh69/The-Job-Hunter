@@ -2,14 +2,14 @@ import pytest
 import time
 import os
 import subprocess
-from typing import Generator
+from typing import Generator, Any
 from playwright.sync_api import sync_playwright, expect
 from jobhunter.db.session import get_session
 from jobhunter.db.models import Job
 from jobhunter.db.enums import JobTier, JobStatus
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=True)  # type: ignore[untyped-decorator]
 def streamlit_server() -> Generator[None, None, None]:
     # Kill any existing streamlit server on 8501
     subprocess.run("kill $(lsof -t -i :8501) 2>/dev/null || true", shell=True)
@@ -43,7 +43,7 @@ def streamlit_server() -> Generator[None, None, None]:
     process.wait()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function")  # type: ignore[untyped-decorator]
 def seed_data() -> None:
     with get_session() as session:
         # Clear jobs

@@ -16,9 +16,7 @@ def render_job_card(
         JobTier.B: "⭐",
         JobTier.C: "🔍",
         JobTier.REJECT: "❌",
-    }.get(
-        job.tier, "❓"
-    )
+    }.get(job.tier, "❓")
 
     with st.container(border=True):
         col_header, col_score = st.columns([0.8, 0.2])

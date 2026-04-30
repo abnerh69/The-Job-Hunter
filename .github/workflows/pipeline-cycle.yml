@@ -1,0 +1,89 @@
+name: Pipeline Cycle
+
+on:
+  schedule:
+    - cron: '0 */8 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Maximum jobs per source to ingest'
+        required: false
+        type: number
+      source:
+        description: 'Specific sources to run (comma separated names)'
+        required: false
+        type: string
+
+concurrency:
+  group: pipeline-cycle
+  cancel-in-progress: false
+
+jobs:
+  run-cycle:
+    name: Run Pipeline Cycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-env
+        with:
+          database_url: ${{ secrets.DATABASE_URL_PROD }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          dashboard_password: ${{ secrets.DASHBOARD_PASSWORD }}
+
+      - name: Run Pipeline Cycle
+        shell: bash
+        env:
+          LOG_FORMAT: json
+        run: |
+          # Build arguments for limit and source if provided
+          ARGS=""
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            ARGS="$ARGS --limit ${{ github.event.inputs.limit }}"
+          fi
+          if [ -n "${{ github.event.inputs.source }}" ]; then
+            # Split comma-separated sources and strip spaces
+            IFS=',' read -ra ADDR <<< "${{ github.event.inputs.source }}"
+            for i in "${ADDR[@]}"; do
+              trimmed=$(echo "$i" | xargs)
+              if [ -n "$trimmed" ]; then
+                ARGS="$ARGS --source $trimmed"
+              fi
+            done
+          fi
+
+          uv run jobhunter pipeline run-cycle $ARGS | tee pipeline-${{ github.run_id }}.jsonl
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs-${{ github.run_id }}
+          path: pipeline-${{ github.run_id }}.jsonl
+          retention-days: 30
+
+      - name: Alert on Failure
+        if: failure()
+        uses: ./.github/actions/alert-on-failure
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

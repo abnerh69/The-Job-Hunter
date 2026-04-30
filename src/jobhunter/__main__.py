@@ -939,9 +939,15 @@ def pipeline_run_cycle(
     since: Annotated[
         str, typer.Option(help="Fetch jobs since this date (YYYY-MM-DD or 'N days ago')")
     ] = "1 day ago",
+    limit: Annotated[int | None, typer.Option(help="Maximum jobs per source to ingest")] = None,
+    source: Annotated[
+        list[str] | None, typer.Option(help="Specific sources to run (can be repeated)")
+    ] = None,
 ) -> None:
     """Run the full ingestion -> scoring -> notification cycle."""
-    logger.info("Starting pipeline run-cycle", skip_steps=skip_step, since=since)
+    logger.info(
+        "Starting pipeline run-cycle", skip_steps=skip_step, since=since, limit=limit, source=source
+    )
 
     # Resolve 'since' parameter
     since_dt: datetime
@@ -966,6 +972,8 @@ def pipeline_run_cycle(
                     session=session,
                     skip_steps=skip_step,
                     since=since_dt,
+                    ingest_limit=limit,
+                    ingest_sources=source,
                 )
             )
 

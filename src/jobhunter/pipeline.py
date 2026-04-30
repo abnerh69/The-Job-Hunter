@@ -48,6 +48,8 @@ async def run_cycle(
     since: Optional[datetime] = None,
     scoring_limit: int = 100,
     scoring_concurrency: int = 5,
+    ingest_limit: Optional[int] = None,
+    ingest_sources: Optional[List[str]] = None,
 ) -> RunCycleReport:
     """
     Executes the full pipeline cycle: ingest -> score -> dispatch.
@@ -58,6 +60,8 @@ async def run_cycle(
         since: Datetime for ingestion (defaults to 7 days ago).
         scoring_limit: Max jobs to score.
         scoring_concurrency: Max concurrent LLM calls.
+        ingest_limit: Optional maximum number of jobs to fetch per source.
+        ingest_sources: Optional list of source names to include.
 
     Returns:
         RunCycleReport: Consolidated report of all steps.
@@ -74,11 +78,24 @@ async def run_cycle(
 
         try:
             all_source_classes = get_all_sources()
-            sources = [cls() for cls in all_source_classes]
+            if ingest_sources:
+                source_map = {cls.__name__.lower(): cls for cls in all_source_classes}
+                selected_classes = []
+                for s in ingest_sources:
+                    cls = source_map.get(s.lower())
+                    if cls:
+                        selected_classes.append(cls)
+                    else:
+                        logger.warning("pipeline_cycle_source_not_found", source=s)
+                sources = [cls() for cls in selected_classes]
+            else:
+                sources = [cls() for cls in all_source_classes]
+
             ingestion_report = await run_ingestion(
                 sources=sources,
                 since=since,
                 session=session,
+                limit=ingest_limit,
             )
             report.ingestion = ingestion_report
             if ingestion_report.total_errors > 0:

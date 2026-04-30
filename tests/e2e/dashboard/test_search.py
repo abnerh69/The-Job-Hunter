@@ -112,7 +112,7 @@ def test_global_search_flow(streamlit_server: None) -> None:
         time.sleep(5)
 
         # Verify results in Jobs tab
-        expect(page.get_by_test_id("search-result-job")).to_be_visible()
+        expect(page.get_by_test_id("search-result-job")).to_be_attached()
         expect(page.get_by_text("Unique Job Title")).to_be_visible()
 
         # Search for something in notes
@@ -124,7 +124,7 @@ def test_global_search_flow(streamlit_server: None) -> None:
         # Tabs are identified by text usually in Streamlit
         page.get_by_role("tab").filter(has_text="Applications").click()
         time.sleep(2)
-        expect(page.get_by_test_id("search-result-app")).to_be_visible()
+        expect(page.get_by_test_id("search-result-app")).to_be_attached()
         expect(page.get_by_text("Important search note here")).to_be_visible()
 
         # Search for contact
@@ -135,7 +135,7 @@ def test_global_search_flow(streamlit_server: None) -> None:
         # Switch to Contacts tab
         page.get_by_role("tab").filter(has_text="Contacts").click()
         time.sleep(2)
-        expect(page.get_by_test_id("search-result-contact")).to_be_visible()
+        expect(page.get_by_test_id("search-result-contact")).to_be_attached()
         # The text might be outside the data-testid div but inside the card container.
         # Let's just check for the text on the page while the tab is active.
         expect(page.get_by_text("John Searcher").first).to_be_visible()

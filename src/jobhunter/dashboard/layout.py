@@ -20,6 +20,30 @@ def render_header() -> None:
 
 def render_sidebar() -> None:
     """Renders the dashboard sidebar with system status."""
+    st.sidebar.title("🔍 Global Search")
+
+    if "global_search_query" not in st.session_state:
+        st.session_state.global_search_query = ""
+
+    search_query = st.sidebar.text_input(
+        "Search across jobs, apps, contacts",
+        value=st.session_state.global_search_query,
+        key="search_input",
+    )
+
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("Search", type="primary", use_container_width=True):
+            st.session_state.global_search_query = search_query
+            if search_query:
+                # Redirect to search page
+                st.switch_page("pages/6_🔎_Search.py")
+    with col2:
+        if st.button("Clear", use_container_width=True):
+            st.session_state.global_search_query = ""
+            st.rerun()
+
+    st.sidebar.divider()
     st.sidebar.title("System Status")
 
     try:

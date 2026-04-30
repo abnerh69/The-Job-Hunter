@@ -4,9 +4,11 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     FetchedValue,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -25,6 +27,7 @@ from jobhunter.db.base import Base
 from jobhunter.db.enums import (
     ApplicationEventType,
     ApplicationStatus,
+    EmailMatchStatus,
     JobStatus,
     JobTier,
     LLMPurpose,
@@ -446,6 +449,65 @@ class OAuthToken(Base):
 
     def __repr__(self) -> str:
         return f"<OAuthToken(provider={self.provider}, email={self.account_email})>"
+
+
+class EmailMessage(Base):
+    """
+    SQLAlchemy model for the 'email_messages' table.
+    Stores metadata for processed emails to track matches and ensure idempotency.
+    """
+
+    __tablename__ = "email_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    gmail_message_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    gmail_thread_id: Mapped[str | None] = mapped_column(String(255))
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    from_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    from_domain: Mapped[str | None] = mapped_column(String(255))
+    subject: Mapped[str | None] = mapped_column(Text)
+    snippet: Mapped[str | None] = mapped_column(String(200))
+    body_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    match_status: Mapped[EmailMatchStatus] = mapped_column(
+        String(30), nullable=False, server_default=EmailMatchStatus.UNMATCHED
+    )
+    matched_application_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("applications.id"), nullable=True
+    )
+    matched_outreach_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("outreach_messages.id"), nullable=True
+    )
+    match_confidence: Mapped[float | None] = mapped_column(Float)
+    match_reasoning: Mapped[str | None] = mapped_column(Text)
+    suggested_status_change: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite")
+    )
+    processed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    # Relationships
+    matched_application: Mapped["Application | None"] = relationship()
+    matched_outreach_message: Mapped["OutreachMessage | None"] = relationship()
+
+    # Indices and Constraints
+    __table_args__ = (
+        Index("idx_email_from_domain", from_domain),
+        Index("idx_email_match_status", match_status),
+        Index("idx_email_received_at", received_at.desc()),
+        CheckConstraint(
+            "(matched_application_id IS NULL) OR (matched_outreach_message_id IS NULL)",
+            name="check_only_one_match_target",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return f"<EmailMessage(gmail_id={self.gmail_message_id}, status={self.match_status})>"
 
 
 @event.listens_for(Application.status, "set")

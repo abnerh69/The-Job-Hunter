@@ -59,6 +59,9 @@ app.add_typer(pipeline_app, name="pipeline")
 logs_app = typer.Typer(help="Inspect and download system logs")
 app.add_typer(logs_app, name="logs")
 
+email_app = typer.Typer(help="Manage Gmail OAuth2 authentication")
+app.add_typer(email_app, name="email")
+
 outreach_app = typer.Typer(help="Manage proactive outreach contacts")
 app.add_typer(outreach_app, name="outreach")
 
@@ -1520,6 +1523,48 @@ def outreach_import(
 
     except Exception as e:
         logger.error("Outreach import failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@email_app.command("auth")
+def email_auth(
+    revoke: Annotated[bool, typer.Option(help="Revoke existing tokens")] = False,
+) -> None:
+    """Authenticate with Gmail via OAuth2."""
+    from jobhunter.auth.google import GoogleOAuthHandler
+
+    settings = Settings()  # type: ignore[call-arg]
+    try:
+        with get_session() as session:
+            handler = GoogleOAuthHandler(session, settings)
+
+            if revoke:
+                emails = handler.list_authenticated_emails()
+                if not emails:
+                    typer.echo("No authenticated Gmail accounts found.")
+                    return
+
+                for email in emails:
+                    if typer.confirm(f"Revoke tokens for {email}?"):
+                        if handler.revoke_tokens(email):
+                            typer.echo(f"Successfully revoked tokens for {email}.")
+                        else:
+                            typer.echo(f"Failed to revoke tokens for {email}.", err=True)
+                return
+
+            typer.echo("Starting Gmail OAuth2 authentication flow...")
+            typer.echo("A browser window will open to complete the process.")
+
+            result = handler.run_local_server_flow()
+
+            typer.echo("-" * 40)
+            typer.echo(f"Authentication successful for: {result['email']}")
+            typer.echo(f"Granted scopes: {', '.join(result['scopes'])}")
+            typer.echo("-" * 40)
+
+    except Exception as e:
+        logger.error("Gmail auth failed", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

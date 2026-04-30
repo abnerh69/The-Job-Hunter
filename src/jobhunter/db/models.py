@@ -409,6 +409,45 @@ class NotificationSent(Base):
         return f"<NotificationSent(channel={self.channel}, dedup_key={self.dedup_key}, success={self.success})>"
 
 
+class OAuthToken(Base):
+    """
+    SQLAlchemy model for the 'oauth_tokens' table.
+    Stores encrypted OAuth2 tokens for various providers.
+    """
+
+    __tablename__ = "oauth_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    account_email: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    access_token: Mapped[str] = mapped_column(Text, nullable=False)
+    refresh_token: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scopes: Mapped[list[str] | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (Index("idx_oauth_provider_email", "provider", "account_email", unique=True),)
+
+    def __repr__(self) -> str:
+        return f"<OAuthToken(provider={self.provider}, email={self.account_email})>"
+
+
 @event.listens_for(Application.status, "set")
 def receive_status_change(target: Application, value: str, oldvalue: Any, initiator: Any) -> None:
     """

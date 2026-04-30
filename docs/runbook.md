@@ -256,6 +256,20 @@ The system uses `structlog` for uniform structured logging.
 
 The `Weekly Digest` workflow runs every Sunday at 17:00 UTC (12:00 COT). It aggregates metrics from the past week and sends an email summary.
 
+### Email Poll
+
+The `Email Poll` workflow runs every 30 minutes. It polls for new job-related emails, matches them to existing applications or outreach contacts, and suggests state changes.
+
+**Manual Execution:**
+- Go to the **Actions** tab in GitHub.
+- Select **Email Poll**.
+- Click **Run workflow**.
+
+**Monitoring & Investigation:**
+1.  **Alerts**: If a match is found and suggests a state change that requires confirmation, an interactive Telegram notification is sent with "Approve", "Reject", and "Context" buttons.
+2.  **Anti-Spam**: If more than 5 suggestions are generated within an hour, they are grouped into a single summary notification.
+3.  **Logs**: Each run uploads an `email-poll-{id}.jsonl` artifact.
+
 **Manual Execution:**
 - Go to the **Actions** tab in GitHub.
 - Select **Weekly Digest**.

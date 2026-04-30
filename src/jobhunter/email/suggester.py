@@ -33,6 +33,7 @@ class StateSuggestion(BaseModel):
     current_state: str
     suggested_state: str
     confidence: float
+    from_email: str | None = None
     email_snippet: str | None = None
     reasoning: str | None = None
     status: SuggestionStatus
@@ -133,6 +134,7 @@ async def suggest_state_changes(session: Session) -> list[StateSuggestion]:
             current_state=current_state,
             suggested_state=suggested_state,
             confidence=email.match_confidence or 0.0,
+            from_email=email.from_email,
             email_snippet=email.snippet,
             reasoning=email.match_reasoning,
             status=SuggestionStatus.PENDING,

@@ -1593,6 +1593,34 @@ def email_auth(
         raise typer.Exit(code=1)
 
 
+@email_app.command("poll-and-suggest")
+def email_poll_and_suggest() -> None:
+    """Poll Gmail for new messages, match them, and suggest state changes."""
+    from jobhunter.email.orchestrator import run_email_poll_and_suggest
+
+    logger.info("Starting email poll and suggest")
+    try:
+        with get_session() as session:
+            report = asyncio.run(run_email_poll_and_suggest(session))
+
+        console = Console()
+        table = Table(title="Email Poll and Suggest Report", header_style="bold magenta")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+
+        table.add_row("Processed Accounts", str(report["processed_accounts"]))
+        table.add_row("New Emails Recorded", str(report["new_emails"]))
+        table.add_row("Suggestions Generated", str(report["suggestions"]))
+        table.add_row("Callbacks Processed", str(report.get("callbacks_processed", 0)))
+
+        console.print(table)
+        session.commit()
+    except Exception as e:
+        logger.exception("Email poll and suggest failed")
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def dashboard() -> None:
     """Run the Streamlit dashboard."""

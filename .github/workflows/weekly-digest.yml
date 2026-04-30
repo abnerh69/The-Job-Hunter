@@ -1,0 +1,63 @@
+name: Weekly Digest
+
+on:
+  schedule:
+    - cron: '0 17 * * 0' # Sundays at 17:00 UTC (12:00 COT)
+  workflow_dispatch:
+
+jobs:
+  send-digest:
+    name: Send Weekly Digest
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-env
+        with:
+          database_url: ${{ secrets.DATABASE_URL_PROD }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          smtp_user: ${{ secrets.SMTP_USER }}
+          smtp_password: ${{ secrets.SMTP_PASSWORD }}
+          digest_to_email: ${{ secrets.DIGEST_TO_EMAIL }}
+          dashboard_password: ${{ secrets.DASHBOARD_PASSWORD }}
+
+      - name: Run Weekly Digest
+        shell: bash
+        env:
+          LOG_FORMAT: json
+        run: |
+          uv run jobhunter notify digest --send | tee digest-${{ github.run_id }}.jsonl
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-logs-${{ github.run_id }}
+          path: digest-${{ github.run_id }}.jsonl
+          retention-days: 30
+
+      - name: Alert on Failure
+        if: failure()
+        uses: ./.github/actions/alert-on-failure
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

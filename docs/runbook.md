@@ -195,6 +195,20 @@ The `Pipeline Cycle` workflow runs every 8 hours (`00:00`, `08:00`, `16:00` UTC)
 2.  **Logs**: Each run uploads a `pipeline-logs-{id}.jsonl` artifact. Download it to see structured logs of all steps.
 3.  **Alerts**: If a workflow fails, an alert is sent to the configured Telegram channel with a link to the failed run.
 
+### Weekly Digest
+
+The `Weekly Digest` workflow runs every Sunday at 17:00 UTC (12:00 COT). It aggregates metrics from the past week and sends an email summary.
+
+**Manual Execution:**
+- Go to the **Actions** tab in GitHub.
+- Select **Weekly Digest**.
+- Click **Run workflow**.
+
+**Monitoring & Investigation:**
+1.  **Status**: Check the workflow run list.
+2.  **Alerts**: Failure alerts are sent to Telegram via the `alert-on-failure` action.
+3.  **Deduplication**: The system will not send more than one digest per ISO week.
+
 ## Dashboard Deployment
 
 ### Deploy dashboard a Fly.io

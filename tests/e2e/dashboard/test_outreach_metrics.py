@@ -8,17 +8,21 @@ from typing import Generator
 from playwright.sync_api import sync_playwright, expect
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from jobhunter.db.base import Base
 from jobhunter.db.models import OutreachContact, OutreachMessage
-from jobhunter.db.enums import OutreachStatus, OutreachMarket, OutreachMessageStatus, OutreachTemplateType
+from jobhunter.db.enums import (
+    OutreachStatus,
+    OutreachMarket,
+    OutreachMessageStatus,
+    OutreachTemplateType,
+)
 
 
 @pytest.fixture(scope="module")
 def test_db() -> Generator[str, None, None]:
     db_path = "test_e2e_outreach_metrics.db"
     if os.environ.get("GITHUB_ACTIONS"):
-         # Avoid conflicts in CI
-         db_path = f"test_e2e_outreach_metrics_{uuid.uuid4().hex}.db"
+        # Avoid conflicts in CI
+        db_path = f"test_e2e_outreach_metrics_{uuid.uuid4().hex}.db"
 
     if os.path.exists(db_path):
         os.remove(db_path)
@@ -44,13 +48,16 @@ def test_db() -> Generator[str, None, None]:
     with engine.connect() as conn:
         try:
             conn.execute(text("ALTER TABLE jobs ADD COLUMN search_vector TEXT"))
-        except Exception: pass
+        except Exception:
+            pass
         try:
             conn.execute(text("ALTER TABLE applications ADD COLUMN search_vector TEXT"))
-        except Exception: pass
+        except Exception:
+            pass
         try:
             conn.execute(text("ALTER TABLE outreach_contacts ADD COLUMN search_vector TEXT"))
-        except Exception: pass
+        except Exception:
+            pass
         conn.commit()
 
     Session = sessionmaker(bind=engine)
@@ -123,14 +130,14 @@ def test_db() -> Generator[str, None, None]:
         template_type=OutreachTemplateType.A_INHOUSE,
         body="Initial message to Eve",
         status=OutreachMessageStatus.SENT,
-        sent_at=datetime.now(timezone.utc) - timedelta(days=8)
+        sent_at=datetime.now(timezone.utc) - timedelta(days=8),
     )
     frank_msg = OutreachMessage(
         contact_id=ghosted_contact.id,
         template_type=OutreachTemplateType.A_INHOUSE,
         body="Initial message to Frank",
         status=OutreachMessageStatus.SENT,
-        sent_at=datetime.now(timezone.utc) - timedelta(days=22)
+        sent_at=datetime.now(timezone.utc) - timedelta(days=22),
     )
     session.add_all([eve_msg, frank_msg])
     session.commit()
@@ -195,6 +202,7 @@ def test_outreach_metrics_flow(streamlit_server: None, test_db: str) -> None:
         # expect(page.get_by_text("Alice Inhouse").first).to_be_visible()
 
         browser.close()
+
 
 @pytest.mark.e2e
 def test_outreach_cadence_cli(test_db: str) -> None:

@@ -78,7 +78,9 @@ else:
                     col1, col2 = st.columns([0.8, 0.2])
                     with col1:
                         st.subheader(f"{app.job.title} @ {app.job.company}")
-                        status_val = app.status.value if hasattr(app.status, "value") else str(app.status)
+                        status_val = (
+                            app.status.value if hasattr(app.status, "value") else str(app.status)
+                        )
                         st.write(
                             f"Status: `{status_val}` | Applied: {format_relative_time(app.applied_at)}"
                         )
@@ -104,7 +106,11 @@ else:
                         st.write(
                             f"**{contact.company or 'Unknown Company'}** | {contact.role or 'No Role'}"
                         )
-                        contact_status_val = contact.status.value if hasattr(contact.status, "value") else str(contact.status)
+                        contact_status_val = (
+                            contact.status.value
+                            if hasattr(contact.status, "value")
+                            else str(contact.status)
+                        )
                         st.caption(f"Status: {contact_status_val}")
                     with col2:
                         if st.button("View in Outreach", key=f"contact_{contact.id}"):

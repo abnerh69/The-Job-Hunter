@@ -120,10 +120,14 @@ def test_new_matches_flow(streamlit_server: None) -> None:
         # Streamlit selectbox is not a standard HTML select
         # Use get_by_test_id if available, but for now we'll use more specific text selectors
         page.get_by_label("Método").click()
-        page.get_by_test_id("stSelectboxVirtualDropdown").get_by_text("LinkedIn", exact=True).click()
+        page.get_by_test_id("stSelectboxVirtualDropdown").get_by_text(
+            "LinkedIn", exact=True
+        ).click()
 
         page.get_by_label("CV Variant").click()
-        page.get_by_test_id("stSelectboxVirtualDropdown").get_by_text("ai_python", exact=True).click()
+        page.get_by_test_id("stSelectboxVirtualDropdown").get_by_text(
+            "ai_python", exact=True
+        ).click()
 
         page.get_by_label("Notas").fill("Test application from E2E")
         page.get_by_role("button", name="Registrar Aplicación").click()

@@ -33,7 +33,7 @@ from jobhunter.notify import get_all_notifiers, get_notifier_cls, NotificationMe
 from jobhunter.notify.digest import prepare_weekly_digest, send_weekly_digest
 from jobhunter.notify.dispatcher import dispatch_tier_a_notifications
 from jobhunter.db.repos.notifications import NotificationsRepo
-from jobhunter.pipeline import RunCycleStatus, run_cycle
+from jobhunter.pipeline import RunCycleStatus, run_cycle, run_followup_checks
 from jobhunter.application.assistant import assist_application
 from jobhunter.application.cover_letter import generate_cover_letter
 from jobhunter.application.cv import load_cv
@@ -927,6 +927,40 @@ def apply(
 
     except Exception as e:
         logger.error("Apply registration failed", job_id=job_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@pipeline_app.command("check-followups")
+def pipeline_check_followups() -> None:
+    """Run daily follow-up and ghosting checks."""
+    logger.info("Starting follow-up and ghosting checks")
+
+    try:
+        with get_session() as session:
+            report = asyncio.run(run_followup_checks(session))
+
+        console = Console()
+        table = Table(title="Follow-up Checks Report", header_style="bold magenta")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+
+        table.add_row("Pending Follow-ups", str(report.pending_followups_count))
+        table.add_row("Marked as Ghosted", str(report.ghosted_marked_count))
+        table.add_row(
+            "Notification Sent", "[green]YES[/green]" if report.notification_sent else "NO"
+        )
+        table.add_row("Duration", f"{report.duration_ms}ms")
+
+        console.print(table)
+
+        if report.errors:
+            console.print("\n[bold red]Errors:[/bold red]")
+            for err in report.errors:
+                console.print(f"- {err}")
+
+    except Exception as e:
+        logger.exception("Follow-up checks failed")
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

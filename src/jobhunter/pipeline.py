@@ -2,6 +2,7 @@
 Orchestrator for the jobhunter pipeline run-cycle.
 """
 
+import time
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import List, Optional
@@ -11,8 +12,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from jobhunter.config import Settings
+from jobhunter.db.enums import ApplicationStatus
+from jobhunter.db.maintenance import refresh_weekly_metrics
+from jobhunter.db.repos.application import ApplicationRepo
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.notify.base import NotificationMessage
 from jobhunter.notify.dispatcher import DispatchReport, dispatch_tier_a_notifications
+from jobhunter.notify.telegram import TelegramNotifier
+from jobhunter.notify.templates import render
 from jobhunter.scoring.pipeline import ScoringBatchReport, score_pending_jobs
 from jobhunter.scoring.scorer import JobScorer
 from jobhunter.sources.orchestrator import IngestionReport, run_ingestion
@@ -39,6 +46,18 @@ class RunCycleReport(BaseModel):
     ingestion: Optional[IngestionReport] = None
     scoring: Optional[ScoringBatchReport] = None
     dispatch: Optional[DispatchReport] = None
+    errors: List[str] = Field(default_factory=list)
+
+
+class FollowupReport(BaseModel):
+    """Consolidated report for follow-up and ghosting checks."""
+
+    started_at: datetime
+    finished_at: Optional[datetime] = None
+    duration_ms: int = 0
+    pending_followups_count: int = 0
+    ghosted_marked_count: int = 0
+    notification_sent: bool = False
     errors: List[str] = Field(default_factory=list)
 
 
@@ -172,4 +191,85 @@ async def run_cycle(
     report.finished_at = datetime.now(timezone.utc)
     report.total_duration_ms = int((report.finished_at - report.started_at).total_seconds() * 1000)
 
+    return report
+
+
+async def run_followup_checks(session: Session) -> FollowupReport:
+    """
+    Orchestrates daily follow-up and ghosting checks for applications.
+
+    Args:
+        session: SQLAlchemy session.
+
+    Returns:
+        FollowupReport: Consolidated report of the checks.
+    """
+    start_time = time.perf_counter()
+    started_at = datetime.now(timezone.utc)
+    today = started_at.date()
+    report = FollowupReport(started_at=started_at)
+    repo = ApplicationRepo(session)
+
+    try:
+        # 1. Detect pending follow-ups
+        pending = repo.list_pending_followups(today)
+        report.pending_followups_count = len(pending)
+
+        # 2. Detect and auto-mark ghosted candidates
+        ghosted = repo.list_ghosted_candidates(today)
+        for app in ghosted:
+            repo.transition_status(
+                app.id,
+                ApplicationStatus.GHOSTED,
+                note="Auto-marked as ghosted after 21 days of inactivity.",
+            )
+            report.ghosted_marked_count += 1
+
+        session.commit()
+
+        # 3. Refresh weekly metrics
+        try:
+            refresh_weekly_metrics(session)
+        except Exception as e:
+            logger.error("failed_to_refresh_metrics_during_followup", error=str(e))
+            report.errors.append(f"Metrics refresh failed: {str(e)}")
+
+        # 4. Send Telegram notification if there are pending follow-ups
+        if report.pending_followups_count > 0:
+            try:
+                settings = Settings()  # type: ignore[call-arg]
+                notifier = TelegramNotifier()
+                if notifier.is_enabled(settings):
+                    body = render(
+                        "notifications/followup_pending.md",
+                        {"count": report.pending_followups_count, "applications": pending},
+                    )
+                    message = NotificationMessage(
+                        channel="telegram",
+                        body_text=body,
+                        metadata={"type": "followup_check"},
+                    )
+                    result = await notifier.send(message)
+                    if result.success:
+                        report.notification_sent = True
+                    else:
+                        report.errors.append(f"Telegram notification failed: {result.error}")
+            except Exception as e:
+                logger.error("failed_to_send_followup_notification", error=str(e))
+                report.errors.append(f"Notification failed: {str(e)}")
+
+        logger.info(
+            "followup_checks_completed",
+            pending=report.pending_followups_count,
+            ghosted=report.ghosted_marked_count,
+            notification_sent=report.notification_sent,
+        )
+
+    except Exception as e:
+        logger.exception("followup_checks_failed", error=str(e))
+        report.errors.append(f"Follow-up checks failed: {str(e)}")
+        session.rollback()
+
+    report.finished_at = datetime.now(timezone.utc)
+    report.duration_ms = int((time.perf_counter() - start_time) * 1000)
     return report

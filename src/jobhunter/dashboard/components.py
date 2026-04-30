@@ -11,14 +11,15 @@ def render_job_card(
     """
     Renders a visual card for a job.
     """
-    tier_emoji = {
-        JobTier.A: "🔥",
-        JobTier.B: "⭐",
-        JobTier.C: "🔍",
-        JobTier.REJECT: "❌",
-    }.get(
-        job.tier, "❓"  # type: ignore[arg-type]
-    )
+    tier_emoji = "❓"
+    if job.tier == JobTier.A:
+        tier_emoji = "🔥"
+    elif job.tier == JobTier.B:
+        tier_emoji = "⭐"
+    elif job.tier == JobTier.C:
+        tier_emoji = "🔍"
+    elif job.tier == JobTier.REJECT:
+        tier_emoji = "❌"
 
     with st.container(border=True):
         col_header, col_score = st.columns([0.8, 0.2])

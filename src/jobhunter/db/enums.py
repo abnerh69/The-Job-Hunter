@@ -63,6 +63,26 @@ class OutreachStatus(StrEnum):
     WARM = "warm"
 
 
+class OutreachTemplateType(StrEnum):
+    """Enumeration of possible outreach template types."""
+
+    A_INHOUSE = "A_inhouse"
+    B_BOUTIQUE = "B_boutique"
+    C_SENIOR = "C_senior"
+    D_FOLLOWUP = "D_followup"
+    CUSTOM = "custom"
+
+
+class OutreachMessageStatus(StrEnum):
+    """Enumeration of possible statuses for an outreach message."""
+
+    DRAFT = "draft"
+    SENT = "sent"
+    REPLIED = "replied"
+    GHOSTED = "ghosted"
+    DISCARDED = "discarded"
+
+
 class SourceState(StrEnum):
     """Enumeration of possible states for a circuit breaker."""
 
@@ -77,5 +97,6 @@ class LLMPurpose(StrEnum):
     SCORING = "scoring"
     COVER_LETTER = "cover_letter"
     OUTREACH = "outreach"
+    OUTREACH_MESSAGE = "outreach_message"
     ATS_KEYWORDS = "ats_keywords"
     CV_TWEAKS = "cv_tweaks"

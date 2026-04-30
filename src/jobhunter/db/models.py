@@ -29,7 +29,9 @@ from jobhunter.db.enums import (
     JobTier,
     LLMPurpose,
     OutreachMarket,
+    OutreachMessageStatus,
     OutreachStatus,
+    OutreachTemplateType,
     SourceState,
 )
 
@@ -242,11 +244,76 @@ class OutreachContact(Base):
     # Search vector (server-side generated)
     search_vector: Mapped[Any] = mapped_column(Text, FetchedValue(), deferred=True, nullable=True)
 
+    # Relationships
+    messages: Mapped[list["OutreachMessage"]] = relationship(
+        back_populates="contact", cascade="all, delete-orphan"
+    )
+
     # Indices
     __table_args__ = (Index("idx_outreach_followup", "status", "last_contacted_at"),)
 
     def __repr__(self) -> str:
         return f"<OutreachContact(name={self.name}, status={self.status})>"
+
+
+class OutreachMessage(Base):
+    """
+    SQLAlchemy model for the 'outreach_messages' table.
+    Tracks messages sent to outreach contacts.
+    """
+
+    __tablename__ = "outreach_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("outreach_contacts.id", ondelete="CASCADE"), nullable=False
+    )
+    template_type: Mapped[OutreachTemplateType] = mapped_column(String(50), nullable=False)
+    template_version: Mapped[str | None] = mapped_column(String(20))
+    subject: Mapped[str | None] = mapped_column(Text)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    body_edited_by_user: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    research_notes: Mapped[str | None] = mapped_column(Text)
+    model_used: Mapped[str | None] = mapped_column(String(50))
+    cost_usd: Mapped[float | None] = mapped_column(Numeric(10, 6))
+
+    status: Mapped[OutreachMessageStatus] = mapped_column(
+        String(30), nullable=False, server_default=OutreachMessageStatus.DRAFT
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    replied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    parent_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("outreach_messages.id"), nullable=True
+    )
+
+    # Relationships
+    contact: Mapped["OutreachContact"] = relationship(back_populates="messages")
+    parent_message: Mapped["OutreachMessage | None"] = relationship(
+        remote_side=[id], backref="followups"
+    )
+
+    # Indices
+    __table_args__ = (
+        Index("idx_outreach_messages_contact_created", "contact_id", created_at.desc()),
+        Index(
+            "idx_outreach_messages_status_sent",
+            "status",
+            "sent_at",
+            postgresql_where=status.in_([OutreachMessageStatus.SENT, OutreachMessageStatus.DRAFT]),
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return f"<OutreachMessage(contact_id={self.contact_id}, status={self.status})>"
 
 
 class SourceHealth(Base):

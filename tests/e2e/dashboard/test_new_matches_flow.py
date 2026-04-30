@@ -44,7 +44,7 @@ def streamlit_server() -> Generator[None, None, None]:
 
 
 @pytest.fixture(scope="function")
-def seed_data():
+def seed_data() -> None:
     with get_session() as session:
         # Clear jobs
         session.query(Job).delete()
@@ -81,7 +81,7 @@ def seed_data():
         session.commit()
 
 
-def test_new_matches_filters_and_skip(seed_data) -> None:
+def test_new_matches_filters_and_skip(seed_data: Any) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
@@ -128,7 +128,7 @@ def test_new_matches_filters_and_skip(seed_data) -> None:
         browser.close()
 
 
-def test_new_matches_mark_applied(seed_data) -> None:
+def test_new_matches_mark_applied(seed_data: Any) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()

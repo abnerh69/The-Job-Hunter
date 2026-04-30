@@ -6,7 +6,9 @@ from jobhunter.db.enums import JobTier, JobStatus
 from jobhunter.db.base import Base
 
 
-def test_list_new_matches_filters(session):
+from typing import Any
+
+def test_list_new_matches_filters(session: Any) -> None:
     Base.metadata.create_all(bind=session.get_bind())
     repo = JobRepo(session)
 
@@ -97,7 +99,7 @@ def test_list_new_matches_filters(session):
     assert results[0].title == "Python Developer"
 
 
-def test_get_dashboard_metrics(session):
+def test_get_dashboard_metrics(session: Any) -> None:
     Base.metadata.create_all(bind=session.get_bind())
     repo = JobRepo(session)
 

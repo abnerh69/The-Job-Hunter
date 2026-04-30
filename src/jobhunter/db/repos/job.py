@@ -36,7 +36,7 @@ class JobRepo(BaseRepo[Job]):
             Job | None: The job if found, None otherwise.
         """
         stmt = select(Job).where(Job.url_hash == url_hash)
-        return self.session.scalar(stmt)
+        return self.session.scalar(stmt)  # type: ignore[no-any-return]
 
     def list_by_status(self, status: JobStatus, limit: int = 100) -> Sequence[Job]:
         """
@@ -50,7 +50,7 @@ class JobRepo(BaseRepo[Job]):
             Sequence[Job]: A sequence of jobs matching the status.
         """
         stmt = select(Job).where(Job.status == status).limit(limit)
-        return self.session.scalars(stmt).all()
+        return self.session.scalars(stmt).all()  # type: ignore[no-any-return]
 
     def list_by_tier(self, tier: JobTier, limit: int = 100) -> Sequence[Job]:
         """
@@ -64,7 +64,7 @@ class JobRepo(BaseRepo[Job]):
             Sequence[Job]: A sequence of jobs matching the tier.
         """
         stmt = select(Job).where(Job.tier == tier).limit(limit)
-        return self.session.scalars(stmt).all()
+        return self.session.scalars(stmt).all()  # type: ignore[no-any-return]
 
     def list_new_matches(
         self,
@@ -105,7 +105,7 @@ class JobRepo(BaseRepo[Job]):
         if min_salary is not None:
             # Salary is in score_data['compensation']['salary_min_usd_month']
             salary_path = ["compensation", "salary_min_usd_month"]
-            if self.session.bind.dialect.name == "sqlite":
+            if self.session.bind and self.session.bind.dialect.name == "sqlite":
                 # SQLite doesn't support as_numeric or astext.cast(Numeric) well via SA's JSON
                 # We use a more basic approach for SQLite if needed, or just skip filtering for tests
                 # Actually, SA 2.0 has some support. Let's try to be cross-dialect.
@@ -122,7 +122,7 @@ class JobRepo(BaseRepo[Job]):
                     stack_filters.append(Job.score_data["role"]["is_flutter_role"].as_boolean())
                 elif stack == "Python":
                     # Check if "Python" is in primary_stack_match list
-                    if self.session.bind.dialect.name == "sqlite":
+                    if self.session.bind and self.session.bind.dialect.name == "sqlite":
                         # SQLite doesn't support .contains() for JSON arrays easily in SA without extra setup
                         # We use cast(Text) to avoid #>> operator which SQLite dialect might try to use
                         from sqlalchemy import Text as SAText
@@ -148,7 +148,7 @@ class JobRepo(BaseRepo[Job]):
                 stmt = stmt.where(or_(*stack_filters))
 
         stmt = stmt.order_by(Job.fit_score.desc()).limit(limit).offset(offset)
-        return self.session.scalars(stmt).all()
+        return self.session.scalars(stmt).all()  # type: ignore[no-any-return]
 
     def count_new_matches(
         self,
@@ -169,7 +169,7 @@ class JobRepo(BaseRepo[Job]):
             stmt = stmt.where(Job.fit_score >= min_score)
         if min_salary is not None:
             salary_path = ["compensation", "salary_min_usd_month"]
-            if self.session.bind.dialect.name == "sqlite":
+            if self.session.bind and self.session.bind.dialect.name == "sqlite":
                 stmt = stmt.where(Job.score_data[salary_path].as_integer() >= min_salary)
             else:
                 stmt = stmt.where(Job.score_data[salary_path].astext.cast(Numeric) >= min_salary)
@@ -181,7 +181,7 @@ class JobRepo(BaseRepo[Job]):
                 elif stack == "Flutter":
                     stack_filters.append(Job.score_data["role"]["is_flutter_role"].as_boolean())
                 elif stack == "Python":
-                    if self.session.bind.dialect.name == "sqlite":
+                    if self.session.bind and self.session.bind.dialect.name == "sqlite":
                         from sqlalchemy import Text as SAText
 
                         stack_filters.append(
@@ -268,7 +268,7 @@ class JobRepo(BaseRepo[Job]):
                 "status": job.status or JobStatus.NEW,
             }
             if job.id:
-                job_data["id"] = job.id  # type: ignore[assignment]
+                job_data["id"] = job.id
             values.append(job_data)
 
         # Build ON CONFLICT DO NOTHING statement

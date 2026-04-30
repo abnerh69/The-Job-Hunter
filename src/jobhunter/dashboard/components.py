@@ -11,7 +11,12 @@ def render_job_card(
     """
     Renders a visual card for a job.
     """
-    tier_emoji = {JobTier.A: "🔥", JobTier.B: "⭐", JobTier.C: "🔍", JobTier.REJECT: "❌"}.get(
+    tier_emoji = {
+        JobTier.A: "🔥",
+        JobTier.B: "⭐",
+        JobTier.C: "🔍",
+        JobTier.REJECT: "❌",
+    }.get(
         job.tier, "❓"
     )
 

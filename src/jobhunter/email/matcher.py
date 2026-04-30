@@ -215,13 +215,18 @@ Candidates:
             logger.debug(
                 "inferring_status_change", app_id=application_id, full_text=full_text[:100]
             )
+            app = session.get(Application, application_id)  # type: ignore[assignment]
             if any(
                 kw in full_text
                 for kw in ["interview", "schedule a call", "speak with you", "availability"]
             ):
+                new_status = ApplicationStatus.SCREENING
+                if app and app.status == ApplicationStatus.SCREENING:
+                    new_status = ApplicationStatus.INTERVIEW_1
+
                 suggested_change = {
-                    "status": ApplicationStatus.SCREENING,
-                    "note": "Possible interview request detected.",
+                    "status": new_status,
+                    "note": f"Possible {new_status} request detected.",
                 }
             elif any(
                 kw in full_text

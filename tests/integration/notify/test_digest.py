@@ -9,6 +9,7 @@ from jobhunter.db.repos.notifications import NotificationsRepo
 
 
 @pytest.mark.asyncio
+@pytest.mark.db
 async def test_compute_digest_context_with_data(session: Session) -> None:
     # Setup: Create some jobs and apps for the week
     week_ending = date.today()

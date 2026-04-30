@@ -1,7 +1,6 @@
-import csv
 import uuid
 from datetime import date, datetime, timedelta
-from typing import Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import Session
@@ -166,72 +165,75 @@ class OutreachRepo(BaseRepo[OutreachContact]):
             contact.status = OutreachStatus.CONTACTED
             self.session.flush()
 
-    def bulk_import_from_csv(self, path: str) -> tuple[int, int]:
+    def process_import_batch(self, contacts_data: list[dict[str, Any]]) -> tuple[int, int, int]:
         """
-        Bulk imports outreach contacts from a CSV file.
-        Skips duplicates based on linkedin_url.
+        Processes a batch of parsed contacts, handles deduplication, and persists new ones.
 
         Args:
-            path (str): The path to the CSV file.
+            contacts_data: List of normalized contact dictionaries.
 
         Returns:
-            tuple[int, int]: A tuple of (imported_count, skipped_duplicates_count).
-
-        Raises:
-            IOError: If the file cannot be read.
-            csv.Error: If the CSV is malformed.
+            tuple[int, int, int]: (imported, skipped, failed)
         """
         imported = 0
-        duplicates = 0
+        skipped = 0
+        failed = 0
         seen_urls: set[str] = set()
 
+        for data in contacts_data:
+            url = data.get("linkedin_url")
+            if not url:
+                failed += 1
+                continue
+
+            if url in seen_urls:
+                skipped += 1
+                continue
+
+            existing = self.find_by_linkedin_url(url)
+            if existing:
+                skipped += 1
+                continue
+
+            try:
+                seen_urls.add(url)
+                contact = OutreachContact(
+                    name=data.get("name", "Unknown"),
+                    company=data.get("company"),
+                    role=data.get("role"),
+                    linkedin_url=url,
+                    email=data.get("email"),
+                    market=data.get("market"),
+                    specialty_stack=data.get("specialty_stack"),
+                    quality_score=data.get("quality_score"),
+                    notes=data.get("notes"),
+                )
+                self.session.add(contact)
+                imported += 1
+            except Exception as e:
+                import structlog
+
+                logger = structlog.get_logger(__name__)
+                logger.error("failed_to_add_contact", url=url, error=str(e))
+                failed += 1
+
+        self.session.flush()
+        return imported, skipped, failed
+
+    def bulk_import_from_csv(self, path: str) -> tuple[int, int]:
+        """
+        Legacy bulk import method, now a wrapper around process_import_batch.
+        Kept for backward compatibility with existing tests and dashboard.
+        """
+        from jobhunter.outreach.linkedin_csv import LinkedInCSVParser
+
         try:
-            with open(path, mode="r", encoding="utf-8") as csvfile:
-                reader = csv.DictReader(csvfile)
-                for row in reader:
-                    linkedin_url = row.get("linkedin_url")
-                    if not linkedin_url:
-                        continue
-
-                    # Check for duplicate in this batch or DB
-                    if linkedin_url in seen_urls:
-                        duplicates += 1
-                        continue
-
-                    existing = self.find_by_linkedin_url(linkedin_url)
-                    if existing:
-                        duplicates += 1
-                        continue
-
-                    seen_urls.add(linkedin_url)
-                    contact = OutreachContact(
-                        name=row.get("name", "Unknown"),
-                        company=row.get("company"),
-                        role=row.get("role"),
-                        linkedin_url=linkedin_url,
-                        email=row.get("email"),
-                        market=row.get("market"),
-                        specialty_stack=row.get("specialty_stack"),
-                        notes=row.get("notes"),
-                    )
-
-                    # Optional: handle quality_score if present in CSV
-                    if row.get("quality_score"):
-                        try:
-                            contact.quality_score = int(row["quality_score"])
-                        except ValueError:
-                            pass
-
-                    self.session.add(contact)
-                    imported += 1
-
-                self.session.flush()
+            with open(path, mode="r", encoding="utf-8") as f:
+                content = f.read()
+                contacts_data = LinkedInCSVParser.parse(content)
+                imported, skipped, _failed = self.process_import_batch(contacts_data)
+                return imported, skipped
         except FileNotFoundError:
             raise IOError(f"File not found: {path}")
         except Exception as e:
-            # Re-raise as csv.Error if it looks like a parsing error
-            if isinstance(e, csv.Error):
-                raise
-            raise csv.Error(f"Error parsing CSV: {str(e)}")
-
-        return imported, duplicates
+            raise Exception(f"Error parsing CSV: {str(e)}")

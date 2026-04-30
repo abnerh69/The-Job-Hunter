@@ -4,6 +4,21 @@ This document contains procedures for maintaining and recovering the Job Hunter 
 
 ## Database Procedures
 
+### 0. Hosted Database (Neon) Setup
+
+We use [Neon](https://neon.tech) as our hosted PostgreSQL provider for production and CI/CD environments.
+
+1.  **Create a Neon Project**:
+    - Select the **US East (N. Virginia)** region for low latency.
+    - Use the Free Tier (0.5 GB storage, autoscale).
+2.  **Connection Pooling**:
+    - Always use the connection pooling endpoint (it contains `-pooler` in the hostname) for GitHub Actions and serverless environments.
+3.  **Initial Migration**:
+    - Once you have the `DATABASE_URL`, run migrations from your local machine:
+    ```bash
+    DATABASE_URL="your_neon_connection_string" uv run alembic upgrade head
+    ```
+
 ### 1. Restore Database from Backup
 
 To restore the database from a compressed backup file:
@@ -128,6 +143,40 @@ To enable email notifications using Gmail:
     ```bash
     uv run jobhunter notify test --channel email --subject "Test Email" --message "Hello from Job Hunter!"
     ```
+
+## Secrets Management
+
+The system relies on several GitHub Secrets for CI/CD and production workflows.
+
+### Required Secrets
+
+| Secret Name | Description |
+| :--- | :--- |
+| `DATABASE_URL_PROD` | Full PostgreSQL connection string (with pooler). |
+| `ANTHROPIC_API_KEY` | API Key for Claude (Scoring, Cover Letters). |
+| `DASHBOARD_PASSWORD` | Password for Streamlit dashboard access. |
+| `TELEGRAM_BOT_TOKEN` | (Optional) Token for Telegram notifications. |
+| `TELEGRAM_CHAT_ID` | (Optional) Chat ID for Telegram notifications. |
+| `SMTP_USER` | (Optional) Gmail/SMTP user for digests. |
+| `SMTP_PASSWORD` | (Optional) App password for SMTP. |
+| `DIGEST_TO_EMAIL` | (Optional) Recipient email for weekly digest. |
+
+### Emergency Procedures
+
+**If a secret is leaked:**
+1.  **Revoke**: Revoke the API key or password at the provider (e.g., Anthropic Console, Google Account).
+2.  **Rotate**: Generate a new value.
+3.  **Update GH Secrets**: Use the `gh` CLI or Web UI to update the secret.
+    ```bash
+    gh secret set LEAKED_SECRET_NAME --body "new_value"
+    ```
+4.  **Redeploy**: Re-run any active workflows or redeploy the dashboard.
+
+**Migrating Database Provider:**
+1.  **Backup**: Create a full dump using `pg_dump`.
+2.  **New Provider**: Setup the new DB and apply migrations (`alembic upgrade head`).
+3.  **Restore**: Import the dump.
+4.  **Update Secret**: Update `DATABASE_URL_PROD` in GitHub Secrets.
 
 ## Dashboard Deployment
 

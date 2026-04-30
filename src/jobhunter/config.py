@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     DASHBOARD_PASSWORD: SecretStr
     DASHBOARD_SESSION_TIMEOUT_MINUTES: int = 60
 
+    GMAIL_CLIENT_ID: SecretStr | None = None
+    GMAIL_CLIENT_SECRET: SecretStr | None = None
+    GMAIL_REDIRECT_URI: str = "http://localhost:8765/oauth/callback"
+    OAUTH_ENCRYPTION_KEY: SecretStr | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -54,4 +59,8 @@ class Settings(BaseSettings):
             "OUTREACH_MODEL": self.OUTREACH_MODEL,
             "DASHBOARD_PASSWORD": "***" if self.DASHBOARD_PASSWORD else None,
             "DASHBOARD_SESSION_TIMEOUT_MINUTES": self.DASHBOARD_SESSION_TIMEOUT_MINUTES,
+            "GMAIL_CLIENT_ID": "***" if self.GMAIL_CLIENT_ID else None,
+            "GMAIL_CLIENT_SECRET": "***" if self.GMAIL_CLIENT_SECRET else None,
+            "GMAIL_REDIRECT_URI": self.GMAIL_REDIRECT_URI,
+            "OAUTH_ENCRYPTION_KEY": "***" if self.OAUTH_ENCRYPTION_KEY else None,
         }

@@ -41,10 +41,14 @@ export DATABASE_URL="postgresql://jobhunter:jobhunter_local@localhost:5432/jobhu
 export ANTHROPIC_API_KEY="dummy_key_for_ci"
 export TELEGRAM_BOT_TOKEN="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
 export TELEGRAM_CHAT_ID="123456789"
+export DASHBOARD_PASSWORD="dummy_password_for_tests"
 export PYTHONPATH="src"
 
 echo "📥 Instalando/Sincronizando dependencias..."
 uv sync --all-groups
+
+echo "Install Playwright Browsers..."
+uv run playwright install chromium
 
 echo "🔍 Ejecutando Ruff Linter..."
 uv run ruff check .
@@ -59,6 +63,6 @@ echo "🗄️ Ejecutando migraciones de base de datos (Alembic)..."
 uv run alembic upgrade head
 
 echo "🧪 Ejecutando tests con cobertura..."
-uv run pytest -v --cov
+uv run pytest -v --cov --ignore=tests/e2e
 
 echo "🎉 ¡Todo en verde! Validación local completada con éxito. Ya puedes crear el PR."

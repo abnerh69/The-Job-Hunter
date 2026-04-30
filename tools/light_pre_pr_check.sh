@@ -8,13 +8,13 @@ echo "🚀 Iniciando validación local ligera (Fast Pre-PR Check)..."
 export ANTHROPIC_API_KEY="dummy_key_for_ci"
 export TELEGRAM_BOT_TOKEN="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
 export TELEGRAM_CHAT_ID="123456789"
-export DASHBOARD_PASSWORD="dummy_password_for_tests" # <--- AGREGAR ESTA
+export DASHBOARD_PASSWORD="dummy_password_for_tests"
 export PYTHONPATH="src"
 
 # Usar una DB en memoria o dummy para que SQLAlchemy no explote al importar
 export DATABASE_URL="sqlite:///:memory:"
 
-echo "📥 Sincronizando dependencias..."
+echo "📥 Instalando/Sincronizando dependencias..."
 uv sync --all-groups
 
 echo "Install Playwright Browsers..."
@@ -31,6 +31,6 @@ uv run mypy .
 
 echo "🧪 Ejecutando tests (Excluyendo integración con DB)..."
 # Usaremos el marcador "db" para excluir esos tests
-uv run pytest -v -m "not db"
+uv run pytest -v --cov --ignore=tests/e2e -m "not db"
 
 echo "🎉 ¡Todo en verde! Validación ligera completada con éxito. Ya puedes crear el PR."

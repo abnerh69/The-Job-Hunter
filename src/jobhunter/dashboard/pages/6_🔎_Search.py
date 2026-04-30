@@ -49,6 +49,10 @@ else:
                 st.info("No matching jobs.")
             for job in results["jobs"]:
                 with st.container(border=True):
+                    st.markdown(
+                        f'<div data-testid="search-result-job" data-job-id="{job.id}"></div>',
+                        unsafe_allow_html=True,
+                    )
                     col1, col2 = st.columns([0.8, 0.2])
                     with col1:
                         st.subheader(job.title)
@@ -67,11 +71,18 @@ else:
                 st.info("No matching applications.")
             for app in results["applications"]:
                 with st.container(border=True):
+                    st.markdown(
+                        f'<div data-testid="search-result-app" data-app-id="{app.id}"></div>',
+                        unsafe_allow_html=True,
+                    )
                     col1, col2 = st.columns([0.8, 0.2])
                     with col1:
                         st.subheader(f"{app.job.title} @ {app.job.company}")
+                        status_val = (
+                            app.status.value if hasattr(app.status, "value") else str(app.status)
+                        )
                         st.write(
-                            f"Status: `{app.status.value}` | Applied: {format_relative_time(app.applied_at)}"
+                            f"Status: `{status_val}` | Applied: {format_relative_time(app.applied_at)}"
                         )
                         if app.notes:
                             st.markdown(f"**Notes snippet:** {app.notes[:200]}...")
@@ -85,13 +96,22 @@ else:
                 st.info("No matching contacts.")
             for contact in results["contacts"]:
                 with st.container(border=True):
+                    st.markdown(
+                        f'<div data-testid="search-result-contact" data-contact-id="{contact.id}"></div>',
+                        unsafe_allow_html=True,
+                    )
                     col1, col2 = st.columns([0.8, 0.2])
                     with col1:
                         st.subheader(contact.name)
                         st.write(
                             f"**{contact.company or 'Unknown Company'}** | {contact.role or 'No Role'}"
                         )
-                        st.caption(f"Status: {contact.status.value}")
+                        contact_status_val = (
+                            contact.status.value
+                            if hasattr(contact.status, "value")
+                            else str(contact.status)
+                        )
+                        st.caption(f"Status: {contact_status_val}")
                     with col2:
                         if st.button("View in Outreach", key=f"contact_{contact.id}"):
                             st.switch_page("pages/4_💌_Outreach.py")

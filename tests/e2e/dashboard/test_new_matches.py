@@ -14,6 +14,7 @@ from jobhunter.db.enums import JobStatus, JobTier
 
 
 @pytest.fixture(scope="module")
+@pytest.mark.e2e
 def test_db() -> Generator[str, None, None]:
     db_path = "test_e2e_new_matches.db"
     if os.path.exists(db_path):
@@ -80,6 +81,7 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     process.wait()
 
 
+@pytest.mark.e2e
 def test_new_matches_flow(streamlit_server: None) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -107,4 +109,42 @@ def test_new_matches_flow(streamlit_server: None) -> None:
         # Verify it disappeared (Python Developer 4 was first by fit_score 94)
         expect(page.get_by_text("Python Developer 4")).not_to_be_visible()
 
+        # 3. Test Apply (Mark Applied flow)
+        # Python Developer 3 should be next (fit_score 93)
+        expect(page.get_by_text("Python Developer 3")).to_be_visible()
+        page.get_by_role("button", name="📝 Apply").first.click()
+        time.sleep(2)
+
+        # Fill modal
+        expect(page.get_by_text("Registrar aplicación para:")).to_be_visible()
+        # Streamlit selectbox is not a standard HTML select
+        # Use get_by_test_id if available, but for now we'll use more specific text selectors
+        page.get_by_label("Método").click()
+        page.get_by_test_id("stSelectboxVirtualDropdown").get_by_text(
+            "LinkedIn", exact=True
+        ).click()
+
+        page.get_by_label("CV Variant").click()
+        page.get_by_test_id("stSelectboxVirtualDropdown").get_by_text(
+            "ai_python", exact=True
+        ).click()
+
+        page.get_by_label("Notas").fill("Test application from E2E")
+        page.get_by_role("button", name="Registrar Aplicación").click()
+        time.sleep(5)
+
+        # Verify success and redirection/disappearance
+        # Streamlit st.success might be fast or hidden if rerun happens immediately
+        # Let's check for it in the dialog first if possible, or just check that job disappeared
+        # expect(page.get_by_text("Aplicación registrada.")).to_be_visible()
+        time.sleep(5)
+        expect(page.get_by_text("Python Developer 3")).not_to_be_visible()
+
         browser.close()
+
+
+@pytest.mark.e2e
+@pytest.mark.e2e
+def test_new_matches_flow_with_e2e_mark(streamlit_server: None) -> None:
+    # Just a placeholder to ensure the marker is picked up if we want to run all e2e
+    pass

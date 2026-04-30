@@ -60,6 +60,9 @@ def render_job_card(
     border_style = "2px solid #ff4b4b" if is_focused else None
 
     with st.container(border=True):
+        st.markdown(
+            f'<div data-testid="job-card" data-job-id="{job.id}"></div>', unsafe_allow_html=True
+        )
         if is_focused:
             st.markdown(
                 f"""
@@ -151,6 +154,10 @@ def render_application_card(
     border_style = "2px solid #ff4b4b" if is_focused else None
 
     with st.container(border=True):
+        st.markdown(
+            f'<div data-testid="application-card" data-app-id="{app.id}"></div>',
+            unsafe_allow_html=True,
+        )
         if is_focused:
             st.markdown(
                 f"""

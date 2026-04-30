@@ -953,8 +953,10 @@ def pipeline_check_followups() -> None:
         table.add_column("Metric")
         table.add_column("Value", justify="right")
 
-        table.add_row("Pending Follow-ups", str(report.pending_followups_count))
-        table.add_row("Marked as Ghosted", str(report.ghosted_marked_count))
+        table.add_row("App Follow-ups Due", str(report.pending_followups_count))
+        table.add_row("Apps Ghosted", str(report.ghosted_marked_count))
+        table.add_row("Outreach Follow-ups Due", str(report.pending_outreach_count))
+        table.add_row("Outreach Ghosted", str(report.outreach_ghosted_count))
         table.add_row(
             "Notification Sent", "[green]YES[/green]" if report.notification_sent else "NO"
         )
@@ -1257,6 +1259,38 @@ def logs_tail(
         raise typer.Exit(code=1)
     except Exception as e:
         logger.exception("Logs tail failed")
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("check-cadence")
+def outreach_check_cadence() -> None:
+    """Run outreach cadence and ghosting checks."""
+    from jobhunter.pipeline import run_outreach_cadence_checks
+
+    logger.info("Starting outreach cadence checks")
+    try:
+        with get_session() as session:
+            results = asyncio.run(run_outreach_cadence_checks(session))
+            session.commit()
+
+        console = Console()
+        table = Table(title="Outreach Cadence Report", header_style="bold magenta")
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+
+        table.add_row("Follow-ups Due", str(len(results["pending_followups"])))
+        table.add_row("Messages Ghosted", str(results["ghosted_count"]))
+
+        console.print(table)
+
+        if results["pending_followups"]:
+            console.print("\n[bold]Contacts due for follow-up:[/bold]")
+            for contact in results["pending_followups"]:
+                console.print(f"- {contact.name} at {contact.company or 'Unknown'}")
+
+    except Exception as e:
+        logger.exception("Outreach cadence checks failed")
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

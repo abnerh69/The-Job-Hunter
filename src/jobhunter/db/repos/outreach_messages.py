@@ -185,6 +185,70 @@ class OutreachMessageRepo(BaseRepo[OutreachMessage]):
         )
         return self.session.scalars(stmt).all()
 
+    def list_due_for_followup(self, today: datetime | None = None) -> Sequence[OutreachMessage]:
+        """
+        Lists messages that are due for follow-up (sent 7-10 days ago).
+        Only returns if the contact has exactly ONE sent message (2-touch policy).
+
+        Args:
+            today (datetime | None): The reference timestamp. Defaults to now.
+
+        Returns:
+            Sequence[OutreachMessage]: A sequence of messages due for follow-up.
+        """
+        ref_date = today or datetime.now(timezone.utc)
+        start_date = ref_date - timedelta(days=10)
+        end_date = ref_date - timedelta(days=7)
+
+        # Contacts who have exactly one sent or ghosted message (to respect 2-touch policy)
+        one_touch_stmt = (
+            select(OutreachMessage.contact_id)
+            .where(
+                OutreachMessage.status.in_(
+                    [OutreachMessageStatus.SENT, OutreachMessageStatus.GHOSTED]
+                )
+            )
+            .group_by(OutreachMessage.contact_id)
+            .having(func.count(OutreachMessage.id) == 1)
+        )
+
+        # Contacts who haven't replied to ANY message
+        replied_contacts_stmt = select(OutreachMessage.contact_id).where(
+            OutreachMessage.status == OutreachMessageStatus.REPLIED
+        )
+
+        stmt = select(OutreachMessage).where(
+            and_(
+                OutreachMessage.status == OutreachMessageStatus.SENT,
+                func.date(OutreachMessage.sent_at) >= start_date.date(),
+                func.date(OutreachMessage.sent_at) <= end_date.date(),
+                OutreachMessage.contact_id.in_(one_touch_stmt),
+                OutreachMessage.contact_id.not_in(replied_contacts_stmt),
+            )
+        )
+        return self.session.scalars(stmt).all()
+
+    def list_ghosted_messages(self, today: datetime | None = None) -> Sequence[OutreachMessage]:
+        """
+        Lists messages that are sent and haven't received a reply for more than 21 days.
+
+        Args:
+            today (datetime | None): The reference timestamp. Defaults to now.
+
+        Returns:
+            Sequence[OutreachMessage]: A sequence of messages that are ghosted.
+        """
+        ref_date = today or datetime.now(timezone.utc)
+        threshold_date = ref_date - timedelta(days=21)
+
+        stmt = select(OutreachMessage).where(
+            and_(
+                OutreachMessage.status == OutreachMessageStatus.SENT,
+                func.date(OutreachMessage.sent_at) < threshold_date.date(),
+            )
+        )
+        return self.session.scalars(stmt).all()
+
     def list_pending_followups(
         self, today: datetime | None = None, days_threshold: int = 7
     ) -> Sequence[OutreachMessage]:
@@ -235,7 +299,7 @@ class OutreachMessageRepo(BaseRepo[OutreachMessage]):
                     OutreachMessage.sent_at == latest_msg_subq.c.latest_sent_at,
                 ),
             )
-            .where(OutreachMessage.sent_at <= threshold_date)
+            .where(func.date(OutreachMessage.sent_at) <= threshold_date.date())
         )
 
         return self.session.scalars(stmt).all()

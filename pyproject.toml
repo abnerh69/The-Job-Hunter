@@ -42,6 +42,7 @@ dev = [
     "vcrpy>=8.1.1",
     "pytest-recording>=0.13.4",
     "pandas-stubs>=3.0.0.260204",
+    "types-pyyaml>=6.0.12.20260408",
 ]
 
 [tool.ruff]

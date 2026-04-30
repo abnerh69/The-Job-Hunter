@@ -9,7 +9,7 @@ from jobhunter.db.models import Job
 from jobhunter.db.enums import JobTier, JobStatus
 
 
-@pytest.fixture(scope="module", autouse=True)  # type: ignore[untyped-decorator]
+@pytest.fixture(scope="module", autouse=True)
 def streamlit_server() -> Generator[None, None, None]:
     # Kill any existing streamlit server on 8501
     subprocess.run("kill $(lsof -t -i :8501) 2>/dev/null || true", shell=True)
@@ -43,7 +43,7 @@ def streamlit_server() -> Generator[None, None, None]:
     process.wait()
 
 
-@pytest.fixture(scope="function")  # type: ignore[untyped-decorator]
+@pytest.fixture(scope="function")
 def seed_data() -> None:
     with get_session() as session:
         # Clear jobs

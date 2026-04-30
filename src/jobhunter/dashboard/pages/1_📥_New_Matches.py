@@ -30,7 +30,7 @@ if "selected_job_id" not in st.session_state:
     st.session_state.selected_job_id = None
 
 
-@st.cache_data(ttl=60)  # type: ignore[untyped-decorator]
+@st.cache_data(ttl=60)
 def fetch_jobs(
     tiers: Optional[list[JobTier]],
     sources: Optional[list[str]],
@@ -68,7 +68,7 @@ def fetch_jobs(
         ]
 
 
-@st.cache_data(ttl=60)  # type: ignore[untyped-decorator]
+@st.cache_data(ttl=60)
 def get_total_count(
     tiers: Optional[list[JobTier]],
     sources: Optional[list[str]],
@@ -99,7 +99,7 @@ def open_apply_modal(job: "Job") -> None:
     st.rerun()
 
 
-@st.dialog("Mark as Applied")  # type: ignore[untyped-decorator]
+@st.dialog("Mark as Applied")
 def apply_modal(job_id: uuid.UUID) -> None:
     with get_session() as session:
         job_repo = JobRepo(session)

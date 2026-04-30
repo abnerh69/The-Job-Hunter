@@ -36,7 +36,7 @@ class JobRepo(BaseRepo[Job]):
             Job | None: The job if found, None otherwise.
         """
         stmt = select(Job).where(Job.url_hash == url_hash)
-        return self.session.scalar(stmt)  # type: ignore[no-any-return]
+        return self.session.scalar(stmt)
 
     def list_by_status(self, status: JobStatus, limit: int = 100) -> Sequence[Job]:
         """
@@ -50,7 +50,7 @@ class JobRepo(BaseRepo[Job]):
             Sequence[Job]: A sequence of jobs matching the status.
         """
         stmt = select(Job).where(Job.status == status).limit(limit)
-        return self.session.scalars(stmt).all()  # type: ignore[no-any-return]
+        return self.session.scalars(stmt).all()
 
     def list_by_tier(self, tier: JobTier, limit: int = 100) -> Sequence[Job]:
         """
@@ -64,7 +64,7 @@ class JobRepo(BaseRepo[Job]):
             Sequence[Job]: A sequence of jobs matching the tier.
         """
         stmt = select(Job).where(Job.tier == tier).limit(limit)
-        return self.session.scalars(stmt).all()  # type: ignore[no-any-return]
+        return self.session.scalars(stmt).all()
 
     def list_new_matches(
         self,
@@ -148,7 +148,7 @@ class JobRepo(BaseRepo[Job]):
                 stmt = stmt.where(or_(*stack_filters))
 
         stmt = stmt.order_by(Job.fit_score.desc()).limit(limit).offset(offset)
-        return self.session.scalars(stmt).all()  # type: ignore[no-any-return]
+        return self.session.scalars(stmt).all()
 
     def count_new_matches(
         self,
@@ -268,7 +268,7 @@ class JobRepo(BaseRepo[Job]):
                 "status": job.status or JobStatus.NEW,
             }
             if job.id:
-                job_data["id"] = job.id
+                job_data["id"] = job.id  # type: ignore[assignment]
             values.append(job_data)
 
         # Build ON CONFLICT DO NOTHING statement

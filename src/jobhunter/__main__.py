@@ -32,6 +32,7 @@ from jobhunter.sources.registry import get_all_sources
 from jobhunter.notify import get_all_notifiers, get_notifier_cls, NotificationMessage
 from jobhunter.notify.digest import prepare_weekly_digest, send_weekly_digest
 from jobhunter.notify.dispatcher import dispatch_tier_a_notifications
+from jobhunter.notify.health_check import dispatch_health_alerts
 from jobhunter.db.repos.notifications import NotificationsRepo
 from jobhunter.pipeline import RunCycleStatus, run_cycle, run_followup_checks
 from jobhunter.application.assistant import assist_application
@@ -961,6 +962,24 @@ def pipeline_check_followups() -> None:
 
     except Exception as e:
         logger.exception("Follow-up checks failed")
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("health-check")
+def health_check() -> None:
+    """Run system health checks and send alerts if needed."""
+    logger.info("Starting system health checks")
+    try:
+        with get_session() as session:
+            sent_count = asyncio.run(dispatch_health_alerts(session))
+
+        if sent_count > 0:
+            typer.echo(f"Sent {sent_count} health alerts.")
+        else:
+            typer.echo("System healthy. No alerts sent.")
+    except Exception as e:
+        logger.error("Health check command failed", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

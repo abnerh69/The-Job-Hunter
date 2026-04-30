@@ -45,7 +45,7 @@ jobs:
         env:
           LOG_FORMAT: json
         run: |
-          uv run jobhunter notify digest --send | tee digest-${{ github.run_id }}.jsonl
+          uv run jobhunter notify digest --send > digest-${{ github.run_id }}.jsonl 2>&1
 
       - name: Upload logs
         if: always()
@@ -58,6 +58,7 @@ jobs:
       - name: Alert on Failure
         if: failure()
         uses: ./.github/actions/alert-on-failure
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        with:
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          log_file: digest-${{ github.run_id }}.jsonl

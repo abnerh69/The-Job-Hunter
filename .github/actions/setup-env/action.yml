@@ -25,6 +25,15 @@ inputs:
   dashboard_password:
     description: 'Password for the Streamlit dashboard'
     required: true
+  gmail_client_id:
+    description: 'Gmail OAuth2 Client ID'
+    required: false
+  gmail_client_secret:
+    description: 'Gmail OAuth2 Client Secret'
+    required: false
+  oauth_encryption_key:
+    description: 'Encryption key for OAuth tokens'
+    required: false
 
 runs:
   using: "composite"
@@ -40,5 +49,8 @@ runs:
         echo "SMTP_PASSWORD=${{ inputs.smtp_password }}" >> $GITHUB_ENV
         echo "DIGEST_TO_EMAIL=${{ inputs.digest_to_email }}" >> $GITHUB_ENV
         echo "DASHBOARD_PASSWORD=${{ inputs.dashboard_password }}" >> $GITHUB_ENV
+        echo "GMAIL_CLIENT_ID=${{ inputs.gmail_client_id }}" >> $GITHUB_ENV
+        echo "GMAIL_CLIENT_SECRET=${{ inputs.gmail_client_secret }}" >> $GITHUB_ENV
+        echo "OAUTH_ENCRYPTION_KEY=${{ inputs.oauth_encryption_key }}" >> $GITHUB_ENV
         echo "PYTHONPATH=src" >> $GITHUB_ENV
         echo "LOG_FORMAT=json" >> $GITHUB_ENV

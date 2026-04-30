@@ -15,6 +15,7 @@ from jobhunter.config import Settings
 from jobhunter.db.enums import ApplicationStatus
 from jobhunter.db.maintenance import refresh_weekly_metrics
 from jobhunter.db.repos.application import ApplicationRepo
+from jobhunter.db.models import OutreachContact
 from jobhunter.db.repos.notifications import NotificationsRepo
 from jobhunter.db.repos.outreach_messages import OutreachMessageRepo
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
@@ -232,6 +233,7 @@ async def run_outreach_cadence_checks(session: Session) -> dict[str, Any]:
     for msg in ghosted_msgs:
         msg_repo.mark_ghosted(msg.id)
         ghosted_count += 1
+    session.flush()
 
     # 2. Identify contacts due for follow-up (7-10 days)
     due_msgs = msg_repo.list_due_for_followup(now)
@@ -239,8 +241,11 @@ async def run_outreach_cadence_checks(session: Session) -> dict[str, Any]:
     seen_contacts = set()
     for msg in due_msgs:
         if msg.contact_id not in seen_contacts:
-            pending_followups.append(msg.contact)
-            seen_contacts.add(msg.contact_id)
+            # Re-attach to session if needed (though it should be already if retrieved in this session)
+            contact = session.get(OutreachContact, msg.contact_id)
+            if contact:
+                pending_followups.append(contact)
+                seen_contacts.add(msg.contact_id)
 
     return {
         "ghosted_count": ghosted_count,

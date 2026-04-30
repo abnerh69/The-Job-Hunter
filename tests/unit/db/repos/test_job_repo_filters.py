@@ -6,11 +6,12 @@ from jobhunter.db.enums import JobTier, JobStatus
 from jobhunter.db.base import Base
 
 
-from typing import Any
+from sqlalchemy.orm import Session
 
 
-def test_list_new_matches_filters(session: Any) -> None:
+def test_list_new_matches_filters(session: Session) -> None:
     Base.metadata.create_all(bind=session.get_bind())
+    session.query(Job).delete()
     repo = JobRepo(session)
 
     # Create test jobs
@@ -64,7 +65,7 @@ def test_list_new_matches_filters(session: Any) -> None:
     )
 
     session.add_all([job1, job2, job3])
-    session.commit()
+    session.flush()
 
     # Test Tier filter
     results = repo.list_new_matches(tiers=[JobTier.A])
@@ -100,8 +101,9 @@ def test_list_new_matches_filters(session: Any) -> None:
     assert results[0].title == "Python Developer"
 
 
-def test_get_dashboard_metrics(session: Any) -> None:
+def test_get_dashboard_metrics(session: Session) -> None:
     Base.metadata.create_all(bind=session.get_bind())
+    session.query(Job).delete()
     repo = JobRepo(session)
 
     # Job from today
@@ -132,7 +134,7 @@ def test_get_dashboard_metrics(session: Any) -> None:
     )
 
     session.add_all([job1, job2])
-    session.commit()
+    session.flush()
 
     metrics = repo.get_dashboard_metrics()
     assert metrics["new_today"] == 1

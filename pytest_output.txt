@@ -1,0 +1,730 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-9.0.3, pluggy-1.6.0 -- /home/jules/.pyenv/versions/3.12.13/bin/python3
+cachedir: .pytest_cache
+rootdir: /app
+configfile: pyproject.toml
+testpaths: tests
+plugins: base-url-2.1.0, recording-0.13.4, playwright-0.7.2, asyncio-1.3.0, cov-7.1.0, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 233 items
+
+tests/cli/test_cli.py::test_ingest_help PASSED                           [  0%]
+tests/cli/test_cli.py::test_ingest_dry_run PASSED                        [  0%]
+tests/cli/test_cli.py::test_ingest_error_exit_code PASSED                [  1%]
+tests/cli/test_cli.py::test_sources_list_help PASSED                     [  1%]
+tests/cli/test_cli.py::test_sources_list PASSED                          [  2%]
+tests/e2e/dashboard/test_dashboard_flows.py::test_login_flow PASSED      [  2%]
+tests/e2e/dashboard/test_dashboard_flows.py::test_page_protection PASSED [  3%]
+tests/e2e/dashboard/test_dashboard_flows.py::test_logout PASSED          [  3%]
+tests/e2e/dashboard/test_new_matches_flow.py::test_new_matches_filters_and_skip FAILED [  3%]
+tests/e2e/dashboard/test_new_matches_flow.py::test_new_matches_mark_applied FAILED [  4%]
+tests/integration/application/test_e2e_assistant.py::test_assist_application_e2e_python_ai PASSED [  4%]
+tests/integration/application/test_e2e_assistant.py::test_assist_application_rejected_job_raises_error PASSED [  5%]
+tests/integration/application/test_e2e_assistant.py::test_apply_command_persists_application_and_uses_cache PASSED [  5%]
+tests/integration/db/test_connection.py::test_db_connection PASSED       [  6%]
+tests/integration/db/test_db_models.py::test_create_job PASSED           [  6%]
+tests/integration/db/test_db_models.py::test_job_unique_url_hash PASSED  [  6%]
+tests/integration/db/test_db_models.py::test_job_jsonb_fields PASSED     [  7%]
+tests/integration/db/test_db_models.py::test_application_workflow PASSED [  7%]
+tests/integration/db/test_outreach_model.py::test_create_outreach_contact PASSED [  8%]
+tests/integration/db/test_outreach_model.py::test_outreach_contact_unique_linkedin_url PASSED [  8%]
+tests/integration/db/test_outreach_model.py::test_outreach_contact_null_linkedin_url_allowed_multiple_times PASSED [  9%]
+tests/integration/db/test_outreach_model.py::test_outreach_contact_followup_index_and_ordering PASSED [  9%]
+tests/integration/notify/test_cli_notify.py::test_notify_dispatch_e2e FAILED [  9%]
+tests/integration/notify/test_cli_notify.py::test_notify_digest_preview_vs_send PASSED [ 10%]
+tests/integration/notify/test_cli_notify.py::test_notify_status PASSED   [ 10%]
+tests/integration/notify/test_cli_notify.py::test_notify_test_command PASSED [ 11%]
+tests/integration/notify/test_digest.py::test_compute_digest_context_with_data FAILED [ 11%]
+tests/integration/notify/test_digest.py::test_compute_digest_context_empty FAILED [ 12%]
+tests/integration/notify/test_digest.py::test_send_weekly_digest_idempotency PASSED [ 12%]
+tests/integration/notify/test_dispatcher.py::test_dispatch_tier_a_success PASSED [ 12%]
+tests/integration/notify/test_dispatcher.py::test_dispatch_tier_a_idempotency PASSED [ 13%]
+tests/integration/notify/test_dispatcher.py::test_dispatch_tier_a_no_retry_on_failure PASSED [ 13%]
+tests/integration/notify/test_dispatcher.py::test_dispatch_tier_a_disabled_notifier PASSED [ 14%]
+tests/integration/notify/test_dispatcher.py::test_dispatch_tier_a_exception_handling PASSED [ 14%]
+tests/integration/scoring/test_pipeline_e2e.py::test_pipeline_e2e_distribution FAILED [ 15%]
+tests/integration/scoring/test_pipeline_e2e.py::test_pipeline_budget_exceeded PASSED [ 15%]
+tests/integration/scoring/test_pipeline_e2e.py::test_score_data_roundtrip_validation PASSED [ 15%]
+tests/integration/scoring/test_pipeline_e2e.py::test_scorer_retry_on_malformed_json PASSED [ 16%]
+tests/integration/sources/test_arbeitnow.py::test_arbeitnow_fetch_integration PASSED [ 16%]
+tests/integration/sources/test_arbeitnow.py::test_arbeitnow_pagination_integration PASSED [ 17%]
+tests/integration/sources/test_fourdayweek.py::test_fourdayweek_fetch_integration PASSED [ 17%]
+tests/integration/sources/test_orchestrator_integration.py::test_orchestrator_full_ingestion_integration PASSED [ 18%]
+tests/integration/sources/test_orchestrator_integration.py::test_orchestrator_deduplication_integration PASSED [ 18%]
+tests/integration/sources/test_orchestrator_integration.py::test_orchestrator_circuit_breaker_integration PASSED [ 18%]
+tests/integration/sources/test_orchestrator_integration.py::test_orchestrator_failure_isolation_integration PASSED [ 19%]
+tests/integration/sources/test_remoteok.py::test_remoteok_fetch_integration PASSED [ 19%]
+tests/integration/sources/test_remoteok.py::test_remoteok_metadata_skipped_integration PASSED [ 20%]
+tests/integration/sources/test_remoteok.py::test_remoteok_tag_filtering_integration PASSED [ 20%]
+tests/integration/sources/test_wwr.py::test_wwr_fetch_integration PASSED [ 21%]
+tests/integration/test_application_repo.py::test_create_for_job PASSED   [ 21%]
+tests/integration/test_application_repo.py::test_transition_status_creates_event_with_note PASSED [ 21%]
+tests/integration/test_application_repo.py::test_transition_status_atomicity PASSED [ 22%]
+tests/integration/test_application_repo.py::test_list_pending_followups PASSED [ 22%]
+tests/integration/test_application_repo.py::test_list_ghosted_candidates PASSED [ 23%]
+tests/integration/test_backup_cli.py::test_cli_db_backup_help PASSED     [ 23%]
+tests/integration/test_backup_cli.py::test_backup_script_integrity SKIPPED [ 24%]
+tests/integration/test_cli_application.py::test_assist_cli_basic PASSED  [ 24%]
+tests/integration/test_cli_application.py::test_assist_cli_no_letter PASSED [ 24%]
+tests/integration/test_cli_application.py::test_assist_cli_output_dir PASSED [ 25%]
+tests/integration/test_cli_application.py::test_letter_cli_basic PASSED  [ 25%]
+tests/integration/test_cli_application.py::test_apply_cli_persistence_from_db_cache PASSED [ 26%]
+tests/integration/test_cli_application.py::test_apply_cli_missing_options PASSED [ 26%]
+tests/integration/test_job_repo.py::test_create_and_retrieve_roundtrip PASSED [ 27%]
+tests/integration/test_job_repo.py::test_find_by_url_hash_returns_none_when_missing PASSED [ 27%]
+tests/integration/test_job_repo.py::test_find_by_url_hash_returns_job PASSED [ 27%]
+tests/integration/test_job_repo.py::test_bulk_create_dedupes_by_url_hash FAILED [ 28%]
+tests/integration/test_job_repo.py::test_list_by_status_filter PASSED    [ 28%]
+tests/integration/test_job_repo.py::test_mark_status_updates_field_and_timestamp PASSED [ 29%]
+tests/integration/test_job_repo.py::test_update_generic PASSED           [ 29%]
+tests/integration/test_job_repo.py::test_delete_generic PASSED           [ 30%]
+tests/integration/test_metrics.py::test_weekly_metrics_materialized_view SKIPPED [ 30%]
+tests/integration/test_outreach_repo.py::test_find_by_linkedin_url PASSED [ 30%]
+tests/integration/test_outreach_repo.py::test_list_due_for_followup PASSED [ 31%]
+tests/integration/test_outreach_repo.py::test_mark_contacted PASSED      [ 31%]
+tests/integration/test_outreach_repo.py::test_bulk_import_from_csv PASSED [ 32%]
+tests/integration/test_outreach_repo.py::test_bulk_import_from_csv_malformed PASSED [ 32%]
+tests/unit/application/test_assistant.py::test_assist_application_success PASSED [ 33%]
+tests/unit/application/test_assistant.py::test_assist_application_persistence PASSED [ 33%]
+tests/unit/application/test_assistant.py::test_assist_application_invalid_tier PASSED [ 33%]
+tests/unit/application/test_assistant.py::test_assist_application_parallelization PASSED [ 34%]
+tests/unit/application/test_assistant.py::test_assist_application_cache PASSED [ 34%]
+tests/unit/application/test_assistant.py::test_assist_application_cache_expiration PASSED [ 35%]
+tests/unit/application/test_ats_keywords.py::test_extract_ats_keywords_success PASSED [ 35%]
+tests/unit/application/test_ats_keywords.py::test_check_presence_in_cv PASSED [ 36%]
+tests/unit/application/test_ats_keywords.py::test_check_presence_in_cv_word_boundaries PASSED [ 36%]
+tests/unit/application/test_ats_keywords.py::test_extract_ats_keywords_sorting PASSED [ 36%]
+tests/unit/application/test_cover_letter.py::test_validate_cover_letter PASSED [ 37%]
+tests/unit/application/test_cover_letter.py::test_generate_cover_letter_success PASSED [ 37%]
+tests/unit/application/test_cover_letter.py::test_generate_cover_letter_retry PASSED [ 38%]
+tests/unit/application/test_cover_letter.py::test_generate_cover_letter_persistence PASSED [ 38%]
+tests/unit/application/test_cv.py::test_list_available_variants PASSED   [ 39%]
+tests/unit/application/test_cv.py::test_load_cv_success PASSED           [ 39%]
+tests/unit/application/test_cv.py::test_load_cv_malformed PASSED         [ 39%]
+tests/unit/application/test_cv.py::test_load_cv_not_found PASSED         [ 40%]
+tests/unit/application/test_cv.py::test_fallback_to_repo_variants PASSED [ 40%]
+tests/unit/application/test_cv_tweaks.py::test_load_cv_tweaks_prompt PASSED [ 41%]
+tests/unit/application/test_cv_tweaks.py::test_suggest_cv_tweaks_success PASSED [ 41%]
+tests/unit/application/test_cv_tweaks.py::test_suggest_cv_tweaks_enforces_max_5 PASSED [ 42%]
+tests/unit/application/test_variant_selector.py::test_recommend_ai_python_via_flag PASSED [ 42%]
+tests/unit/application/test_variant_selector.py::test_recommend_ai_python_via_stack PASSED [ 42%]
+tests/unit/application/test_variant_selector.py::test_recommend_flutter_via_flag PASSED [ 43%]
+tests/unit/application/test_variant_selector.py::test_recommend_flutter_via_stack PASSED [ 43%]
+tests/unit/application/test_variant_selector.py::test_recommend_fullstack_via_flag PASSED [ 44%]
+tests/unit/application/test_variant_selector.py::test_recommend_fullstack_ambiguous_with_score_data PASSED [ 44%]
+tests/unit/application/test_variant_selector.py::test_recommend_via_keywords_fallback_flutter PASSED [ 45%]
+tests/unit/application/test_variant_selector.py::test_recommend_via_keywords_fallback_ai_python PASSED [ 45%]
+tests/unit/application/test_variant_selector.py::test_recommend_absolute_fallback PASSED [ 45%]
+tests/unit/application/test_variant_selector.py::test_recommend_fullstack_via_is_full_stack_flag PASSED [ 46%]
+tests/unit/dashboard/test_auth.py::test_check_password_no_state PASSED   [ 46%]
+tests/unit/dashboard/test_auth.py::test_check_password_correct PASSED    [ 47%]
+tests/unit/dashboard/test_auth.py::test_check_password_incorrect PASSED  [ 47%]
+tests/unit/dashboard/test_auth.py::test_check_password_timeout PASSED    [ 48%]
+tests/unit/dashboard/test_auth.py::test_logout PASSED                    [ 48%]
+tests/unit/db/repos/test_job_repo_filters.py::test_list_new_matches_filters PASSED [ 48%]
+tests/unit/db/repos/test_job_repo_filters.py::test_get_dashboard_metrics PASSED [ 49%]
+tests/unit/db/repos/test_llm_calls.py::test_record_call PASSED           [ 49%]
+tests/unit/db/repos/test_llm_calls.py::test_monthly_total_usd PASSED     [ 50%]
+tests/unit/db/repos/test_llm_calls.py::test_weekly_total_usd PASSED      [ 50%]
+tests/unit/db/repos/test_notifications.py::test_record_sent PASSED       [ 51%]
+tests/unit/db/repos/test_notifications.py::test_was_sent PASSED          [ 51%]
+tests/unit/db/repos/test_notifications.py::test_idempotency_constraint PASSED [ 51%]
+tests/unit/db/repos/test_notifications.py::test_failures_in_last PASSED  [ 52%]
+tests/unit/llm/test_anthropic_client.py::test_calculate_cost_usd PASSED  [ 52%]
+tests/unit/llm/test_anthropic_client.py::test_complete_success PASSED    [ 53%]
+tests/unit/llm/test_anthropic_client.py::test_complete_retry_on_rate_limit PASSED [ 53%]
+tests/unit/llm/test_anthropic_client.py::test_complete_no_retry_on_auth_error PASSED [ 54%]
+tests/unit/llm/test_budget.py::test_check_budget_ok PASSED               [ 54%]
+tests/unit/llm/test_budget.py::test_check_budget_warning PASSED          [ 54%]
+tests/unit/llm/test_budget.py::test_check_budget_exceeded PASSED         [ 55%]
+tests/unit/notify/test_base.py::test_notifier_registration PASSED        [ 55%]
+tests/unit/notify/test_base.py::test_notifier_is_enabled PASSED          [ 56%]
+tests/unit/notify/test_base.py::test_notifier_send PASSED                [ 56%]
+tests/unit/notify/test_email.py::test_is_enabled PASSED                  [ 57%]
+tests/unit/notify/test_email.py::test_send_success PASSED                [ 57%]
+tests/unit/notify/test_email.py::test_send_auth_error PASSED             [ 57%]
+tests/unit/notify/test_email.py::test_send_smtp_error PASSED             [ 58%]
+tests/unit/notify/test_email.py::test_send_no_html PASSED                [ 58%]
+tests/unit/notify/test_telegram.py::test_is_enabled PASSED               [ 59%]
+tests/unit/notify/test_telegram.py::test_escape_telegram_markdown_v2 PASSED [ 59%]
+tests/unit/notify/test_telegram.py::test_send_success PASSED             [ 60%]
+tests/unit/notify/test_telegram.py::test_send_retry_after PASSED         [ 60%]
+tests/unit/notify/test_telegram.py::test_send_retry_after_exhausted PASSED [ 60%]
+tests/unit/notify/test_telegram.py::test_send_bad_request PASSED         [ 61%]
+tests/unit/notify/test_telegram.py::test_send_network_error PASSED       [ 61%]
+tests/unit/notify/test_telegram.py::test_truncation PASSED               [ 62%]
+tests/unit/notify/test_telegram.py::test_truncation_escaping_boundary PASSED [ 62%]
+tests/unit/notify/test_templates.py::test_format_currency PASSED         [ 63%]
+tests/unit/notify/test_templates.py::test_format_date_human PASSED       [ 63%]
+tests/unit/notify/test_templates.py::test_truncate_words PASSED          [ 63%]
+tests/unit/notify/test_templates.py::test_escape_telegram_markdown PASSED [ 64%]
+tests/unit/notify/test_templates.py::test_render_tier_a_match_telegram PASSED [ 64%]
+tests/unit/notify/test_templates.py::test_render_tier_a_match_email PASSED [ 65%]
+tests/unit/notify/test_templates.py::test_render_weekly_digest_email_html PASSED [ 65%]
+tests/unit/notify/test_templates.py::test_render_weekly_digest_email_txt PASSED [ 66%]
+tests/unit/scoring/test_pipeline.py::test_score_pending_jobs_success PASSED [ 66%]
+tests/unit/scoring/test_pipeline.py::test_score_pending_jobs_failure_isolation PASSED [ 66%]
+tests/unit/scoring/test_pipeline.py::test_score_pending_jobs_idempotency PASSED [ 67%]
+tests/unit/scoring/test_pipeline.py::test_rescore_jobs PASSED            [ 67%]
+tests/unit/scoring/test_prompt.py::test_load_prompt_v1 PASSED            [ 68%]
+tests/unit/scoring/test_prompt.py::test_load_prompt_latest PASSED        [ 68%]
+tests/unit/scoring/test_prompt.py::test_load_prompt_not_found PASSED     [ 69%]
+tests/unit/scoring/test_prompt.py::test_load_prompt_invalid_format PASSED [ 69%]
+tests/unit/scoring/test_prompt.py::test_render_user_prompt_success PASSED [ 69%]
+tests/unit/scoring/test_prompt.py::test_render_user_prompt_missing_placeholder PASSED [ 70%]
+tests/unit/scoring/test_prompt.py::test_render_user_prompt_none_values PASSED [ 70%]
+tests/unit/scoring/test_schema.py::test_valid_scoring_result PASSED      [ 71%]
+tests/unit/scoring/test_schema.py::test_reject_with_red_flags PASSED     [ 71%]
+tests/unit/scoring/test_schema.py::test_reject_without_red_flags_fails PASSED [ 72%]
+tests/unit/scoring/test_schema.py::test_tier_a_with_red_flags_fails PASSED [ 72%]
+tests/unit/scoring/test_schema.py::test_markdown_fences PASSED           [ 72%]
+tests/unit/scoring/test_schema.py::test_malformed_json PASSED            [ 73%]
+tests/unit/scoring/test_schema.py::test_extra_field_forbidden PASSED     [ 73%]
+tests/unit/scoring/test_schema.py::test_invalid_scoring_response_schema PASSED [ 74%]
+tests/unit/scoring/test_schema.py::test_invalid_range_fit_score PASSED   [ 74%]
+tests/unit/scoring/test_scorer.py::test_score_success PASSED             [ 75%]
+tests/unit/scoring/test_scorer.py::test_score_retry_success PASSED       [ 75%]
+tests/unit/scoring/test_scorer.py::test_score_double_failure PASSED      [ 75%]
+tests/unit/scoring/test_scorer.py::test_score_api_error PASSED           [ 76%]
+tests/unit/scoring/test_scorer.py::test_score_invalid_response PASSED    [ 76%]
+tests/unit/scoring/test_scorer.py::test_truncate_description PASSED      [ 77%]
+tests/unit/scoring/test_scorer.py::test_truncate_description_paragraph PASSED [ 77%]
+tests/unit/scoring/test_scorer.py::test_truncate_description_sentence PASSED [ 78%]
+tests/unit/sources/test_arbeitnow.py::test_arbeitnow_fetch_success PASSED [ 78%]
+tests/unit/sources/test_arbeitnow.py::test_arbeitnow_fetch_since_filter PASSED [ 78%]
+tests/unit/sources/test_arbeitnow.py::test_arbeitnow_pagination PASSED   [ 79%]
+tests/unit/sources/test_arbeitnow.py::test_arbeitnow_malformed_job PASSED [ 79%]
+tests/unit/sources/test_base.py::test_raw_job_valid PASSED               [ 80%]
+tests/unit/sources/test_base.py::test_raw_job_frozen PASSED              [ 80%]
+tests/unit/sources/test_base.py::test_raw_job_missing_fields PASSED      [ 81%]
+tests/unit/sources/test_circuit_breaker.py::test_allow_request_closed PASSED [ 81%]
+tests/unit/sources/test_circuit_breaker.py::test_allow_request_open_not_expired PASSED [ 81%]
+tests/unit/sources/test_circuit_breaker.py::test_allow_request_open_expired_transitions_to_half_open PASSED [ 82%]
+tests/unit/sources/test_circuit_breaker.py::test_record_failure_opens_circuit PASSED [ 82%]
+tests/unit/sources/test_circuit_breaker.py::test_record_success_closes_circuit PASSED [ 83%]
+tests/unit/sources/test_circuit_breaker.py::test_half_open_failure_reopens_circuit PASSED [ 83%]
+tests/unit/sources/test_fourdayweek.py::test_fourdayweek_fetch_success PASSED [ 84%]
+tests/unit/sources/test_fourdayweek.py::test_fourdayweek_fetch_since_filter PASSED [ 84%]
+tests/unit/sources/test_fourdayweek.py::test_fourdayweek_pagination PASSED [ 84%]
+tests/unit/sources/test_http.py::test_retries_on_500_then_succeeds PASSED [ 85%]
+tests/unit/sources/test_http.py::test_no_retry_on_404 PASSED             [ 85%]
+tests/unit/sources/test_http.py::test_respects_retry_after_on_429 PASSED [ 86%]
+tests/unit/sources/test_http.py::test_rate_limit_throttles_concurrent_requests PASSED [ 86%]
+tests/unit/sources/test_orchestrator.py::test_run_ingestion_parallel_success PASSED [ 87%]
+tests/unit/sources/test_orchestrator.py::test_run_ingestion_with_breaker PASSED [ 87%]
+tests/unit/sources/test_registry.py::test_registry PASSED                [ 87%]
+tests/unit/sources/test_remoteok.py::test_remoteok_parse_job_success PASSED [ 88%]
+tests/unit/sources/test_remoteok.py::test_remoteok_parse_job_malformed PASSED [ 88%]
+tests/unit/sources/test_remoteok.py::test_remoteok_matches_tags PASSED   [ 89%]
+tests/unit/sources/test_remoteok.py::test_remoteok_fetch_since_filter_unit PASSED [ 89%]
+tests/unit/sources/test_url_utils.py::test_canonicalize_url[HTTPS://EXAMPLE.COM/path/-https://example.com/path] PASSED [ 90%]
+tests/unit/sources/test_url_utils.py::test_canonicalize_url[https://example.com/path/?utm_source=twitter&foo=bar-https://example.com/path?foo=bar] PASSED [ 90%]
+tests/unit/sources/test_url_utils.py::test_canonicalize_url[https://example.com/path#fragment-https://example.com/path] PASSED [ 90%]
+tests/unit/sources/test_url_utils.py::test_canonicalize_url[https://example.com/path?b=2&a=1-https://example.com/path?a=1&b=2] PASSED [ 91%]
+tests/unit/sources/test_url_utils.py::test_canonicalize_url[https://example.com/path?GCLID=123&REF=456&utm_campaign=xyz-https://example.com/path] PASSED [ 91%]
+tests/unit/sources/test_url_utils.py::test_canonicalize_url[https://example.com/path?mc_eid=789&other=val-https://example.com/path?other=val] PASSED [ 92%]
+tests/unit/sources/test_url_utils.py::test_canonicalize_url[https://example.com/-https://example.com/] PASSED [ 92%]
+tests/unit/sources/test_url_utils.py::test_canonicalize_url[https://example.com-https://example.com/] PASSED [ 93%]
+tests/unit/sources/test_url_utils.py::test_compute_url_hash PASSED       [ 93%]
+tests/unit/sources/test_wwr.py::test_strip_html PASSED                   [ 93%]
+tests/unit/sources/test_wwr.py::test_parse_entry_with_rfc822_date PASSED [ 94%]
+tests/unit/sources/test_wwr.py::test_fetch_deduplication PASSED          [ 94%]
+tests/unit/sources/test_wwr.py::test_parse_entry_no_company_in_title PASSED [ 95%]
+tests/unit/test_cli_scoring.py::test_score_command_success PASSED        [ 95%]
+tests/unit/test_cli_scoring.py::test_score_command_low_success_rate PASSED [ 96%]
+tests/unit/test_cli_scoring.py::test_score_command_dry_run PASSED        [ 96%]
+tests/unit/test_cli_scoring.py::test_score_job_command_success PASSED    [ 96%]
+tests/unit/test_cli_scoring.py::test_score_job_command_persist PASSED    [ 97%]
+tests/unit/test_cli_scoring.py::test_rescore_command PASSED              [ 97%]
+tests/unit/test_config.py::test_settings_parsing_from_env PASSED         [ 98%]
+tests/unit/test_config.py::test_settings_missing_required PASSED         [ 98%]
+tests/unit/test_config.py::test_settings_default_values PASSED           [ 99%]
+tests/unit/test_config.py::test_safe_dict_masks_secrets PASSED           [ 99%]
+tests/unit/test_smoke.py::test_imports PASSED                            [100%]/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/coverage/sqldata.py:576: RuntimeWarning: coroutine 'JobScorer.score' was never awaited
+  data = [(file_id, self._current_context_id, fromno, tono) for fromno, tono in arcs]
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+
+
+=================================== FAILURES ===================================
+______________________ test_new_matches_filters_and_skip _______________________
+
+seed_data = None
+
+    def test_new_matches_filters_and_skip(seed_data: Any) -> None:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+
+            # Login
+            page.goto("http://localhost:8501")
+            page.get_by_role("textbox", name="Password").fill("secret123")
+            page.get_by_role("textbox", name="Password").press("Enter")
+            time.sleep(3)
+
+            # Go to New Matches
+            page.get_by_text("New Matches").click()
+            time.sleep(3)
+
+            # Check total jobs (should be 10 by default since A and B are selected)
+            # Note: streamlit multiselect default in my code was [A, B]
+>           expect(page.get_by_text("Total: 10 jobs")).to_be_visible()
+E           AssertionError: Locator expected to be visible
+E           Actual value: None
+E           Error: element(s) not found
+E           Call log:
+E             - Expect "to_be_visible" with timeout 5000ms
+E             - waiting for get_by_text("Total: 10 jobs")
+
+tests/e2e/dashboard/test_new_matches_flow.py:102: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://192.168.0.2:8501
+  External URL: http://34.27.142.64:8501
+
+---------------------------- Captured stderr setup -----------------------------
+2026-04-30 03:11:37.635 Uvicorn server started on 0.0.0.0:8501
+________________________ test_new_matches_mark_applied _________________________
+
+seed_data = None
+
+    def test_new_matches_mark_applied(seed_data: Any) -> None:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+
+            # Login
+            page.goto("http://localhost:8501")
+            page.get_by_role("textbox", name="Password").fill("secret123")
+            page.get_by_role("textbox", name="Password").press("Enter")
+            time.sleep(3)
+
+            # Go to New Matches
+            page.get_by_text("New Matches").click()
+            time.sleep(3)
+
+            # Click Applied on first job
+>           page.get_by_role("button", name="✅ Applied").first.click()
+
+tests/e2e/dashboard/test_new_matches_flow.py:148:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/playwright/sync_api/_generated.py:15631: in click
+    self._sync(
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/playwright/_impl/_locator.py:162: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/playwright/_impl/_frame.py:566: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/playwright/_impl/_connection.py:69: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <playwright._impl._connection.Connection object at 0x7fec23d4f8c0>
+cb = <function Channel.send.<locals>.<lambda> at 0x7fec23b8d580>
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        st: List[inspect.FrameInfo] = getattr(
+            task, "__pw_stack__", None
+        ) or inspect.stack(0)
+
+        parsed_st = _extract_stack_trace_information_from_stack(st, is_internal, title)
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for get_by_role("button", name="✅ Applied").first
+
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/playwright/_impl/_connection.py:559: TimeoutError
+--------------------------- Captured stdout teardown ---------------------------
+  Stopping...
+___________________________ test_notify_dispatch_e2e ___________________________
+
+session = <sqlalchemy.orm.session.Session object at 0x7fec240bb710>
+mock_notifier_instance = <MagicMock id='140652193755216'>
+
+    @pytest.mark.integration
+    def test_notify_dispatch_e2e(session: MagicMock, mock_notifier_instance: MagicMock) -> None:
+        # Setup: Create some Tier-A jobs
+        job1 = Job(
+            source="test",
+            url="http://test1.com",
+            url_hash="hash1",
+            title="Software Engineer",
+            company="Tech Corp",
+            description="We are hiring",
+            tier=JobTier.A,
+            status=JobStatus.QUEUED,
+        )
+        job2 = Job(
+            source="test",
+            url="http://test2.com",
+            url_hash="hash2",
+            title="Senior Dev",
+            company="Soft Inc",
+            description="Python expert",
+            tier=JobTier.A,
+            status=JobStatus.QUEUED,
+        )
+        session.add_all([job1, job2])
+        session.commit()
+
+        # 1. First dispatch: should send 2 notifications
+        # We need to patch get_session in __main__ to use our test session
+        with patch("jobhunter.__main__.get_session") as mock_get_session:
+            mock_get_session.return_value.__enter__.return_value = session
+            with patch(
+                "jobhunter.notify.dispatcher.TelegramNotifier", return_value=mock_notifier_instance
+            ):
+                result = runner.invoke(app, ["notify", "dispatch"])
+                assert result.exit_code == 0
+                assert "Total Pending" in result.output
+
+                sent_count = (
+                    session.query(NotificationSent)
+                    .filter(NotificationSent.channel == "telegram")
+                    .count()
+                )
+>               assert sent_count == 2
+E               assert 7 == 2
+
+tests/integration/notify/test_cli_notify.py:64: AssertionError
+____________________ test_compute_digest_context_with_data _____________________
+
+session = <sqlalchemy.orm.session.Session object at 0x7fec23a0c350>
+
+    @pytest.mark.asyncio
+    async def test_compute_digest_context_with_data(session: Session) -> None:
+        # Setup: Create some jobs and apps for the week
+        week_ending = date.today()
+        scraped_at = datetime.now(timezone.utc)
+
+        job_a = Job(
+            title="Software Engineer",
+            company="Tech Corp",
+            url="http://example.com/a",
+            url_hash="hash_a",
+            tier=JobTier.A,
+            status=JobStatus.QUEUED,
+            scraped_at=scraped_at,
+            description="Desc A",
+            source="linkedin",
+        )
+        job_b = Job(
+            title="Frontend Developer",
+            company="Design Studio",
+            url="http://example.com/b",
+            url_hash="hash_b",
+            tier=JobTier.B,
+            status=JobStatus.QUEUED,
+            scraped_at=scraped_at,
+            description="Desc B",
+            source="linkedin",
+        )
+        job_c = Job(
+            title="Backend dev",
+            company="Cloud Services",
+            url="http://example.com/c",
+            url_hash="hash_c",
+            tier=JobTier.C,
+            status=JobStatus.MANUAL_REVIEW,
+            scraped_at=scraped_at,
+            description="Desc C",
+            source="linkedin",
+        )
+        session.add_all([job_a, job_b, job_c])
+        session.flush()
+
+        app_a = Application(
+            job_id=job_a.id,
+            applied_at=datetime.now(timezone.utc),
+            status=ApplicationStatus.APPLIED,
+            next_action="Follow up",
+            next_action_due=date.today() - timedelta(days=1),
+        )
+        session.add(app_a)
+        session.commit()
+
+        context = compute_digest_context(session, week_ending)
+
+        assert context.end_date == week_ending
+>       assert context.metrics.new_jobs_total == 3
+E       AssertionError: assert 13 == 3
+E        +  where 13 = DigestMetrics(new_jobs_total=13, new_jobs_tier_a=6, new_jobs_tier_b=6, new_jobs_tier_c=1, apps_sent_this_week=1, response_rate_last_4_weeks=0.0, pending_followups_count=1, queued_tier_a_count=6, manual_review_tier_c_count=1).new_jobs_total
+E        +    where DigestMetrics(new_jobs_total=13, new_jobs_tier_a=6, new_jobs_tier_b=6, new_jobs_tier_c=1, apps_sent_this_week=1, response_rate_last_4_weeks=0.0, pending_followups_count=1, queued_tier_a_count=6, manual_review_tier_c_count=1) = WeeklyDigestContext(end_date=datetime.date(2026, 4, 30), metrics=DigestMetrics(new_jobs_total=13, new_jobs_tier_a=6, new_jobs_tier_b=6, new_jobs_tier_c=1, apps_sent_this_week=1, response_rate_last_4_weeks=0.0, pending_followups_count=1, queued_tier_a_count=6, manual_review_tier_c_count=1), top_tier_a_queued=[JobSummary(id=UUID('e5c34ef4-6e40-4e9e-8428-5fe1e534dce6'), title='Tier A Job 4', company='Company A', fit_score=94, url='http://test.com/a4'), JobSummary(id=UUID('390176f0-24ad-43a9-9d64-ca92801cb6a7'), title='Tier A Job 3', company='Company A', fit_score=93, url='http://test.com/a3'), JobSummary(id=UUID('c0be1c20-c02e-4740-bf24-332d34a4297a'), title='Tier A Job 2', company='Company A', fit_score=92, url='http://test.com/a2'), JobSummary(id=UUID('2cb86840-8c74-40bc-8347-2ee583297fe4'), title='Tier A Job 1', company='Company A', fit_score=91, url='http://test.com/a1'), JobSummary(id=UUID('6109bd42-09fe-4924-aa89-be7f2e9cff6f'), title='Tier A Job 0', company='Company A', fit_score=90, url='http://test.com/a0')], followups_due=[ApplicationSummary(job_company='Tech Corp', next_action='Follow up', next_action_due=datetime.date(2026, 4, 29))], monthly_trends=[], is_empty_pipeline=False).metrics
+
+tests/integration/notify/test_digest.py:66: AssertionError
+______________________ test_compute_digest_context_empty _______________________
+
+session = <sqlalchemy.orm.session.Session object at 0x7fec23c5b860>
+
+    @pytest.mark.asyncio
+    async def test_compute_digest_context_empty(session: Session) -> None:
+        week_ending = date.today()
+        context = compute_digest_context(session, week_ending)
+
+>       assert context.metrics.new_jobs_total == 0
+E       AssertionError: assert 10 == 0
+E        +  where 10 = DigestMetrics(new_jobs_total=10, new_jobs_tier_a=5, new_jobs_tier_b=5, new_jobs_tier_c=0, apps_sent_this_week=0, response_rate_last_4_weeks=0.0, pending_followups_count=0, queued_tier_a_count=5, manual_review_tier_c_count=0).new_jobs_total
+E        +    where DigestMetrics(new_jobs_total=10, new_jobs_tier_a=5, new_jobs_tier_b=5, new_jobs_tier_c=0, apps_sent_this_week=0, response_rate_last_4_weeks=0.0, pending_followups_count=0, queued_tier_a_count=5, manual_review_tier_c_count=0) = WeeklyDigestContext(end_date=datetime.date(2026, 4, 30), metrics=DigestMetrics(new_jobs_total=10, new_jobs_tier_a=5, new_jobs_tier_b=5, new_jobs_tier_c=0, apps_sent_this_week=0, response_rate_last_4_weeks=0.0, pending_followups_count=0, queued_tier_a_count=5, manual_review_tier_c_count=0), top_tier_a_queued=[JobSummary(id=UUID('e5c34ef4-6e40-4e9e-8428-5fe1e534dce6'), title='Tier A Job 4', company='Company A', fit_score=94, url='http://test.com/a4'), JobSummary(id=UUID('390176f0-24ad-43a9-9d64-ca92801cb6a7'), title='Tier A Job 3', company='Company A', fit_score=93, url='http://test.com/a3'), JobSummary(id=UUID('c0be1c20-c02e-4740-bf24-332d34a4297a'), title='Tier A Job 2', company='Company A', fit_score=92, url='http://test.com/a2'), JobSummary(id=UUID('2cb86840-8c74-40bc-8347-2ee583297fe4'), title='Tier A Job 1', company='Company A', fit_score=91, url='http://test.com/a1'), JobSummary(id=UUID('6109bd42-09fe-4924-aa89-be7f2e9cff6f'), title='Tier A Job 0', company='Company A', fit_score=90, url='http://test.com/a0')], followups_due=[], monthly_trends=[], is_empty_pipeline=False).metrics
+
+tests/integration/notify/test_digest.py:86: AssertionError
+________________________ test_pipeline_e2e_distribution ________________________
+
+db_session = <sqlalchemy.orm.session.Session object at 0x7fec239c2690>
+mock_job_scorer = <jobhunter.scoring.scorer.JobScorer object at 0x7fec239c2810>
+
+    @pytest.mark.asyncio
+    async def test_pipeline_e2e_distribution(db_session: Session, mock_job_scorer: JobScorer) -> None:
+        """
+        Test the full pipeline with a variety of jobs and verify distribution.
+        """
+        # Create 20 mock jobs with different keywords to trigger different fixtures
+        jobs = []
+
+        # 4 Tier A Python/AI
+        for i in range(4):
+            jobs.append(
+                Job(
+                    source="test",
+                    url=f"http://test.com/a_py_{i}",
+                    url_hash=f"hash_a_py_{i}",
+                    title="Senior Python AI Developer",
+                    company="AI Corp",
+                    description="python and ai stack",
+                    status=JobStatus.NEW,
+                )
+            )
+
+        # 3 Tier A Flutter
+        for i in range(3):
+            jobs.append(
+                Job(
+                    source="test",
+                    url=f"http://test.com/a_fl_{i}",
+                    url_hash=f"hash_a_fl_{i}",
+                    title="Senior Flutter Developer",
+                    company="Mobile Corp",
+                    description="flutter apps development",
+                    status=JobStatus.NEW,
+                )
+            )
+
+        # 3 Tier B Borderline
+        for i in range(3):
+            jobs.append(
+                Job(
+                    source="test",
+                    url=f"http://test.com/b_{i}",
+                    url_hash=f"hash_b_{i}",
+                    title="Software Engineer",
+                    company="Mid Corp",
+                    description="Generic description for testing",
+                    status=JobStatus.NEW,
+                )
+            )
+
+        # 3 Tier C Manual Review
+        for i in range(3):
+            jobs.append(
+                Job(
+                    source="test",
+                    url=f"http://test.com/c_{i}",
+                    url_hash=f"hash_c_{i}",
+                    title="Maintenance Role",
+                    company="Oldschool",
+                    description="manual review needed for maintenance",
+                    status=JobStatus.NEW,
+                )
+            )
+
+        # 3 Reject EU Only
+        for i in range(3):
+            jobs.append(
+                Job(
+                    source="test",
+                    url=f"http://test.com/rej_eu_{i}",
+                    url_hash=f"hash_rej_eu_{i}",
+                    title="Local Dev",
+                    company="Eurocentric",
+                    description="eu work permit required strictly",
+                    status=JobStatus.NEW,
+                )
+            )
+
+        # 2 Reject Low Salary
+        for i in range(2):
+            jobs.append(
+                Job(
+                    source="test",
+                    url=f"http://test.com/rej_low_{i}",
+                    url_hash=f"hash_rej_low_{i}",
+                    title="Junior Dev",
+                    company="CheapCode",
+                    description="low salary offered for this junior role",
+                    status=JobStatus.NEW,
+                )
+            )
+
+        # 2 Invalid/Spam
+        for i in range(2):
+            jobs.append(
+                Job(
+                    source="test",
+                    url=f"http://test.com/inv_{i}",
+                    url_hash=f"hash_inv_{i}",
+                    title="Spam Job",
+                    company="Spammer",
+                    description="invalid post that looks like a spam job",
+                    status=JobStatus.NEW,
+                )
+            )
+
+        db_session.add_all(jobs)
+        db_session.commit()
+
+        # Run pipeline
+        report = await score_pending_jobs(db_session, mock_job_scorer, limit=20)
+
+        # Verify report
+        assert report.total_processed == 20
+        assert report.success_count == 20
+        assert report.tier_distribution.get("A", 0) == 7  # 4 Py + 3 Flutter
+        assert report.tier_distribution.get("B", 0) == 3
+        assert report.tier_distribution.get("C", 0) == 3
+        assert report.tier_distribution.get("REJECT", 0) == 5  # 3 EU + 2 Low Salary
+        assert report.tier_distribution.get("INVALID", 0) == 2
+
+        # Verify DB states
+        queued_count = db_session.query(Job).filter(Job.status == JobStatus.QUEUED).count()
+>       assert queued_count == 10  # 7 A + 3 B
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 20 == 10
+
+tests/integration/scoring/test_pipeline_e2e.py:135: AssertionError
+_____________________ test_bulk_create_dedupes_by_url_hash _____________________
+
+job_repo = <jobhunter.db.repos.job.JobRepo object at 0x7fec23427080>
+
+    def test_bulk_create_dedupes_by_url_hash(job_repo: JobRepo) -> None:
+        # Given
+        jobs = [
+            Job(source="src", url="u1", url_hash="h1", title="T1", company="C1", description="D1"),
+            Job(source="src", url="u2", url_hash="h2", title="T2", company="C2", description="D2"),
+            Job(source="src", url="u3", url_hash="h3", title="T3", company="C3", description="D3"),
+            Job(
+                source="src", url="u4", url_hash="h1", title="T1-dup", company="C1", description="D1"
+            ),  # Duplicate hash
+            Job(source="src", url="u5", url_hash="h5", title="T5", company="C5", description="D5"),
+        ]
+
+        # When
+        inserted_ids = job_repo.bulk_create_skipping_duplicates(jobs)
+
+        # Then
+        assert len(inserted_ids) == 4
+        all_jobs = job_repo.list()
+        # Note: if sample_job is also in DB because of other tests/fixtures,
+        # we might need to be careful. But fixtures are usually per test.
+        # In this test, we only created these 5 (4 unique).
+        # Wait, the session might already have sample_job if it was used in another test?
+        # No, each test gets a fresh transactional session that rolls back.
+        # But wait, if job_repo.list() is called, it returns ALL jobs in the current session/transaction.
+>       assert len(all_jobs) == 4
+E       assert 14 == 4
+E        +  where 14 = len([<Job(title=Tier A Job 0, company=Company A, status=queued)>, <Job(title=Tier A Job 1, company=Company A, status=queued)>, <Job(title=Tier A Job 2, company=Company A, status=queued)>, <Job(title=Tier A Job 3, company=Company A, status=queued)>, <Job(title=Tier A Job 4, company=Company A, status=queued)>, <Job(title=Tier B Job 0, company=Company B, status=queued)>, ...])
+
+tests/integration/test_job_repo.py:77: AssertionError
+=============================== warnings summary ===============================
+tests/unit/notify/test_telegram.py: 11 warnings
+  /home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/telegram/error.py:243: PTBDeprecationWarning: Deprecated since version v22.2: In a future major version attribute `retry_after` will be of type `datetime.timedelta`. You can opt-in early by setting `PTB_TIMEDELTA=true` or ``PTB_TIMEDELTA=1`` as an environment variable.
+    return get_timedelta_value(  # type: ignore[return-value]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.13-final-0 _______________
+
+Name                                                 Stmts   Miss Branch BrPart  Cover
+--------------------------------------------------------------------------------------
+src/jobhunter/__init__.py                                1      0      0      0   100%
+src/jobhunter/__main__.py                              609    207    118     31    65%
+src/jobhunter/application/assistant.py                  99      5     26      9    89%
+src/jobhunter/application/ats_keywords.py               86     10     24      6    85%
+src/jobhunter/application/cover_letter.py              103     10     32      7    87%
+src/jobhunter/application/cv.py                         94      5     50      8    91%
+src/jobhunter/application/cv_tweaks.py                  69      8     12      5    84%
+src/jobhunter/application/variant_selector.py           33      0     16      0   100%
+src/jobhunter/config.py                                 21      0      0      0   100%
+src/jobhunter/dashboard/__init__.py                      0      0      0      0   100%
+src/jobhunter/dashboard/auth.py                         32      8     12      1    70%
+src/jobhunter/dashboard/components.py                   76     76     34      0     0%
+src/jobhunter/dashboard/layout.py                       33     33      6      0     0%
+src/jobhunter/dashboard/pages/1_📥_New_Matches.py       112    112     22      0     0%
+src/jobhunter/dashboard/pages/2_📋_Pipeline.py           10     10      0      0     0%
+src/jobhunter/dashboard/pages/3_🔍_Manual_Review.py      10     10      0      0     0%
+src/jobhunter/dashboard/pages/4_💌_Outreach.py           10     10      0      0     0%
+src/jobhunter/dashboard/pages/5_📊_Metrics.py            10     10      0      0     0%
+src/jobhunter/dashboard/pages/__init__.py                0      0      0      0   100%
+src/jobhunter/dashboard/streamlit_app.py                 9      9      0      0     0%
+src/jobhunter/db/base.py                                 6      0      0      0   100%
+src/jobhunter/db/enums.py                               49      0      0      0   100%
+src/jobhunter/db/maintenance.py                         17     12      2      0    26%
+src/jobhunter/db/models.py                             144      9      8      1    92%
+src/jobhunter/db/repos/application.py                   41      7      8      2    78%
+src/jobhunter/db/repos/base.py                          32      1      6      2    92%
+src/jobhunter/db/repos/job.py                          103     37     58      6    56%
+src/jobhunter/db/repos/llm_calls.py                     34      5      2      1    83%
+src/jobhunter/db/repos/notifications.py                 29      0      0      0   100%
+src/jobhunter/db/repos/outreach.py                      64     10     16      3    81%
+src/jobhunter/db/repos/source_health.py                 17      8      2      0    47%
+src/jobhunter/db/seed.py                                62     53     20      0    11%
+src/jobhunter/db/session.py                             14      0      0      0   100%
+src/jobhunter/llm/__init__.py                            3      0      0      0   100%
+src/jobhunter/llm/anthropic_client.py                   59      9     10      5    80%
+src/jobhunter/llm/budget.py                             29      0      2      0   100%
+src/jobhunter/llm/pricing.py                             7      0      2      0   100%
+src/jobhunter/notify/__init__.py                         4      0      0      0   100%
+src/jobhunter/notify/base.py                            36      4      0      0    89%
+src/jobhunter/notify/digest.py                         109     12     14      2    85%
+src/jobhunter/notify/dispatcher.py                      61      0     10      1    99%
+src/jobhunter/notify/email.py                           51      6      6      2    86%
+src/jobhunter/notify/telegram.py                        63      7      8      2    87%
+src/jobhunter/notify/templates.py                       42      0     12      0   100%
+src/jobhunter/scoring/errors.py                          6      0      0      0   100%
+src/jobhunter/scoring/pipeline.py                      109     13     28      6    83%
+src/jobhunter/scoring/prompt.py                         45      2     14      2    93%
+src/jobhunter/scoring/schema.py                        126      0      4      0   100%
+src/jobhunter/scoring/scorer.py                         65      2     12      2    95%
+src/jobhunter/sources/arbeitnow.py                      37      1     12      2    94%
+src/jobhunter/sources/base.py                           19      1      0      0    95%
+src/jobhunter/sources/circuit_breaker.py                50      3     16      4    86%
+src/jobhunter/sources/fourdayweek.py                    64      9     22      5    81%
+src/jobhunter/sources/http.py                           78     10     20      6    84%
+src/jobhunter/sources/orchestrator.py                   81      6     22      3    89%
+src/jobhunter/sources/registry.py                        8      0      0      0   100%
+src/jobhunter/sources/remoteok.py                       47      3     16      3    90%
+src/jobhunter/sources/url_utils.py                      19      0      4      0   100%
+src/jobhunter/sources/wwr.py                            58      8     18      4    84%
+--------------------------------------------------------------------------------------
+TOTAL                                                 3305    761    726    131    74%
+=========================== short test summary info ============================
+FAILED tests/e2e/dashboard/test_new_matches_flow.py::test_new_matches_filters_and_skip
+FAILED tests/e2e/dashboard/test_new_matches_flow.py::test_new_matches_mark_applied
+FAILED tests/integration/notify/test_cli_notify.py::test_notify_dispatch_e2e
+FAILED tests/integration/notify/test_digest.py::test_compute_digest_context_with_data
+FAILED tests/integration/notify/test_digest.py::test_compute_digest_context_empty
+FAILED tests/integration/scoring/test_pipeline_e2e.py::test_pipeline_e2e_distribution
+FAILED tests/integration/test_job_repo.py::test_bulk_create_dedupes_by_url_hash
+====== 7 failed, 224 passed, 2 skipped, 11 warnings in 104.36s (0:01:44) =======

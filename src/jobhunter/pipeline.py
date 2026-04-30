@@ -5,7 +5,7 @@ Orchestrator for the jobhunter pipeline run-cycle.
 import time
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import structlog
 from pydantic import BaseModel, Field
@@ -16,6 +16,7 @@ from jobhunter.db.enums import ApplicationStatus
 from jobhunter.db.maintenance import refresh_weekly_metrics
 from jobhunter.db.repos.application import ApplicationRepo
 from jobhunter.db.repos.notifications import NotificationsRepo
+from jobhunter.db.repos.outreach_messages import OutreachMessageRepo
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
 from jobhunter.notify.base import NotificationMessage, NotificationResult
 from jobhunter.notify.dispatcher import DispatchReport, dispatch_tier_a_notifications
@@ -56,8 +57,10 @@ class FollowupReport(BaseModel):
     started_at: datetime
     finished_at: Optional[datetime] = None
     duration_ms: int = 0
-    pending_followups_count: int = 0
-    ghosted_marked_count: int = 0
+    pending_followups_count: int = Field(default=0)
+    ghosted_marked_count: int = Field(default=0)
+    pending_outreach_count: int = Field(default=0)
+    outreach_ghosted_count: int = Field(default=0)
     notification_sent: bool = False
     errors: List[str] = Field(default_factory=list)
 
@@ -209,9 +212,45 @@ async def run_cycle(
     return report
 
 
+async def run_outreach_cadence_checks(session: Session) -> dict[str, Any]:
+    """
+    Identifies outreach messages and contacts that need follow-up or ghosting.
+
+    Args:
+        session: SQLAlchemy session.
+
+    Returns:
+        dict[str, Any]: A dictionary with counts and pending contacts.
+    """
+    now = datetime.now(timezone.utc)
+    msg_repo = OutreachMessageRepo(session)
+    ghosted_count = 0
+    pending_followups = []
+
+    # 1. Mark ghosted messages and contacts (> 21 days)
+    ghosted_msgs = msg_repo.list_ghosted_messages(now)
+    for msg in ghosted_msgs:
+        msg_repo.mark_ghosted(msg.id)
+        ghosted_count += 1
+
+    # 2. Identify contacts due for follow-up (7-10 days)
+    due_msgs = msg_repo.list_due_for_followup(now)
+    # Filter unique contacts
+    seen_contacts = set()
+    for msg in due_msgs:
+        if msg.contact_id not in seen_contacts:
+            pending_followups.append(msg.contact)
+            seen_contacts.add(msg.contact_id)
+
+    return {
+        "ghosted_count": ghosted_count,
+        "pending_followups": pending_followups,
+    }
+
+
 async def run_followup_checks(session: Session) -> FollowupReport:
     """
-    Orchestrates daily follow-up and ghosting checks for applications.
+    Orchestrates daily follow-up and ghosting checks for applications and outreach.
 
     Args:
         session: SQLAlchemy session.
@@ -223,41 +262,53 @@ async def run_followup_checks(session: Session) -> FollowupReport:
     started_at = datetime.now(timezone.utc)
     today = started_at.date()
     report = FollowupReport(started_at=started_at)
-    repo = ApplicationRepo(session)
+    app_repo = ApplicationRepo(session)
 
     try:
-        # 1. Detect pending follow-ups
-        pending = repo.list_pending_followups(today)
-        report.pending_followups_count = len(pending)
+        # 1. Detect pending follow-ups (Applications)
+        pending_apps = app_repo.list_pending_followups(today)
+        report.pending_followups_count = len(pending_apps)
 
-        # 2. Detect and auto-mark ghosted candidates
-        ghosted = repo.list_ghosted_candidates(today)
-        for app in ghosted:
-            repo.transition_status(
+        # 2. Detect and auto-mark ghosted candidates (Applications)
+        ghosted_apps = app_repo.list_ghosted_candidates(today)
+        for app in ghosted_apps:
+            app_repo.transition_status(
                 app.id,
                 ApplicationStatus.GHOSTED,
                 note="Auto-marked as ghosted after 21 days of inactivity.",
             )
             report.ghosted_marked_count += 1
 
+        # 3. Outreach cadence checks
+        outreach_results = await run_outreach_cadence_checks(session)
+        report.outreach_ghosted_count = int(outreach_results.get("ghosted_count", 0))
+        pending_outreach = list(outreach_results.get("pending_followups", []))
+        report.pending_outreach_count = len(pending_outreach)
+
         session.commit()
 
-        # 3. Refresh weekly metrics
+        # 4. Refresh weekly metrics
         try:
             refresh_weekly_metrics(session)
         except Exception as e:
             logger.error("failed_to_refresh_metrics_during_followup", error=str(e))
             report.errors.append(f"Metrics refresh failed: {str(e)}")
 
-        # 4. Send Telegram notification if there are pending follow-ups
-        if report.pending_followups_count > 0:
+        # 5. Send Telegram notification if there are pending follow-ups (apps or outreach)
+        total_pending = int(report.pending_followups_count) + int(report.pending_outreach_count)
+        if total_pending > 0:
             try:
                 settings = Settings()  # type: ignore[call-arg]
                 notifier = TelegramNotifier()
                 if notifier.is_enabled(settings):
                     body = render(
                         "notifications/followup_pending.md",
-                        {"count": report.pending_followups_count, "applications": pending},
+                        {
+                            "count": report.pending_followups_count,
+                            "applications": pending_apps,
+                            "outreach_count": report.pending_outreach_count,
+                            "outreach_contacts": pending_outreach,
+                        },
                     )
                     message = NotificationMessage(
                         channel="telegram",
@@ -275,8 +326,10 @@ async def run_followup_checks(session: Session) -> FollowupReport:
 
         logger.info(
             "followup_checks_completed",
-            pending=report.pending_followups_count,
-            ghosted=report.ghosted_marked_count,
+            pending_apps=report.pending_followups_count,
+            ghosted_apps=report.ghosted_marked_count,
+            pending_outreach=report.pending_outreach_count,
+            ghosted_outreach=report.outreach_ghosted_count,
             notification_sent=report.notification_sent,
         )
 

@@ -1,6 +1,6 @@
 from typing import Dict, List, Any
 from sqlalchemy import select, func, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from jobhunter.db.models import Job, Application, OutreachContact
 
 
@@ -52,11 +52,12 @@ class SearchRepo:
                 .limit(limit)
                 .params(query=query)
             )
-            results["jobs"] = list(self.session.scalars(jobs_stmt).all())
+            results["jobs"] = list(self.session.scalars(jobs_stmt).unique().all())
 
             # Applications
             apps_stmt = (
                 select(Application)
+                .options(joinedload(Application.job))
                 .where(text("search_vector @@ plainto_tsquery('english', :query)"))
                 .order_by(
                     func.ts_rank(
@@ -66,7 +67,7 @@ class SearchRepo:
                 .limit(limit)
                 .params(query=query)
             )
-            results["applications"] = list(self.session.scalars(apps_stmt).all())
+            results["applications"] = list(self.session.scalars(apps_stmt).unique().all())
 
             # Outreach Contacts
             contacts_stmt = (
@@ -80,7 +81,7 @@ class SearchRepo:
                 .limit(limit)
                 .params(query=query)
             )
-            results["contacts"] = list(self.session.scalars(contacts_stmt).all())
+            results["contacts"] = list(self.session.scalars(contacts_stmt).unique().all())
 
         else:
             # Fallback for SQLite (LIKE)
@@ -94,13 +95,17 @@ class SearchRepo:
                 )
                 .limit(limit)
             )
-            results["jobs"] = list(self.session.scalars(jobs_stmt).all())
+            results["jobs"] = list(self.session.scalars(jobs_stmt).unique().all())
 
             # Applications: notes
             apps_stmt = (
-                select(Application).where(Application.notes.ilike(f"%{query}%")).limit(limit)
+                select(Application)
+                .options(joinedload(Application.job))
+                .join(Job)
+                .where(Application.notes.ilike(f"%{query}%"))
+                .limit(limit)
             )
-            results["applications"] = list(self.session.scalars(apps_stmt).all())
+            results["applications"] = list(self.session.scalars(apps_stmt).unique().all())
 
             # Outreach Contacts: name, company
             contacts_stmt = (

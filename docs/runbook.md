@@ -129,6 +129,26 @@ To enable email notifications using Gmail:
     uv run jobhunter notify test --channel email --subject "Test Email" --message "Hello from Job Hunter!"
     ```
 
+## Dashboard Deployment
+
+### Deploy dashboard a Fly.io
+
+Para desplegar el dashboard en Fly.io siguiendo un enfoque productivo:
+
+1.  **Instalar Fly CLI**: Sigue las instrucciones en [fly.io/docs/hands-on/install-cli/](https://fly.io/docs/hands-on/install-cli/).
+2.  **Login**: `fly auth login`.
+3.  **Launch**: Ejecuta `fly launch` en la raíz del proyecto.
+    - Selecciona el `Dockerfile.dashboard` cuando se te pregunte.
+    - No configurar base de datos Postgres de Fly si ya usas una externa.
+4.  **Configurar Secretos**:
+    ```bash
+    fly secrets set DASHBOARD_PASSWORD="tu_password_seguro" \
+                   DATABASE_URL="tu_url_de_base_de_datos" \
+                   ANTHROPIC_API_KEY="tu_api_key"
+    ```
+5.  **Desplegar**: `fly deploy --dockerfile Dockerfile.dashboard`.
+6.  **Acceso**: El dashboard estará disponible en `https://<tu-app-name>.fly.dev`. Fly.io gestiona el HTTPS automáticamente.
+
 ### Diagnosticar notificaciones que no llegan
 
 Si esperas notificaciones y no se están recibiendo:

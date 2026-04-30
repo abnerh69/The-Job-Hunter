@@ -40,6 +40,7 @@ def streamlit_server() -> Generator[None, None, None]:
     process.wait()
 
 
+@pytest.mark.e2e
 def test_metrics_page_renders() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)

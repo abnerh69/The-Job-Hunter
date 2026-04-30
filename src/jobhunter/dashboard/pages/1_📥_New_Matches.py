@@ -99,9 +99,13 @@ def skip_dialog(job: Job) -> None:
 @st.dialog("Mark as Applied")
 def apply_dialog(job: Job) -> None:
     st.write(f"Registrar aplicación para: **{job.title}**")
-    method = st.selectbox("Método", ["LinkedIn", "Direct", "Ottoneu", "Indeed", "Other"])
-    cv_variant = st.selectbox("CV Variant", ["ai_python", "flutter", "fullstack", "general"])
-    notes = st.text_area("Notas")
+    method = st.selectbox(
+        "Método", ["LinkedIn", "Direct", "Ottoneu", "Indeed", "Other"], key="apply_method"
+    )
+    cv_variant = st.selectbox(
+        "CV Variant", ["ai_python", "flutter", "fullstack", "general"], key="apply_cv_variant"
+    )
+    notes = st.text_area("Notas", key="apply_notes")
 
     if st.button("Registrar Aplicación", type="primary"):
         with get_session() as session:
@@ -121,6 +125,7 @@ def apply_dialog(job: Job) -> None:
             job_repo.mark_status(job.id, JobStatus.APPLIED)
             session.commit()
 
+        st.success("Aplicación registrada.")
         st.cache_data.clear()
         st.session_state.show_apply_modal = False
         st.session_state.job_to_apply = None

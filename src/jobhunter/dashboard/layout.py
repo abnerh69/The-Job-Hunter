@@ -25,11 +25,13 @@ def render_sidebar() -> None:
     if "global_search_query" not in st.session_state:
         st.session_state.global_search_query = ""
 
+    st.sidebar.markdown('<div data-testid="sidebar-search">', unsafe_allow_html=True)
     search_query = st.sidebar.text_input(
         "Search across jobs, apps, contacts",
         value=st.session_state.global_search_query,
         key="search_input",
     )
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
     col1, col2 = st.sidebar.columns(2)
     with col1:
@@ -44,6 +46,7 @@ def render_sidebar() -> None:
             st.rerun()
 
     st.sidebar.divider()
+    st.sidebar.markdown('<div data-testid="system-status">', unsafe_allow_html=True)
     st.sidebar.title("System Status")
 
     try:
@@ -74,3 +77,4 @@ def render_sidebar() -> None:
 
     if st.sidebar.button("Refresh Data"):
         st.rerun()
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)

@@ -50,6 +50,7 @@ dev = [
     "pytest-recording>=0.13.4",
     "pandas-stubs>=3.0.0.260204",
     "types-pyyaml>=6.0.12.20260408",
+    "types-Markdown>=3.7.0.20241204",
 ]
 
 [tool.ruff]

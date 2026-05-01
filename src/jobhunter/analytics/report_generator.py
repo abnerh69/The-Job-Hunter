@@ -1,9 +1,12 @@
 import calendar
 from datetime import date, datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TYPE_CHECKING
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:
+    from jobhunter.llm.anthropic_client import AnthropicLLMClient
 
 from jobhunter.analytics.cost_metrics import get_cost_per_outcome
 from jobhunter.analytics.email_metrics import get_matcher_metrics
@@ -158,7 +161,7 @@ def calculate_comparison(current: MonthlyMetrics, reference: MonthlyMetrics) -> 
 
 async def generate_narrative_report(
     session: Session,
-    llm_client: Any,
+    llm_client: "AnthropicLLMClient",
     month: str,
     current_metrics: MonthlyMetrics,
     prev_month_comp: Dict[str, Any],
@@ -188,16 +191,18 @@ async def generate_narrative_report(
         anomalies_and_regressions=json.dumps(anomalies.model_dump(mode="json"), indent=2),
     )
 
+    from jobhunter.db.enums import LLMPurpose
+
     response = await llm_client.complete(
         system=system_prompt,
         user=user_prompt,
         model=model,
-        purpose="analytics_report",
+        purpose=LLMPurpose.ANALYTICS_REPORT,
         session=session,
         prompt_version="v1",
     )
 
-    return response.text
+    return str(response.text)
 
 
 def format_report_as_html(markdown_text: str, month: str) -> str:
@@ -301,6 +306,6 @@ def format_report_as_html(markdown_text: str, month: str) -> str:
 
 def convert_html_to_pdf(html_text: str, output_path: str) -> None:
     """Converts HTML text to a PDF file using WeasyPrint."""
-    from weasyprint import HTML
+    from weasyprint import HTML  # type: ignore[import-untyped]
 
     HTML(string=html_text).write_pdf(output_path)

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from jobhunter.db.models import Job, Application, LLMCall, OutreachMessage
-from jobhunter.db.enums import JobTier, JobStatus, ApplicationStatus, OutreachMessageStatus
+from jobhunter.db.models import Job, Application, LLMCall, OutreachMessage, OutreachContact
+from jobhunter.db.enums import JobTier, JobStatus, ApplicationStatus, OutreachMessageStatus, OutreachStatus
 from jobhunter.analytics.regression_detector import check_metrics
 from jobhunter.analytics.recommendations import get_recommendations
 import uuid
@@ -68,9 +68,17 @@ def test_full_pipeline_simulation_analytics(session: Session) -> None:
     # 3. Recommendations Heuristics
     # Template zero response: 10 sent, 0 replies in last 4 weeks
     for i in range(10):
+        contact = OutreachContact(
+            name=f"Contact {i}",
+            linkedin_url=f"https://linkedin.com/in/contact_{uuid.uuid4()}",
+            status=OutreachStatus.NEW,
+        )
+        session.add(contact)
+        session.flush()
+
         session.add(
             OutreachMessage(
-                contact_id=uuid.uuid4(),
+                contact_id=contact.id,
                 template_type="B_boutique",
                 status=OutreachMessageStatus.SENT,
                 sent_at=now - timedelta(days=10),

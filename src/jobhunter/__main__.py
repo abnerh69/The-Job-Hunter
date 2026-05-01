@@ -1,5 +1,4 @@
 import asyncio
-import os
 import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -72,6 +71,9 @@ app.add_typer(telegram_app, name="telegram")
 
 analytics_app = typer.Typer(help="Analytics and performance metrics")
 app.add_typer(analytics_app, name="analytics")
+
+backup_app = typer.Typer(help="Manage database backups and restores")
+app.add_typer(backup_app, name="backup")
 
 ab_test_app = typer.Typer(help="Manage A/B tests for prompts and templates")
 analytics_app.add_typer(ab_test_app, name="ab-test")
@@ -2349,41 +2351,159 @@ def dashboard() -> None:
         raise typer.Exit(code=1)
 
 
-@app.command()
-def db_backup(
-    output: Annotated[
-        Path | None, typer.Option(help="Path to the backup file (defaults to timestamped file)")
-    ] = None,
+@backup_app.command("create")
+def backup_create(
+    output: Annotated[Optional[Path], typer.Option(help="Local path to save the backup")] = None,
+    upload: Annotated[bool, typer.Option(help="Upload to configured storage")] = False,
+    cleanup: Annotated[bool, typer.Option(help="Run automated cleanup of old backups")] = False,
 ) -> None:
     """Create a compressed backup of the database."""
-    logger.info("Starting database backup")
+    from jobhunter.db.backup import create_compressed_backup, BackupStorage, run_backup_cleanup
+
+    settings = Settings()  # type: ignore[call-arg]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"backup_{timestamp}.sql.gz"
+
+    local_path = output if output else Path(filename)
+
     try:
-        # Resolve path to the backup script
-        script_path = Path(__file__).parent.parent.parent / "scripts" / "backup_db.sh"
-        if not script_path.exists():
-            typer.echo(f"Error: Backup script not found at {script_path}", err=True)
-            raise typer.Exit(code=1)
+        create_compressed_backup(settings.DATABASE_URL, local_path)
+        typer.echo(f"Successfully created backup: {local_path}")
 
-        cmd = ["bash", str(script_path)]
-        if output:
-            cmd.append(str(output))
+        if upload:
+            storage = BackupStorage(settings)
+            remote_url = storage.upload(local_path)
+            typer.echo(f"Successfully uploaded backup to: {remote_url}")
 
-        # Pass environment variables to the script
-        env = os.environ.copy()
-        settings = Settings()  # type: ignore[call-arg]
-        env["DATABASE_URL"] = settings.DATABASE_URL
+            # If it wasn't a custom output path, we can delete the local temp file after upload
+            if not output:
+                local_path.unlink()
+                typer.echo("Cleaned up local temporary backup file.")
 
-        result = subprocess.run(cmd, env=env, check=True, capture_output=True, text=True)
-        typer.echo(result.stdout)
-        logger.info("Database backup completed successfully")
-    except subprocess.CalledProcessError as e:
-        logger.error("Database backup failed", error=str(e), stderr=e.stderr)
-        typer.echo(f"Error during backup: {e.stderr}", err=True)
-        raise typer.Exit(code=1)
+        if cleanup:
+            storage = BackupStorage(settings)
+            deleted = run_backup_cleanup(storage, settings.BACKUP_RETENTION_WEEKS)
+            typer.echo(f"Cleanup: deleted {deleted} old backups.")
+
     except Exception as e:
-        logger.error("Failed to initiate database backup", error=str(e))
+        logger.error("Backup creation failed", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
+
+
+@backup_app.command("list")
+def backup_list(
+    json_output: Annotated[bool, typer.Option("--json", help="Output in JSON format")] = False,
+) -> None:
+    """List available backups in the configured storage."""
+    from jobhunter.db.backup import BackupStorage
+    import json
+
+    settings = Settings()  # type: ignore[call-arg]
+    try:
+        storage = BackupStorage(settings)
+        backups = storage.list_backups()
+
+        if json_output:
+            # Format dates for JSON
+            json_backups = []
+            for b in backups:
+                b_copy = b.copy()
+                b_copy["created_at"] = b["created_at"].isoformat()
+                json_backups.append(b_copy)
+            typer.echo(json.dumps(json_backups))
+            return
+
+        if not backups:
+            typer.echo("No backups found.")
+            return
+
+        console = Console()
+        table = Table(title=f"Backups ({settings.BACKUP_STORAGE_PROVIDER})")
+        table.add_column("Backup ID")
+        table.add_column("Size (MB)", justify="right")
+        table.add_column("Created At")
+
+        for b in backups:
+            size_mb = b["size"] / (1024 * 1024)
+            table.add_row(
+                b["id"], f"{size_mb:.2f}", b["created_at"].strftime("%Y-%m-%d %H:%M:%S %Z")
+            )
+
+        console.print(table)
+    except Exception as e:
+        logger.error("Failed to list backups", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@backup_app.command("restore")
+def backup_restore(
+    backup_id: Annotated[str, typer.Argument(help="ID of the backup to restore")],
+    force: Annotated[bool, typer.Option(help="Skip interactive confirmation")] = False,
+    expected_version: Annotated[
+        Optional[str], typer.Option(help="Expected migration version for integrity check")
+    ] = None,
+) -> None:
+    """Restore the database from a backup (DESTRUCTIVE)."""
+    from jobhunter.db.backup import (
+        restore_from_compressed_backup,
+        BackupStorage,
+        validate_db_integrity,
+    )
+
+    if not force:
+        confirm = typer.confirm(
+            f"WARNING: This will OVERWRITE your current database with backup '{backup_id}'. "
+            "This operation is destructive and cannot be undone. Are you sure?",
+            default=False,
+        )
+        if not confirm:
+            typer.echo("Restore cancelled.")
+            return
+
+    settings = Settings()  # type: ignore[call-arg]
+    temp_dir = Path(".temp_restore")
+    temp_dir.mkdir(exist_ok=True)
+
+    try:
+        storage = BackupStorage(settings)
+        typer.echo(f"Downloading backup {backup_id}...")
+        local_path = storage.download(backup_id, temp_dir)
+
+        typer.echo("Starting restore process...")
+        restore_from_compressed_backup(local_path, settings.DATABASE_URL)
+        typer.echo("Successfully restored database.")
+
+        # Validate integrity
+        with get_session() as session:
+            results = validate_db_integrity(session, expected_migration_version=expected_version)
+            all_passed = all(results.values())
+
+            console = Console()
+            table = Table(title="Post-Restore Integrity Check")
+            table.add_column("Check")
+            table.add_column("Status")
+
+            for check, passed in results.items():
+                status = "[green]PASS[/green]" if passed else "[red]FAIL[/red]"
+                table.add_row(check, status)
+
+            console.print(table)
+
+            if not all_passed:
+                typer.echo("Warning: Integrity check failed for some tables!", err=True)
+                raise typer.Exit(code=1)
+
+    except Exception as e:
+        logger.error("Restore failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+    finally:
+        if temp_dir.exists():
+            import shutil
+
+            shutil.rmtree(temp_dir)
 
 
 @app.callback()

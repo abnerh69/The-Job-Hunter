@@ -5,12 +5,19 @@ from typing import Any
 from _pytest.capture import CaptureFixture
 from jobhunter.log_config import configure_logging, with_correlation_id, get_logger
 
+
 def test_log_structure_and_redaction(capsys: CaptureFixture[Any]) -> None:
     os.environ["LOG_FORMAT"] = "json"
     configure_logging()
 
     logger = get_logger("test_module")
-    logger.info("test_event", password="secret_password", token="secret_token", api_key="secret_key", other="public")
+    logger.info(
+        "test_event",
+        password="secret_password",
+        token="secret_token",
+        api_key="secret_key",
+        other="public",
+    )
 
     captured = capsys.readouterr()
     log_entry = json.loads(captured.out)
@@ -23,6 +30,7 @@ def test_log_structure_and_redaction(capsys: CaptureFixture[Any]) -> None:
     assert log_entry["other"] == "public"
     assert "timestamp" in log_entry
     assert log_entry["level"] == "info"
+
 
 def test_correlation_id_propagation(capsys: CaptureFixture[Any]) -> None:
     os.environ["LOG_FORMAT"] = "json"
@@ -42,8 +50,10 @@ def test_correlation_id_propagation(capsys: CaptureFixture[Any]) -> None:
     log_entry = json.loads(captured.out)
     assert "correlation_id" not in log_entry
 
+
 async def async_log(logger: Any) -> None:
     logger.info("async_event")
+
 
 def test_correlation_id_async_propagation(capsys: CaptureFixture[Any]) -> None:
     os.environ["LOG_FORMAT"] = "json"
@@ -60,6 +70,7 @@ def test_correlation_id_async_propagation(capsys: CaptureFixture[Any]) -> None:
     captured = capsys.readouterr()
     log_entry = json.loads(captured.out)
     assert log_entry["correlation_id"] == "async_cid"
+
 
 def test_correlation_id_from_env(capsys: CaptureFixture[Any]) -> None:
     os.environ["LOG_FORMAT"] = "json"

@@ -9,7 +9,10 @@ import structlog
 from jobhunter.config import Settings
 
 # Context variable to store correlation_id
-_CORRELATION_ID: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("correlation_id", default=None)
+_CORRELATION_ID: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "correlation_id", default=None
+)
+
 
 def add_correlation_id(logger: Any, method_name: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -20,7 +23,10 @@ def add_correlation_id(logger: Any, method_name: str, event_dict: Dict[str, Any]
         event_dict["correlation_id"] = correlation_id
     return event_dict
 
-def redact_sensitive_info(logger: Any, method_name: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:
+
+def redact_sensitive_info(
+    logger: Any, method_name: str, event_dict: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Processor to redact sensitive fields from logs.
     """
@@ -29,6 +35,7 @@ def redact_sensitive_info(logger: Any, method_name: str, event_dict: Dict[str, A
         if field in event_dict:
             event_dict[field] = "****"
     return event_dict
+
 
 @contextmanager
 def with_correlation_id(correlation_id: str) -> Generator[None, None, None]:
@@ -40,6 +47,7 @@ def with_correlation_id(correlation_id: str) -> Generator[None, None, None]:
         yield
     finally:
         _CORRELATION_ID.reset(token)
+
 
 def configure_logging() -> None:
     """
@@ -79,6 +87,7 @@ def configure_logging() -> None:
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
         cache_logger_on_first_use=True,
     )
+
 
 def get_logger(name: str) -> Any:
     """

@@ -1576,6 +1576,9 @@ def analytics_check_regressions(
     notify: Annotated[
         bool, typer.Option(help="Send alerts to Telegram if regressions found")
     ] = True,
+    markdown_output: Annotated[
+        bool, typer.Option("--markdown", help="Output in Markdown format")
+    ] = False,
 ) -> None:
     """Check for significant drops in key metrics (last 7 days vs 4-week baseline)."""
     logger.info("Starting regression check")
@@ -1583,31 +1586,44 @@ def analytics_check_regressions(
         with get_session() as session:
             report = check_metrics(session)
 
-            console = Console()
-            table = Table(title="Regression Analysis", header_style="bold magenta")
-            table.add_column("Metric")
-            table.add_column("Baseline", justify="right")
-            table.add_column("Current", justify="right")
-            table.add_column("Change (%)", justify="right")
-            table.add_column("Status")
+            if markdown_output:
+                typer.echo("### 📉 Regression Analysis")
+                typer.echo("| Metric | Baseline | Current | Change (%) | Status |")
+                typer.echo("| :--- | :---: | :---: | :---: | :--- |")
+                for m in report.metrics:
+                    status = "✅ OK"
+                    if m.is_regression:
+                        status = "🚨 **REGRESSION**"
+                    change_sign = "+" if m.change_pct > 0 else ""
+                    typer.echo(
+                        f"| {m.name} | {m.baseline_value:.2f}% | {m.current_value:.2f}% | {change_sign}{m.change_pct:.2f}% | {status} |"
+                    )
+            else:
+                console = Console()
+                table = Table(title="Regression Analysis", header_style="bold magenta")
+                table.add_column("Metric")
+                table.add_column("Baseline", justify="right")
+                table.add_column("Current", justify="right")
+                table.add_column("Change (%)", justify="right")
+                table.add_column("Status")
 
-            regressions = []
-            for m in report.metrics:
-                status = "[green]OK[/green]"
-                if m.is_regression:
-                    status = "[bold red]REGRESSION[/bold red]"
-                    regressions.append(m)
+                for m in report.metrics:
+                    status = "[green]OK[/green]"
+                    if m.is_regression:
+                        status = "[bold red]REGRESSION[/bold red]"
 
-                change_style = "red" if m.change_pct < 0 else "green"
-                table.add_row(
-                    m.name,
-                    f"{m.baseline_value:.2f}%",
-                    f"{m.current_value:.2f}%",
-                    f"[{change_style}]{m.change_pct:+.2f}%[/{change_style}]",
-                    status,
-                )
+                    change_style = "red" if m.change_pct < 0 else "green"
+                    table.add_row(
+                        m.name,
+                        f"{m.baseline_value:.2f}%",
+                        f"{m.current_value:.2f}%",
+                        f"[{change_style}]{m.change_pct:+.2f}%[/{change_style}]",
+                        status,
+                    )
 
-            console.print(table)
+                console.print(table)
+
+            regressions = [m for m in report.metrics if m.is_regression]
 
             if notify and regressions:
                 from jobhunter.notify.telegram import TelegramNotifier
@@ -1925,6 +1941,9 @@ def analytics_rescore_suspicious(
 @analytics_app.command("check-anomalies")
 def analytics_check_anomalies(
     notify: Annotated[bool, typer.Option(help="Send alerts to Telegram if anomalies found")] = True,
+    markdown_output: Annotated[
+        bool, typer.Option("--markdown", help="Output in Markdown format")
+    ] = False,
 ) -> None:
     """Check for unexpected upward spikes in key metrics."""
     logger.info("Starting anomaly check")
@@ -1932,31 +1951,44 @@ def analytics_check_anomalies(
         with get_session() as session:
             report = check_metrics(session)
 
-            console = Console()
-            table = Table(title="Anomaly Analysis", header_style="bold blue")
-            table.add_column("Metric")
-            table.add_column("Baseline", justify="right")
-            table.add_column("Current", justify="right")
-            table.add_column("Change (%)", justify="right")
-            table.add_column("Status")
+            if markdown_output:
+                typer.echo("### 🚀 Anomaly Analysis")
+                typer.echo("| Metric | Baseline | Current | Change (%) | Status |")
+                typer.echo("| :--- | :---: | :---: | :---: | :--- |")
+                for m in report.metrics:
+                    status = "✅ OK"
+                    if m.is_anomaly:
+                        status = "⚠️ **ANOMALY**"
+                    change_sign = "+" if m.change_pct > 0 else ""
+                    typer.echo(
+                        f"| {m.name} | {m.baseline_value:.2f}% | {m.current_value:.2f}% | {change_sign}{m.change_pct:.2f}% | {status} |"
+                    )
+            else:
+                console = Console()
+                table = Table(title="Anomaly Analysis", header_style="bold blue")
+                table.add_column("Metric")
+                table.add_column("Baseline", justify="right")
+                table.add_column("Current", justify="right")
+                table.add_column("Change (%)", justify="right")
+                table.add_column("Status")
 
-            anomalies = []
-            for m in report.metrics:
-                status = "[green]OK[/green]"
-                if m.is_anomaly:
-                    status = "[bold yellow]ANOMALY[/bold yellow]"
-                    anomalies.append(m)
+                for m in report.metrics:
+                    status = "[green]OK[/green]"
+                    if m.is_anomaly:
+                        status = "[bold yellow]ANOMALY[/bold yellow]"
 
-                change_style = "green" if m.change_pct > 0 else "red"
-                table.add_row(
-                    m.name,
-                    f"{m.baseline_value:.2f}%",
-                    f"{m.current_value:.2f}%",
-                    f"[{change_style}]{m.change_pct:+.2f}%[/{change_style}]",
-                    status,
-                )
+                    change_style = "green" if m.change_pct > 0 else "red"
+                    table.add_row(
+                        m.name,
+                        f"{m.baseline_value:.2f}%",
+                        f"{m.current_value:.2f}%",
+                        f"[{change_style}]{m.change_pct:+.2f}%[/{change_style}]",
+                        status,
+                    )
 
-            console.print(table)
+                console.print(table)
+
+            anomalies = [m for m in report.metrics if m.is_anomaly]
 
             if notify and anomalies:
                 from jobhunter.notify.telegram import TelegramNotifier
@@ -2009,6 +2041,9 @@ def analytics_check_anomalies(
 @analytics_app.command("recommendations")
 def analytics_recommendations(
     json_output: Annotated[bool, typer.Option("--json", help="Output in JSON format")] = False,
+    markdown_output: Annotated[
+        bool, typer.Option("--markdown", help="Output in Markdown format")
+    ] = False,
 ) -> None:
     """Display actionable recommendations based on system heuristics."""
     from jobhunter.analytics.recommendations import get_recommendations
@@ -2021,6 +2056,19 @@ def analytics_recommendations(
 
         if json_output:
             typer.echo(json.dumps([r.model_dump() for r in recs], indent=2))
+            return
+
+        if markdown_output:
+            typer.echo("### 💡 Recommendations")
+            if not recs:
+                typer.echo("No recommendations at this time. System is performing well!")
+                return
+            typer.echo("| Priority | Action | Reason | Impact | Effort |")
+            typer.echo("| :--- | :--- | :--- | :--- | :--- |")
+            for r in recs:
+                typer.echo(
+                    f"| **{r.priority}** | {r.action} | {r.reason} | {r.impact} | {r.effort} |"
+                )
             return
 
         console = Console()

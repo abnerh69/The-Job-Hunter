@@ -17,6 +17,10 @@ engine: Engine = create_engine(settings.DATABASE_URL)
 SessionLocal: sessionmaker[Session] = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+_test_engine: Engine | None = None
+_test_session_local: sessionmaker[Session] | None = None
+
+
 @contextmanager
 def get_session() -> Generator[Session, None, None]:
     """
@@ -26,7 +30,23 @@ def get_session() -> Generator[Session, None, None]:
     Yields:
         Session: The SQLAlchemy session.
     """
-    session = SessionLocal()
+    import os
+
+    global _test_engine, _test_session_local
+
+    test_db_url = os.getenv("TEST_DATABASE_URL")
+    if test_db_url:
+        if _test_engine is None:
+            _test_engine = create_engine(test_db_url)
+            _test_session_local = sessionmaker(
+                autocommit=False, autoflush=False, bind=_test_engine, expire_on_commit=False
+            )
+        if _test_session_local:
+            session = _test_session_local()
+        else:
+            session = SessionLocal()
+    else:
+        session = SessionLocal()
     try:
         yield session
     finally:

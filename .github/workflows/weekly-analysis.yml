@@ -1,0 +1,61 @@
+name: Weekly Analytics Analysis
+
+on:
+  schedule:
+    - cron: '0 13 * * 1'
+  workflow_dispatch:
+
+jobs:
+  weekly-analysis:
+    name: Weekly Regression and Recommendation Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-env
+        with:
+          database_url: ${{ secrets.DATABASE_URL_PROD }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          dashboard_password: ${{ secrets.DASHBOARD_PASSWORD }}
+
+      - name: Run Analytics
+        shell: bash
+        run: |
+          echo "## 📊 Weekly Analytics Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 🔍 System Performance" >> $GITHUB_STEP_SUMMARY
+          uv run jobhunter analytics check-regressions --markdown >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          uv run jobhunter analytics check-anomalies --markdown >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 💡 Actionable Insights" >> $GITHUB_STEP_SUMMARY
+          uv run jobhunter analytics recommendations --markdown >> $GITHUB_STEP_SUMMARY
+
+      - name: Alert on Failure
+        if: failure()
+        uses: ./.github/actions/alert-on-failure
+        with:
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}

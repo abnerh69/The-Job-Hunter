@@ -158,38 +158,41 @@ def get_weekly_trends(session: Session, weeks: int = 8) -> List[WeeklyTrend]:
                 "SELECT * FROM weekly_metrics ORDER BY week DESC LIMIT :limit"
             ).bindparams(limit=weeks)
             rows = session.execute(stmt_text).fetchall()
-            return [
-                WeeklyTrend(
-                    week=row.week,
-                    apps_sent=row.apps_sent,
-                    apps_with_response=row.apps_with_response,
-                    interviews=row.interviews,
-                    offers=row.offers,
-                    response_rate=(row.apps_with_response / row.apps_sent * 100)
-                    if row.apps_sent > 0
-                    else 0.0,
-                )
-                for row in rows
-            ]
+            if rows:
+                return [
+                    WeeklyTrend(
+                        week=row.week,
+                        apps_sent=row.apps_sent,
+                        apps_with_response=row.apps_with_response,
+                        interviews=row.interviews,
+                        offers=row.offers,
+                        response_rate=(row.apps_with_response / row.apps_sent * 100)
+                        if row.apps_sent > 0
+                        else 0.0,
+                    )
+                    for row in rows
+                ]
         except Exception:
-            # Fallback to calculation if view fails
+            # Fallback to calculation if view fails or is empty
             pass
 
     # Manual calculation (simplified)
     end_date = date.today()
     start_date = end_date - timedelta(weeks=weeks)
 
+    from sqlalchemy import Date, cast
+
     if is_postgres:
         stmt_select = select(
-            func.date_trunc("week", Application.applied_at).label("week"),
+            cast(func.date_trunc("week", Application.applied_at), Date).label("week"),
             func.count(Application.id).label("apps_sent"),
-        ).where(func.date(Application.applied_at) >= start_date)
+        ).where(cast(Application.applied_at, Date) >= start_date)
     else:
         # SQLite version of date_trunc to week (Monday start)
         stmt_select = select(
             func.date(Application.applied_at, "weekday 0", "-6 days").label("week"),
             func.count(Application.id).label("apps_sent"),
-        ).where(func.date(Application.applied_at) >= start_date)
+        ).where(func.date(Application.applied_at) >= start_date.isoformat())
 
     stmt_select = stmt_select.group_by(text("week")).order_by(text("week DESC"))
 

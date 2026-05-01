@@ -21,8 +21,20 @@ We use [Neon](https://neon.tech) as our hosted PostgreSQL provider for productio
 
 ### 1. Restore Database from Backup
 
-To restore the database from a compressed backup file:
+We recommend using the CLI for managed restoration, which includes integrity checks.
 
+**Option A: Using the CLI (Recommended)**
+1.  **List available backups**:
+    ```bash
+    uv run jobhunter backup list
+    ```
+2.  **Restore by ID**:
+    ```bash
+    uv run jobhunter backup restore backup_YYYYMMDD_HHMMSS.sql.gz
+    ```
+    *Note: This will prompt for confirmation unless `--force` is used.*
+
+**Option B: Manual Restore (Emergency)**
 1.  **Decompress and pipe to `psql`**:
     ```bash
     gunzip -c backup_YYYYMMDD_HHMMSS.sql.gz | psql $DATABASE_URL
@@ -69,11 +81,16 @@ If you need to test the migration path from zero:
 
 ### 4. Create a Manual Backup
 
-You can use the CLI command:
+**Option A: Using the CLI (Recommended)**
 ```bash
-uv run jobhunter db-backup --output my_backup.sql.gz
+# Create local backup
+uv run jobhunter backup create --output my_backup.sql.gz
+
+# Create and upload to remote storage (B2/S3)
+uv run jobhunter backup create --upload
 ```
-Or run the script directly:
+
+**Option B: Using the legacy script**
 ```bash
 ./scripts/backup_db.sh my_backup.sql.gz
 ```
@@ -196,6 +213,11 @@ The system relies on several GitHub Secrets for CI/CD and production workflows.
 | `GMAIL_CLIENT_ID` | OAuth Client ID for Gmail API. |
 | `GMAIL_CLIENT_SECRET` | OAuth Client Secret for Gmail API. |
 | `OAUTH_ENCRYPTION_KEY` | Fernet key for encrypting OAuth tokens at rest. |
+| `BACKUP_STORAGE_PROVIDER` | `b2`, `s3`, or `local`. |
+| `BACKUP_STORAGE_BUCKET` | Name of the bucket/container for backups. |
+| `BACKUP_ACCESS_KEY` | Access Key for storage provider. |
+| `BACKUP_SECRET_KEY` | Secret Key for storage provider. |
+| `BACKUP_ENDPOINT_URL` | (Optional) Custom S3 endpoint (e.g., for B2). |
 
 ### Emergency Procedures
 
@@ -227,6 +249,19 @@ The system relies on several GitHub Secrets for CI/CD and production workflows.
 4.  **Update Secret**: Update `DATABASE_URL_PROD` in GitHub Secrets.
 
 ## Workflow & Automation
+
+### DB Backup and Restore Drill
+
+The `DB Backup and Restore Drill` workflow runs every Sunday at 04:00 UTC. It performs a full backup, uploads it to remote storage, and then executes a **Restore Drill** on an ephemeral Postgres instance to verify integrity.
+
+**Manual Execution:**
+- Go to the **Actions** tab in GitHub.
+- Select **DB Backup and Restore Drill**.
+- Click **Run workflow**.
+
+**Monitoring & Investigation:**
+1.  **Integrity Checks**: Each drill validates that critical tables (`jobs`, `applications`, etc.) exist and are readable.
+2.  **Alerts**: If the drill fails, a CRITICAL alert is sent to Telegram immediately.
 
 ### Pipeline Cycle
 

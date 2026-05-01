@@ -64,7 +64,7 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db
     env["ANTHROPIC_API_KEY"] = "dummy"
-    env["DASHBOARD_PASSWORD"] = "secret123"
+    env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret  # pragma: allowlist secret  # pragma: allowlist secret  # pragma: allowlist secret
     env["PYTHONPATH"] = "src"
     cmd = [
         "streamlit",
@@ -81,6 +81,7 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     process.wait()
 
 
+@pytest.mark.e2e
 def test_outreach_dashboard_flow(streamlit_server: None) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -88,7 +89,7 @@ def test_outreach_dashboard_flow(streamlit_server: None) -> None:
         page = context.new_page()
 
         page.goto("http://localhost:8502")
-        page.get_by_role("textbox", name="Password").fill("secret123")
+        page.get_by_role("textbox", name="Password").fill("secret123"  # pragma: allowlist secret  # pragma: allowlist secret  # pragma: allowlist secret  # pragma: allowlist secret)
         page.keyboard.press("Enter")
         time.sleep(5)
 

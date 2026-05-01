@@ -49,7 +49,6 @@ def main() -> None:
 
     # Tabs for different sections
     (
-        tab_recs,
         tab_funnel,
         tab_sources,
         tab_outreach,
@@ -57,9 +56,9 @@ def main() -> None:
         tab_costs,
         tab_health,
         tab_quality,
+        tab_recs,
     ) = st.tabs(
         [
-            "💡 Recommendations",
             "🎯 Funnel",
             "🔌 Sources",
             "💌 Outreach",
@@ -67,11 +66,9 @@ def main() -> None:
             "💰 LLM Costs",
             "🩺 System Health",
             "🛡️ Quality Control",
+            "💡 Recommendations",
         ]
     )
-
-    with tab_recs:
-        render_recommendations_section()
 
     with tab_funnel:
         render_funnel_section(start_date, end_date)
@@ -93,6 +90,9 @@ def main() -> None:
 
     with tab_quality:
         render_quality_section()
+
+    with tab_recs:
+        render_recommendations_section()
 
 
 @st.cache_data(ttl=300)

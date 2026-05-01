@@ -8,6 +8,7 @@ from jobhunter.analytics import (
     outreach_metrics,
     pipeline_metrics,
     quality_metrics,
+    recommendations,
 )
 from jobhunter.db.enums import SourceState
 from jobhunter.db.models import Job, SourceHealth
@@ -120,6 +121,13 @@ class MetricsService:
         Retrieves top warmest outreach contacts.
         """
         results = outreach_metrics.get_warmest_contacts(self.session, limit)
+        return [res.model_dump() for res in results]
+
+    def get_recommendations(self) -> List[Dict[str, Any]]:
+        """
+        Retrieves actionable recommendations.
+        """
+        results = recommendations.get_recommendations(self.session)
         return [res.model_dump() for res in results]
 
 

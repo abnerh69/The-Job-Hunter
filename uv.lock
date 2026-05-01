@@ -622,6 +622,22 @@ wheels = [
 ]
 
 [[package]]
+name = "fastapi"
+version = "0.136.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "pydantic" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5d/45/c130091c2dfa061bbfe3150f2a5091ef1adf149f2a8d2ae769ecaf6e99a2/fastapi-0.136.1.tar.gz", hash = "sha256:7af665ad7acfa0a3baf8983d393b6b471b9da10ede59c60045f49fbc89a0fa7f", size = 397448, upload-time = "2026-04-23T16:49:44.046Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5a/ff/2e4eca3ade2c22fe1dea7043b8ee9dabe47753349eb1b56a202de8af6349/fastapi-0.136.1-py3-none-any.whl", hash = "sha256:a6e9d7eeada96c93a4d69cb03836b44fa34e2854accb7244a1ece36cd4781c3f", size = 117683, upload-time = "2026-04-23T16:49:42.437Z" },
+]
+
+[[package]]
 name = "feedparser"
 version = "6.0.12"
 source = { registry = "https://pypi.org/simple" }
@@ -1062,6 +1078,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "boto3" },
     { name = "cryptography" },
+    { name = "fastapi" },
     { name = "feedparser" },
     { name = "google-api-python-client" },
     { name = "google-auth" },
@@ -1082,6 +1099,7 @@ dependencies = [
     { name = "structlog" },
     { name = "tenacity" },
     { name = "typer" },
+    { name = "uvicorn" },
     { name = "weasyprint" },
 ]
 
@@ -1110,6 +1128,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.14.3" },
     { name = "boto3", specifier = ">=1.37.0" },
     { name = "cryptography", specifier = ">=47.0.0" },
+    { name = "fastapi", specifier = ">=0.136.1" },
     { name = "feedparser", specifier = ">=6.0.12" },
     { name = "google-api-python-client", specifier = ">=2.194.0" },
     { name = "google-auth", specifier = ">=2.49.2" },
@@ -1130,6 +1149,7 @@ requires-dist = [
     { name = "structlog" },
     { name = "tenacity" },
     { name = "typer" },
+    { name = "uvicorn", specifier = ">=0.46.0" },
     { name = "weasyprint", specifier = ">=63.0" },
 ]
 

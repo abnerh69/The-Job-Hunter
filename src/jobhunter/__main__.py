@@ -78,6 +78,9 @@ app.add_typer(backup_app, name="backup")
 ab_test_app = typer.Typer(help="Manage A/B tests for prompts and templates")
 analytics_app.add_typer(ab_test_app, name="ab-test")
 
+api_app = typer.Typer(help="Manage API sidecar")
+app.add_typer(api_app, name="api")
+
 
 @app.command()
 def version() -> None:
@@ -2347,6 +2350,24 @@ def dashboard() -> None:
         raise typer.Exit(code=1)
     except Exception as e:
         logger.error("Failed to start dashboard", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@api_app.command("run")
+def api_run(
+    host: Annotated[str, typer.Option(help="Host to bind")] = "0.0.0.0",
+    port: Annotated[int, typer.Option(help="Port to bind")] = 8000,
+    reload: Annotated[bool, typer.Option(help="Enable auto-reload")] = False,
+) -> None:
+    """Run the FastAPI health sidecar."""
+    import uvicorn
+
+    logger.info("Starting API sidecar", host=host, port=port, reload=reload)
+    try:
+        uvicorn.run("jobhunter.api.main:app", host=host, port=port, reload=reload)
+    except Exception as e:
+        logger.error("API sidecar failed", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

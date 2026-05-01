@@ -1747,6 +1747,118 @@ def analytics_missed_opportunities(
         raise typer.Exit(code=1)
 
 
+@analytics_app.command("report")
+def analytics_report(
+    month: Annotated[
+        Optional[str], typer.Option(help="Month to report on (YYYY-MM), defaults to last month")
+    ] = None,
+    output: Annotated[str, typer.Option(help="Output format (md, html, pdf)")] = "md",
+) -> None:
+    """Generate a narrative monthly analytics report."""
+    from jobhunter.analytics.report_generator import (
+        get_month_range,
+        collect_metrics_for_period,
+        calculate_comparison,
+        generate_narrative_report,
+        format_report_as_html,
+        convert_html_to_pdf,
+    )
+
+    logger.info("Starting monthly report generation", month=month, output=output)
+
+    # 1. Resolve month
+    now = datetime.now(timezone.utc)
+    if month:
+        try:
+            year, month_int = map(int, month.split("-"))
+            report_month_date = date(year, month_int, 1)
+        except ValueError:
+            typer.echo(f"Error: Invalid month format: {month}. Use YYYY-MM.", err=True)
+            raise typer.Exit(code=1)
+    else:
+        # Default to previous month
+        first_of_this_month = now.replace(day=1)
+        report_month_date = (first_of_this_month - timedelta(days=1)).replace(day=1).date()
+        year = report_month_date.year
+        month_int = report_month_date.month
+
+    month_label = report_month_date.strftime("%Y-%m")
+
+    # 2. Collect metrics
+    try:
+        with get_session() as session:
+            # Current month
+            start_date, end_date = get_month_range(year, month_int)
+            current_metrics = collect_metrics_for_period(session, start_date, end_date, month_label)
+
+            # Previous month
+            prev_month_date = (report_month_date - timedelta(days=1)).replace(day=1)
+            p_start, p_end = get_month_range(prev_month_date.year, prev_month_date.month)
+            prev_metrics = collect_metrics_for_period(session, p_start, p_end, "Prev Month")
+
+            # Previous quarter (average)
+            # For simplicity, we just take the last 3 months before report_month
+            q_start = (report_month_date - timedelta(days=90)).replace(day=1)
+            q_end = report_month_date - timedelta(days=1)
+            prev_quarter_metrics = collect_metrics_for_period(
+                session, q_start, q_end, "Prev Quarter"
+            )
+
+            # Comparisons
+            prev_month_comp = calculate_comparison(current_metrics, prev_metrics)
+            prev_quarter_comp = calculate_comparison(current_metrics, prev_quarter_metrics)
+
+            # Anomalies (check_metrics uses fixed 7d vs 28d window, but it's better than nothing)
+            anomalies = check_metrics(session)
+
+            # 3. Generate narrative
+            settings = Settings()  # type: ignore[call-arg]
+            llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+
+            console = Console()
+            with console.status(f"[bold green]Generating narrative report for {month_label}..."):
+                report_md = asyncio.run(
+                    generate_narrative_report(
+                        session,
+                        llm_client,
+                        month_label,
+                        current_metrics,
+                        prev_month_comp,
+                        prev_quarter_comp,
+                        anomalies,
+                    )
+                )
+
+            # 4. Save and Format
+            reports_dir = Path("reports")
+            reports_dir.mkdir(exist_ok=True)
+
+            base_filename = f"{month_label}-monthly"
+            md_path = reports_dir / f"{base_filename}.md"
+            md_path.write_text(report_md)
+            typer.echo(f"Markdown report saved to {md_path}")
+
+            if output == "md":
+                console.print(Markdown(report_md))
+            elif output == "html":
+                html_report = format_report_as_html(report_md, month_label)
+                html_path = reports_dir / f"{base_filename}.html"
+                html_path.write_text(html_report)
+                typer.echo(f"HTML report saved to {html_path}")
+            elif output == "pdf":
+                html_report = format_report_as_html(report_md, month_label)
+                pdf_path = reports_dir / f"{base_filename}.pdf"
+                convert_html_to_pdf(html_report, str(pdf_path))
+                typer.echo(f"PDF report saved to {pdf_path}")
+            else:
+                typer.echo(f"Warning: Unknown output format '{output}'. Only saved as .md")
+
+    except Exception as e:
+        logger.exception("Report generation failed")
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
 @analytics_app.command("rescore-suspicious")
 def analytics_rescore_suspicious(
     limit: Annotated[int, typer.Option(help="Maximum number of jobs to rescore")] = 5,

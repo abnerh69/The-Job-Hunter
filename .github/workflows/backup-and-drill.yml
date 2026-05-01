@@ -23,7 +23,7 @@ jobs:
         env:
           POSTGRES_DB: jobhunter_drill
           POSTGRES_USER: jobhunter
-          POSTGRES_PASSWORD: password
+          POSTGRES_PASSWORD: password # pragma: allowlist secret
         ports:
           - 5432:5432
         options: >-
@@ -55,22 +55,22 @@ jobs:
           BACKUP_ACCESS_KEY: ${{ secrets.BACKUP_ACCESS_KEY }}
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
           BACKUP_ENDPOINT_URL: ${{ vars.BACKUP_ENDPOINT_URL }}
-          ANTHROPIC_API_KEY: "dummy" # Needed for Settings validation
-          DASHBOARD_PASSWORD: "dummy" # Needed for Settings validation
+          ANTHROPIC_API_KEY: "dummy" # pragma: allowlist secret
+          DASHBOARD_PASSWORD: "dummy" # pragma: allowlist secret
         run: |
           uv run python -m jobhunter backup create --upload --cleanup
 
       - name: Restore Drill
         env:
           # Point to the ephemeral Postgres service
-          DATABASE_URL: postgresql://jobhunter:password@localhost:5432/jobhunter_drill
+          DATABASE_URL: postgresql://jobhunter:password@localhost:5432/jobhunter_drill # pragma: allowlist secret
           BACKUP_STORAGE_PROVIDER: ${{ vars.BACKUP_STORAGE_PROVIDER || 'local' }}
           BACKUP_STORAGE_BUCKET: ${{ vars.BACKUP_STORAGE_BUCKET }}
           BACKUP_ACCESS_KEY: ${{ secrets.BACKUP_ACCESS_KEY }}
           BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
           BACKUP_ENDPOINT_URL: ${{ vars.BACKUP_ENDPOINT_URL }}
-          ANTHROPIC_API_KEY: "dummy"
-          DASHBOARD_PASSWORD: "dummy"
+          ANTHROPIC_API_KEY: "dummy" # pragma: allowlist secret
+          DASHBOARD_PASSWORD: "dummy" # pragma: allowlist secret
         run: |
           # Get the latest backup ID using JSON output and jq
           LATEST_BACKUP=$(uv run python -m jobhunter backup list --json | jq -r '.[0].id')

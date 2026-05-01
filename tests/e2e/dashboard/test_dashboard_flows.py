@@ -13,8 +13,8 @@ def streamlit_server() -> Generator[None, None, None]:
 
     # Setup environment
     env = os.environ.copy()
-    env["ANTHROPIC_API_KEY"] = "dummy"
-    env["DASHBOARD_PASSWORD"] = "secret123"
+    env["ANTHROPIC_API_KEY"] = "dummy"  # pragma: allowlist secret
+    env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     env["PYTHONPATH"] = "src"
 
     # Run streamlit
@@ -59,7 +59,7 @@ def test_login_flow() -> None:
         expect(page.get_by_text("Password incorrect")).to_be_visible()
 
         # Try correct password
-        page.get_by_role("textbox", name="Password").fill("secret123")
+        page.get_by_role("textbox", name="Password").fill("secret123")  # pragma: allowlist secret
         page.get_by_role("textbox", name="Password").press("Enter")
         time.sleep(2)
 
@@ -96,7 +96,7 @@ def test_logout() -> None:
 
         # Login first
         page.goto("http://localhost:8501")
-        page.get_by_role("textbox", name="Password").fill("secret123")
+        page.get_by_role("textbox", name="Password").fill("secret123")  # pragma: allowlist secret
         page.get_by_role("textbox", name="Password").press("Enter")
         time.sleep(2)
 

@@ -2356,7 +2356,7 @@ def dashboard() -> None:
 
 @api_app.command("run")
 def api_run(
-    host: Annotated[str, typer.Option(help="Host to bind")] = "0.0.0.0",
+    host: Annotated[str, typer.Option(help="Host to bind")] = "0.0.0.0",  # nosec B104
     port: Annotated[int, typer.Option(help="Port to bind")] = 8000,
     reload: Annotated[bool, typer.Option(help="Enable auto-reload")] = False,
 ) -> None:

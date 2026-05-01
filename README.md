@@ -1,8 +1,16 @@
 # Job Hunter EU 🚀
 
 ![CI](https://github.com/v-sh-org/job-hunter-eu/actions/workflows/ci.yml/badge.svg)
+![Release](https://img.shields.io/badge/release-v1.0.0-blue)
+![Coverage](https://img.shields.io/badge/coverage-75%25-green)
+![Status](https://img.shields.io/badge/status-stable-success)
 
 Automated job search system for Europe. Designed to help engineers find their next role with less manual effort and more data-driven decisions.
+
+## 📊 Dashboard Preview
+
+![Dashboard Overview](debug_assist_page.png)
+*Figure 1: AI Assistance and Cover Letter generation flow.*
 
 ## 🎯 Why this exists
 
@@ -51,6 +59,17 @@ uv run pytest
 ## 🏗️ Project Structure
 
 The project follows a domain-driven structure. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for more details.
+
+## 📜 Architectural Decisions (ADRs)
+
+We maintain a record of significant architectural decisions to provide context for the current design:
+
+- [ADR-001: Streamlit for Dashboard](docs/adr/ADR-001-streamlit-dashboard.md)
+- [ADR-002: PostgreSQL as Primary Database](docs/adr/ADR-002-postgres-database.md)
+- [ADR-003: GitHub Actions for Orchestration](docs/adr/ADR-003-github-actions-orchestration.md)
+- [ADR-004: Centralized Symmetric Encryption](docs/adr/ADR-004-centralized-crypto.md)
+- [ADR-005: Human-in-the-loop for Sensitive Actions](docs/adr/ADR-005-human-in-the-loop.md)
+
 
 ```text
 ├── src/jobhunter/

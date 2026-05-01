@@ -14,7 +14,6 @@ from jobhunter.db.enums import JobStatus, JobTier
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.e2e
 def test_db() -> Generator[str, None, None]:
     db_path = "test_e2e_new_matches.db"
     if os.path.exists(db_path):
@@ -63,8 +62,8 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     subprocess.run("kill $(lsof -t -i :8501) 2>/dev/null || true", shell=True)
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db
-    env["ANTHROPIC_API_KEY"] = "dummy"
-    env["DASHBOARD_PASSWORD"] = "secret123"
+    env["ANTHROPIC_API_KEY"] = "dummy"  # pragma: allowlist secret
+    env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     env["PYTHONPATH"] = "src"
     cmd = [
         "streamlit",
@@ -89,7 +88,7 @@ def test_new_matches_flow(streamlit_server: None) -> None:
         page = context.new_page()
 
         page.goto("http://localhost:8501")
-        page.get_by_role("textbox", name="Password").fill("secret123")
+        page.get_by_role("textbox", name="Password").fill("secret123")  # pragma: allowlist secret
         page.keyboard.press("Enter")
         time.sleep(5)
 
@@ -143,7 +142,6 @@ def test_new_matches_flow(streamlit_server: None) -> None:
         browser.close()
 
 
-@pytest.mark.e2e
 @pytest.mark.e2e
 def test_new_matches_flow_with_e2e_mark(streamlit_server: None) -> None:
     # Just a placeholder to ensure the marker is picked up if we want to run all e2e

@@ -13,7 +13,6 @@ from jobhunter.db.enums import OutreachStatus, OutreachMarket
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.e2e
 def test_db() -> Generator[str, None, None]:
     db_path = "test_e2e_outreach_gen.db"
     if os.path.exists(db_path):
@@ -50,8 +49,8 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     subprocess.run("kill $(lsof -t -i :8503) 2>/dev/null || true", shell=True)
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db
-    env["ANTHROPIC_API_KEY"] = "dummy"
-    env["DASHBOARD_PASSWORD"] = "secret123"
+    env["ANTHROPIC_API_KEY"] = "dummy"  # pragma: allowlist secret
+    env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     env["PYTHONPATH"] = "src"
     cmd = [
         "streamlit",
@@ -77,7 +76,7 @@ def test_outreach_generation_flow(streamlit_server: None) -> None:
 
         # Login
         page.goto("http://localhost:8503")
-        page.get_by_role("textbox", name="Password").fill("secret123")
+        page.get_by_role("textbox", name="Password").fill("secret123")  # pragma: allowlist secret
         page.keyboard.press("Enter")
         time.sleep(5)
 

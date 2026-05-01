@@ -255,7 +255,8 @@ def validate_db_integrity(
     for table in critical_tables:
         try:
             # Check if table exists and has a reasonable count (or at least doesn't crash)
-            query = text(f"SELECT COUNT(*) FROM {table}")
+            # Table names are validated against critical_tables whitelist above
+            query = text(f"SELECT COUNT(*) FROM {table}")  # nosec B608
             count = session.execute(query).scalar()
 
             # Simple heuristic: at least jobs and alembic_version should have data

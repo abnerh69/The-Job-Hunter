@@ -14,7 +14,6 @@ from jobhunter.db.enums import JobStatus, JobTier, ApplicationStatus, Applicatio
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.e2e
 def test_db() -> Generator[str, None, None]:
     db_path = "test_e2e_pipeline.db"
     if os.path.exists(db_path):
@@ -79,7 +78,7 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db
     env["ANTHROPIC_API_KEY"] = "dummy"
-    env["DASHBOARD_PASSWORD"] = "secret123"
+    env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     env["PYTHONPATH"] = "src"
     cmd = [
         "streamlit",
@@ -105,7 +104,7 @@ def test_pipeline_kanban_flow(streamlit_server: None) -> None:
 
         # Login
         page.goto("http://localhost:8501")
-        page.get_by_role("textbox", name="Password").fill("secret123")
+        page.get_by_role("textbox", name="Password").fill("secret123")  # pragma: allowlist secret
         page.keyboard.press("Enter")
         time.sleep(5)
 

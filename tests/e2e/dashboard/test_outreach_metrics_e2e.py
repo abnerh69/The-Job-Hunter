@@ -39,7 +39,7 @@ def test_db() -> Generator[str, None, None]:
     env = os.environ.copy()
     env["DATABASE_URL"] = f"sqlite:///{db_path}"
     env["ANTHROPIC_API_KEY"] = "dummy"
-    env["DASHBOARD_PASSWORD"] = "secret123"
+    env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     subprocess.run(["uv", "run", "alembic", "upgrade", "head"], env=env, check=True)
 
     # For SQLite, we might need to add search_vector columns manually if alembic skipped them
@@ -155,7 +155,7 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db
     env["ANTHROPIC_API_KEY"] = "dummy"
-    env["DASHBOARD_PASSWORD"] = "secret123"
+    env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     env["PYTHONPATH"] = "src"
     cmd = [
         "streamlit",
@@ -181,7 +181,7 @@ def test_outreach_metrics_flow(streamlit_server: None, test_db: str) -> None:
 
         # Login
         page.goto("http://localhost:8504")
-        page.get_by_role("textbox", name="Password").fill("secret123")
+        page.get_by_role("textbox", name="Password").fill("secret123")  # pragma: allowlist secret
         page.keyboard.press("Enter")
         time.sleep(5)
 
@@ -210,7 +210,7 @@ def test_outreach_cadence_cli(test_db: str) -> None:
     env["DATABASE_URL"] = test_db
     env["PYTHONPATH"] = "src"
     env["ANTHROPIC_API_KEY"] = "dummy"
-    env["DASHBOARD_PASSWORD"] = "secret123"
+    env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
 
     # Run cadence check
     result = subprocess.run(

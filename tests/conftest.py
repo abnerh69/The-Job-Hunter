@@ -149,6 +149,7 @@ def setup_database() -> Generator[None, None, None]:
             conn.commit()
 
     Base.metadata.drop_all(bind=engine)
+    print(f"Creating tables: {list(Base.metadata.tables.keys())}")
     Base.metadata.create_all(bind=engine)
 
     # Re-create the materialized view for PostgreSQL

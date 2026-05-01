@@ -75,7 +75,9 @@ async def test_score_pending_jobs_success(
     assert job.score_model == "claude-haiku-4-5-20251001"
 
     # Check that score was called with the session
-    mock_scorer.score.assert_called_once_with(job, session=mock_session)
+    mock_scorer.score.assert_called_once_with(
+        job, session=mock_session, prompt_version_override=None
+    )
 
     mock_session.commit.assert_called_once()
 

@@ -48,7 +48,7 @@ def main() -> None:
         pass
 
     # Tabs for different sections
-    tab_funnel, tab_sources, tab_outreach, tab_trends, tab_costs, tab_health = st.tabs(
+    tab_funnel, tab_sources, tab_outreach, tab_trends, tab_costs, tab_health, tab_quality = st.tabs(
         [
             "🎯 Funnel",
             "🔌 Sources",
@@ -56,6 +56,7 @@ def main() -> None:
             "📈 Trends",
             "💰 LLM Costs",
             "🩺 System Health",
+            "🛡️ Quality Control",
         ]
     )
 
@@ -76,6 +77,9 @@ def main() -> None:
 
     with tab_health:
         render_health_section()
+
+    with tab_quality:
+        render_quality_section()
 
 
 @st.cache_data(ttl=300)
@@ -380,6 +384,51 @@ def render_health_section() -> None:
                     )
     else:
         st.info("No source health data available.")
+
+
+@st.cache_data(ttl=300)
+def get_cached_false_rejects() -> list[dict[str, Any]]:
+    from jobhunter.analytics.quality_metrics import get_false_rejects_detailed
+
+    with get_session() as session:
+        rejects = get_false_rejects_detailed(session, limit=20)
+        return [r.model_dump() for r in rejects]
+
+
+def render_quality_section() -> None:
+    st.subheader("🛡️ Quality Control: False Rejects & Missed Opportunities")
+    st.write(
+        "Jobs that the system rejected but were later manually promoted, or jobs that might have been rejected erroneously."
+    )
+
+    rejects = get_cached_false_rejects()
+
+    if rejects:
+        st.write("### ❌ False Rejects (Recently Promoted)")
+        df_rejects = pd.DataFrame(rejects)
+
+        # Select and rename columns for display
+        display_df = df_rejects[
+            ["company", "title", "original_reject_reason", "manual_promotion_reason"]
+        ].rename(
+            columns={
+                "company": "Empresa",
+                "title": "Título",
+                "original_reject_reason": "Razón REJECT Original",
+                "manual_promotion_reason": "Razón Promoción Manual",
+            }
+        )
+
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No se han detectado false rejects recientes (jobs REJECT promovidos manualmente).")
+
+    st.divider()
+    st.write("### 🔎 Missed Opportunities Heuristics")
+    st.write(
+        "Use the CLI to perform deep analysis and re-scoring: "
+        "`jobhunter analytics missed-opportunities` and `jobhunter analytics rescore-suspicious`"
+    )
 
 
 if __name__ == "__main__":

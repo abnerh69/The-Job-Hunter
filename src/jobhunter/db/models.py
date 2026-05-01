@@ -83,6 +83,9 @@ class Job(Base):
         String(30), nullable=False, server_default=JobStatus.NEW
     )
 
+    manually_promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    manually_promoted_reason: Mapped[str | None] = mapped_column(Text)
+
     # Search vector (server-side generated)
     search_vector: Mapped[Any] = mapped_column(Text, FetchedValue(), deferred=True, nullable=True)
 

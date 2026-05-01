@@ -1662,6 +1662,145 @@ def analytics_check_regressions(
         raise typer.Exit(code=1)
 
 
+@analytics_app.command("false-rejects")
+def analytics_false_rejects(
+    limit: Annotated[int, typer.Option(help="Maximum number of false rejects to show")] = 10,
+    days: Annotated[int, typer.Option(help="Number of days to look back")] = 60,
+) -> None:
+    """List jobs that were rejected by the system but manually promoted by the user."""
+    from jobhunter.analytics.quality_metrics import get_false_rejects_detailed
+
+    logger.info("Starting false rejects analysis", limit=limit, days=days)
+    try:
+        with get_session() as session:
+            rejects = get_false_rejects_detailed(session, limit=limit, days=days)
+
+        console = Console()
+        if not rejects:
+            console.print("[yellow]No se encontraron false rejects en el periodo especificado.[/yellow]")
+            return
+
+        table = Table(title=f"False Rejects (Últimos {days} días)", header_style="bold magenta")
+        table.add_column("Empresa", style="bold")
+        table.add_column("Título")
+        table.add_column("Razón REJECT Original", style="dim")
+        table.add_column("Razón Promoción Manual")
+
+        for r in rejects:
+            table.add_row(
+                r.company,
+                r.title,
+                r.original_reject_reason or "N/A",
+                r.manual_promotion_reason or "N/A",
+            )
+
+        console.print(table)
+    except Exception as e:
+        logger.error("False rejects analysis failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@analytics_app.command("missed-opportunities")
+def analytics_missed_opportunities(
+    limit: Annotated[int, typer.Option(help="Maximum number of candidates to show")] = 10,
+    days: Annotated[int, typer.Option(help="Number of days to look back")] = 60,
+) -> None:
+    """Identify jobs that were rejected but might be candidates for re-scoring based on heuristics."""
+    from jobhunter.analytics.quality_metrics import get_missed_opportunities
+
+    logger.info("Starting missed opportunities analysis", limit=limit, days=days)
+    try:
+        with get_session() as session:
+            candidates = get_missed_opportunities(session, limit=limit, days=days)
+
+        console = Console()
+        if not candidates:
+            console.print("[yellow]No se encontraron missed opportunities potenciales.[/yellow]")
+            return
+
+        table = Table(title=f"Missed Opportunities Candidates (Últimos {days} días)", header_style="bold blue")
+        table.add_column("ID", style="dim")
+        table.add_column("Empresa", style="bold")
+        table.add_column("Título")
+        table.add_column("Red Flags")
+        table.add_column("Score", justify="right")
+
+        for c in candidates:
+            table.add_row(
+                c.job_id[:8],
+                c.company,
+                c.title,
+                ", ".join(c.red_flags),
+                str(c.fit_score or "-"),
+            )
+
+        console.print(table)
+        console.print("\n[italic]Usa 'rescore-suspicious' para re-evaluar estos jobs.[/italic]")
+    except Exception as e:
+        logger.error("Missed opportunities analysis failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@analytics_app.command("rescore-suspicious")
+def analytics_rescore_suspicious(
+    limit: Annotated[int, typer.Option(help="Maximum number of jobs to rescore")] = 5,
+    confirm: Annotated[bool, typer.Option(help="If True, actually persist changes to DB")] = False,
+) -> None:
+    """Re-score potential missed opportunities with the latest prompt/model."""
+    from jobhunter.analytics.quality_metrics import get_missed_opportunities, rescore_suspicious_jobs
+    from jobhunter.scoring.scorer import JobScorer
+    from jobhunter.llm.anthropic_client import AnthropicLLMClient
+
+    logger.info("Starting rescore-suspicious", limit=limit, confirm=confirm)
+    try:
+        settings = Settings()  # type: ignore[call-arg]
+        llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+        scorer = JobScorer(llm_client=llm_client)
+
+        with get_session() as session:
+            candidates_meta = get_missed_opportunities(session, limit=limit)
+            job_ids = [uuid.UUID(c.job_id) for c in candidates_meta]
+
+            jobs = session.query(Job).filter(Job.id.in_(job_ids)).all()
+
+            if not jobs:
+                typer.echo("No pending suspicious jobs to rescore.")
+                return
+
+            console = Console()
+            with console.status("[bold green]Re-scoring suspicious jobs..."):
+                reports = asyncio.run(
+                    rescore_suspicious_jobs(session, scorer, jobs, confirm=not confirm)
+                )
+
+        table = Table(title=f"Rescoring suspicious report ({'PROD' if confirm else 'DRY RUN'})")
+        table.add_column("Job", style="bold")
+        table.add_column("Old Tier")
+        table.add_column("New Tier")
+        table.add_column("Improved?")
+
+        for r in reports:
+            imp_style = "green" if r.improved else "red"
+            table.add_row(
+                f"{r.company} - {r.title}",
+                str(r.old_tier),
+                str(r.new_tier),
+                f"[{imp_style}]{r.improved}[/{imp_style}]",
+            )
+
+        console.print(table)
+
+        if not confirm:
+            console.print("\n[yellow]NOTE: This was a DRY RUN. Use --confirm to persist changes.[/yellow]")
+
+    except Exception as e:
+        logger.error("Rescore suspicious failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
 @analytics_app.command("check-anomalies")
 def analytics_check_anomalies(
     notify: Annotated[bool, typer.Option(help="Send alerts to Telegram if anomalies found")] = True,

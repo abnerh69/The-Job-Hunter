@@ -48,8 +48,18 @@ def main() -> None:
         pass
 
     # Tabs for different sections
-    tab_funnel, tab_sources, tab_outreach, tab_trends, tab_costs, tab_health, tab_quality = st.tabs(
+    (
+        tab_recs,
+        tab_funnel,
+        tab_sources,
+        tab_outreach,
+        tab_trends,
+        tab_costs,
+        tab_health,
+        tab_quality,
+    ) = st.tabs(
         [
+            "💡 Recommendations",
             "🎯 Funnel",
             "🔌 Sources",
             "💌 Outreach",
@@ -59,6 +69,9 @@ def main() -> None:
             "🛡️ Quality Control",
         ]
     )
+
+    with tab_recs:
+        render_recommendations_section()
 
     with tab_funnel:
         render_funnel_section(start_date, end_date)
@@ -325,11 +338,14 @@ def render_outreach_section(start_date: date) -> None:
 
         # Message Status
         st.write("### Message Status Distribution")
-        df_status = pd.DataFrame(
-            [{"status": k, "count": v} for k, v in stats["status_counts"].items()]
-        )
-        fig_status = px.pie(df_status, values="count", names="status", hole=0.4)
-        st.plotly_chart(fig_status, use_container_width=True)
+        if stats["status_counts"]:
+            df_status = pd.DataFrame(
+                [{"status": k, "count": v} for k, v in stats["status_counts"].items()]
+            )
+            fig_status = px.pie(df_status, values="count", names="status", hole=0.4)
+            st.plotly_chart(fig_status, use_container_width=True)
+        else:
+            st.info("No message status data available.")
 
     # Warmest Contacts
     st.divider()
@@ -393,6 +409,46 @@ def get_cached_false_rejects() -> list[dict[str, Any]]:
     with get_session() as session:
         rejects = get_false_rejects_detailed(session, limit=20)
         return [r.model_dump() for r in rejects]
+
+
+@st.cache_data(ttl=60)
+def get_cached_recommendations() -> list[dict[str, Any]]:
+    with get_session() as session:
+        service = get_metrics_service(session)
+        return service.get_recommendations()
+
+
+def render_recommendations_section() -> None:
+    st.subheader("💡 Actionable Recommendations")
+    st.write("Data-driven suggestions to improve your recruitment performance.")
+
+    recs = get_cached_recommendations()
+
+    if recs:
+        df = pd.DataFrame(recs)
+
+        # Define priority colors
+        def color_priority(val: Any) -> str:
+            if str(val) == "P1":
+                return "background-color: #ffcccc"
+            if str(val) == "P2":
+                return "background-color: #fff3cd"
+            return ""
+
+        st.dataframe(
+            df.style.map(color_priority, subset=["priority"]),
+            column_config={
+                "priority": st.column_config.TextColumn("Priority", width="small"),
+                "action": st.column_config.TextColumn("Action", width="medium"),
+                "reason": st.column_config.TextColumn("Reason", width="large"),
+                "impact": st.column_config.TextColumn("Impact", width="medium"),
+                "effort": st.column_config.TextColumn("Effort", width="small"),
+            },
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.success("No recommendations at this time. Everything looks good!")
 
 
 def render_quality_section() -> None:

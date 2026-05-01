@@ -2006,6 +2006,54 @@ def analytics_check_anomalies(
         raise typer.Exit(code=1)
 
 
+@analytics_app.command("recommendations")
+def analytics_recommendations(
+    json_output: Annotated[bool, typer.Option("--json", help="Output in JSON format")] = False,
+) -> None:
+    """Display actionable recommendations based on system heuristics."""
+    from jobhunter.analytics.recommendations import get_recommendations
+    import json
+
+    logger.info("Starting recommendations analysis")
+    try:
+        with get_session() as session:
+            recs = get_recommendations(session)
+
+        if json_output:
+            typer.echo(json.dumps([r.model_dump() for r in recs], indent=2))
+            return
+
+        console = Console()
+        if not recs:
+            console.print(
+                "[green]No recommendations at this time. System is performing well![/green]"
+            )
+            return
+
+        table = Table(title="Actionable Recommendations", header_style="bold magenta")
+        table.add_column("Priority", style="bold")
+        table.add_column("Action", style="bold")
+        table.add_column("Reason")
+        table.add_column("Impact")
+        table.add_column("Effort")
+
+        for r in recs:
+            p_style = "red" if r.priority == "P1" else "yellow" if r.priority == "P2" else "blue"
+            table.add_row(
+                f"[{p_style}]{r.priority}[/{p_style}]",
+                r.action,
+                r.reason,
+                r.impact,
+                r.effort,
+            )
+
+        console.print(table)
+    except Exception as e:
+        logger.error("Recommendations analysis failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
 @telegram_app.command("process-callbacks")
 def telegram_process_callbacks() -> None:
     """Process pending Telegram callback updates."""

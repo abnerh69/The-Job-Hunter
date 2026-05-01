@@ -1,0 +1,91 @@
+name: DB Backup and Restore Drill
+
+on:
+  schedule:
+    # Every Sunday at 04:00 UTC
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Manual backup/drill'
+
+jobs:
+  backup-and-drill:
+    name: Backup and Restore Drill
+    runs-on: ubuntu-latest
+
+    services:
+      # Ephemeral Postgres for the restore drill
+      postgres-drill:
+        image: postgres:16
+        env:
+          POSTGRES_DB: jobhunter_drill
+          POSTGRES_USER: jobhunter
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Backup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_STORAGE_PROVIDER: ${{ vars.BACKUP_STORAGE_PROVIDER || 'local' }}
+          BACKUP_STORAGE_BUCKET: ${{ vars.BACKUP_STORAGE_BUCKET }}
+          BACKUP_ACCESS_KEY: ${{ secrets.BACKUP_ACCESS_KEY }}
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+          BACKUP_ENDPOINT_URL: ${{ vars.BACKUP_ENDPOINT_URL }}
+          ANTHROPIC_API_KEY: "dummy" # Needed for Settings validation
+          DASHBOARD_PASSWORD: "dummy" # Needed for Settings validation
+        run: |
+          uv run python -m jobhunter backup create --upload --cleanup
+
+      - name: Restore Drill
+        env:
+          # Point to the ephemeral Postgres service
+          DATABASE_URL: postgresql://jobhunter:password@localhost:5432/jobhunter_drill
+          BACKUP_STORAGE_PROVIDER: ${{ vars.BACKUP_STORAGE_PROVIDER || 'local' }}
+          BACKUP_STORAGE_BUCKET: ${{ vars.BACKUP_STORAGE_BUCKET }}
+          BACKUP_ACCESS_KEY: ${{ secrets.BACKUP_ACCESS_KEY }}
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+          BACKUP_ENDPOINT_URL: ${{ vars.BACKUP_ENDPOINT_URL }}
+          ANTHROPIC_API_KEY: "dummy"
+          DASHBOARD_PASSWORD: "dummy"
+        run: |
+          # Get the latest backup ID using JSON output and jq
+          LATEST_BACKUP=$(uv run python -m jobhunter backup list --json | jq -r '.[0].id')
+          echo "Restoring from $LATEST_BACKUP"
+
+          # Extract current migration version from the repo to validate restore
+          EXPECTED_VERSION=$(uv run alembic heads | cut -d' ' -f1)
+          echo "Expected migration version: $EXPECTED_VERSION"
+
+          uv run python -m jobhunter backup restore "$LATEST_BACKUP" --force --expected-version "$EXPECTED_VERSION"
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/alert-on-failure
+        with:
+          telegram_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message: "🚨 CRITICAL: Database Backup or Restore Drill FAILED! Check GitHub Actions logs immediately."

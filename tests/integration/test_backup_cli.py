@@ -11,15 +11,21 @@ def strip_ansi(text: str) -> str:
     return ansi_escape.sub("", text)
 
 
-def test_cli_db_backup_help() -> None:
-    """Test that the db-backup command is available in the CLI help."""
+def test_cli_backup_help() -> None:
+    """Test that the backup command is available in the CLI help."""
     # We use NO_COLOR=1 to try to avoid ANSI escape codes, but some may persist
     # depending on the environment/Rich configuration, so we strip them manually.
     result = subprocess.run(
-        ["python", "-m", "jobhunter", "db-backup", "--help"],
+        ["python", "-m", "jobhunter", "backup", "create", "--help"],
         capture_output=True,
         text=True,
-        env={**os.environ, "PYTHONPATH": "src", "ANTHROPIC_API_KEY": "dummy", "NO_COLOR": "1"},
+        env={
+            **os.environ,
+            "PYTHONPATH": "src",
+            "ANTHROPIC_API_KEY": "dummy",
+            "NO_COLOR": "1",
+            "DASHBOARD_PASSWORD": "dummy",
+        },
     )
     assert result.returncode == 0
     stdout = strip_ansi(result.stdout)

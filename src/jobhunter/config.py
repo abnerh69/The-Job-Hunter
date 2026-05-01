@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     DASHBOARD_PASSWORD: SecretStr
     DASHBOARD_SESSION_TIMEOUT_MINUTES: int = 60
 
+    BACKUP_STORAGE_PROVIDER: Literal["b2", "s3", "local"] = "local"
+    BACKUP_STORAGE_BUCKET: str | None = None
+    BACKUP_ACCESS_KEY: SecretStr | None = None
+    BACKUP_SECRET_KEY: SecretStr | None = None
+    BACKUP_ENDPOINT_URL: str | None = None
+    BACKUP_RETENTION_WEEKS: int = 12
+
     GMAIL_CLIENT_ID: SecretStr | None = None
     GMAIL_CLIENT_SECRET: SecretStr | None = None
     GMAIL_REDIRECT_URI: str = "http://localhost:8765/oauth/callback"
@@ -63,4 +70,10 @@ class Settings(BaseSettings):
             "GMAIL_CLIENT_SECRET": "***" if self.GMAIL_CLIENT_SECRET else None,
             "GMAIL_REDIRECT_URI": self.GMAIL_REDIRECT_URI,
             "OAUTH_ENCRYPTION_KEY": "***" if self.OAUTH_ENCRYPTION_KEY else None,
+            "BACKUP_STORAGE_PROVIDER": self.BACKUP_STORAGE_PROVIDER,
+            "BACKUP_STORAGE_BUCKET": self.BACKUP_STORAGE_BUCKET,
+            "BACKUP_ACCESS_KEY": "***" if self.BACKUP_ACCESS_KEY else None,
+            "BACKUP_SECRET_KEY": "***" if self.BACKUP_SECRET_KEY else None,
+            "BACKUP_ENDPOINT_URL": self.BACKUP_ENDPOINT_URL,
+            "BACKUP_RETENTION_WEEKS": self.BACKUP_RETENTION_WEEKS,
         }

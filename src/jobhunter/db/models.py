@@ -546,6 +546,51 @@ class ABTest(Base):
         return f"<ABTest(name={self.name}, status={self.status})>"
 
 
+class FailedLoginAttempt(Base):
+    """
+    SQLAlchemy model for the 'failed_login_attempts' table.
+    Tracks login attempts for rate limiting and abuse prevention.
+    """
+
+    __tablename__ = "failed_login_attempts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    ip_address: Mapped[str] = mapped_column(String(45), nullable=False)
+    attempted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False)  # success | failure
+
+    __table_args__ = (Index("idx_failed_login_ip_time", "ip_address", "attempted_at"),)
+
+    def __repr__(self) -> str:
+        return f"<FailedLoginAttempt(ip={self.ip_address}, outcome={self.outcome}, at={self.attempted_at})>"
+
+
+class BlockedIP(Base):
+    """
+    SQLAlchemy model for the 'blocked_ips' table.
+    Stores IPs that are currently blocked due to multiple failed login attempts.
+    """
+
+    __tablename__ = "blocked_ips"
+
+    ip_address: Mapped[str] = mapped_column(String(45), primary_key=True)
+    blocked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    unblock_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+
+    def __repr__(self) -> str:
+        return f"<BlockedIP(ip={self.ip_address}, unblock_at={self.unblock_at})>"
+
+
 @event.listens_for(Application.status, "set")
 def receive_status_change(target: Application, value: str, oldvalue: Any, initiator: Any) -> None:
     """

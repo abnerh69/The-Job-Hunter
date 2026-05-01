@@ -3,10 +3,39 @@ Database maintenance tasks for Job Hunter EU.
 """
 
 import structlog
-from sqlalchemy import text
+from datetime import datetime, timedelta
+from sqlalchemy import delete, text
 from sqlalchemy.orm import Session
+from jobhunter.db.models import FailedLoginAttempt
 
 logger = structlog.get_logger(__name__)
+
+
+def purge_old_security_logs(session: Session, days: int = 30) -> int:
+    """
+    Deletes security logs (failed login attempts) older than specified days.
+
+    Args:
+        session (Session): The SQLAlchemy session.
+        days (int): Number of days to keep logs.
+
+    Returns:
+        int: Number of deleted rows.
+    """
+    cutoff = datetime.now() - timedelta(days=days)
+    logger.info("Purging old security logs", cutoff=cutoff.isoformat())
+
+    stmt = delete(FailedLoginAttempt).where(FailedLoginAttempt.attempted_at < cutoff)
+    result = session.execute(stmt)
+    session.commit()
+
+    # result.rowcount can be -1 or None depending on the dialect and DBAPI
+    # but for DELETE on SQLite/Postgres it should be available.
+    # We use getattr to satisfy mypy's strictness with Result types
+    rowcount = getattr(result, "rowcount", 0)
+    deleted_count = int(rowcount) if rowcount is not None else 0
+    logger.info("Successfully purged old security logs", deleted_count=deleted_count)
+    return deleted_count
 
 
 def refresh_weekly_metrics(session: Session) -> None:

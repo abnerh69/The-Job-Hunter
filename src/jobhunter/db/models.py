@@ -25,6 +25,7 @@ from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from jobhunter.db.base import Base
 from jobhunter.db.enums import (
+    ABTestStatus,
     ApplicationEventType,
     ApplicationStatus,
     EmailMatchStatus,
@@ -508,6 +509,38 @@ class EmailMessage(Base):
 
     def __repr__(self) -> str:
         return f"<EmailMessage(gmail_id={self.gmail_message_id}, status={self.match_status})>"
+
+
+class ABTest(Base):
+    """
+    SQLAlchemy model for the 'ab_tests' table.
+    Tracks A/B tests for prompts and templates.
+    """
+
+    __tablename__ = "ab_tests"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    metric_target: Mapped[str] = mapped_column(String(100), nullable=False)
+    variants: Mapped[dict[str, float]] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"), nullable=False
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[ABTestStatus] = mapped_column(
+        String(20), nullable=False, server_default=ABTestStatus.ACTIVE
+    )
+    conclusion: Mapped[str | None] = mapped_column(Text)
+
+    def __repr__(self) -> str:
+        return f"<ABTest(name={self.name}, status={self.status})>"
 
 
 @event.listens_for(Application.status, "set")

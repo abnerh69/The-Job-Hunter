@@ -16,6 +16,7 @@ from jobhunter.db.models import Job
 from jobhunter.scoring.errors import ScoringError
 from jobhunter.scoring.schema import ScoringResult, Tier
 from jobhunter.scoring.scorer import JobScorer
+from jobhunter.analytics.ab_testing import select_variant
 
 logger = structlog.get_logger(__name__)
 
@@ -74,8 +75,21 @@ async def score_pending_jobs(
     async def score_job_task(job: Job) -> None:
         async with semaphore:
             try:
+                # A/B test logic: select prompt version
+                variant = select_variant(session, "scoring_prompt", job.id)
+                # If variant is not 'default', override the scorer's prompt version
+                # This allows the test to control which prompt version is used for each job
+
+                # Note: We need a way to pass the variant to the scorer without changing its state
+                # for other concurrent tasks.
+                # Let's adjust scorer.score to accept an optional prompt_version override.
+
                 # We still pass session to scorer.score to track LLM cost and check budget
-                outcome = await scorer.score(job, session=session)
+                outcome = await scorer.score(
+                    job,
+                    session=session,
+                    prompt_version_override=variant if variant != "default" else None,
+                )
 
                 if not dry_run:
                     # Apply changes to job

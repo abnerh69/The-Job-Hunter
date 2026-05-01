@@ -112,3 +112,11 @@ class EmailMatchStatus(StrEnum):
     USER_CONFIRMED = "user_confirmed"
     USER_REJECTED = "user_rejected"
     IGNORED_MARKETING = "ignored_marketing"
+
+
+class ABTestStatus(StrEnum):
+    """Enumeration of possible statuses for an A/B test."""
+
+    ACTIVE = "active"
+    CONCLUDED = "concluded"
+    ABORTED = "aborted"

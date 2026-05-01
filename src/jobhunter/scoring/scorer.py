@@ -95,13 +95,19 @@ class JobScorer:
 
         return truncated.strip()
 
-    async def score(self, job: Job, session: Session | None = None) -> ScoringOutcome:
+    async def score(
+        self,
+        job: Job,
+        session: Session | None = None,
+        prompt_version_override: str | None = None,
+    ) -> ScoringOutcome:
         """
         Scores a job offer.
 
         Args:
             job: The job to score.
             session: Optional SQLAlchemy session for budget checks and call recording.
+            prompt_version_override: Optional version to override the default prompt.
 
         Returns:
             A ScoringOutcome object.
@@ -124,17 +130,22 @@ class JobScorer:
             "location_raw": job.location_raw,
         }
 
-        user_prompt = render_user_prompt(self.prompt.user_template, job_data)
+        # Resolve prompt to use
+        current_prompt = self.prompt
+        if prompt_version_override and prompt_version_override != self.prompt_version:
+            current_prompt = load_prompt(version=prompt_version_override)
+
+        user_prompt = render_user_prompt(current_prompt.user_template, job_data)
 
         try:
             llm_response = await self.llm_client.complete(
-                system=self.prompt.system_prompt,
+                system=current_prompt.system_prompt,
                 user=user_prompt,
                 model=self.model,
                 purpose=LLMPurpose.SCORING,
                 session=session,
                 job_id=job.id,
-                prompt_version=self.prompt.version,
+                prompt_version=current_prompt.version,
             )
         except Exception as e:
             if not isinstance(e, ScoringAPIError):
@@ -159,13 +170,13 @@ class JobScorer:
 
             try:
                 llm_response = await self.llm_client.complete(
-                    system=self.prompt.system_prompt,
+                    system=current_prompt.system_prompt,
                     user=reinforced_user,
                     model=self.model,
                     purpose=LLMPurpose.SCORING,
                     session=session,
                     job_id=job.id,
-                    prompt_version=self.prompt.version,
+                    prompt_version=current_prompt.version,
                 )
                 result = parse_scoring_response(llm_response.text)
             except Exception as retry_err:
@@ -183,7 +194,7 @@ class JobScorer:
         return ScoringOutcome(
             result=result,
             model=llm_response.model,
-            prompt_version=self.prompt.version,
+            prompt_version=current_prompt.version,
             input_tokens=llm_response.input_tokens,
             output_tokens=llm_response.output_tokens,
             cost_usd=llm_response.cost_usd,

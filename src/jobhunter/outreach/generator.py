@@ -16,6 +16,7 @@ from jobhunter.db.models import OutreachContact, OutreachMessage
 from jobhunter.db.repos.outreach_messages import OutreachMessageRepo
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
 from jobhunter.outreach.templates import load_outreach_template, render_outreach_template
+from jobhunter.analytics.ab_testing import select_variant
 
 logger = structlog.get_logger(__name__)
 
@@ -80,8 +81,16 @@ async def generate_message(
     if settings is None:
         settings = Settings()  # type: ignore[call-arg]
 
-    # 2. Load Template
-    template = load_outreach_template(template_type, version=template_version)
+    # 2. A/B test logic: select template version
+    # If template_version is 'latest' (default), we check for an active A/B test
+    actual_version = template_version
+    if template_version == "latest":
+        variant = select_variant(session, "outreach_template", contact.id)
+        if variant != "default":
+            actual_version = variant
+
+    # 3. Load Template
+    template = load_outreach_template(template_type, version=actual_version)
 
     # 3. Load Candidate Profile
     profile_path = Path("prompts/candidate_profile.yaml")

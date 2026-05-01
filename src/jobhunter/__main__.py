@@ -8,6 +8,7 @@ from typing import Annotated, Any, Optional
 
 import structlog
 import typer
+from sqlalchemy import select
 from rich.console import Console
 from rich.table import Table
 from rich.markdown import Markdown
@@ -67,6 +68,12 @@ app.add_typer(outreach_app, name="outreach")
 
 telegram_app = typer.Typer(help="Manage Telegram bot interactions")
 app.add_typer(telegram_app, name="telegram")
+
+analytics_app = typer.Typer(help="Analytics and performance metrics")
+app.add_typer(analytics_app, name="analytics")
+
+ab_test_app = typer.Typer(help="Manage A/B tests for prompts and templates")
+analytics_app.add_typer(ab_test_app, name="ab-test")
 
 
 @app.command()
@@ -1413,6 +1420,152 @@ def outreach_stats(
 
     except Exception as e:
         logger.error("Outreach stats failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@ab_test_app.command("create")
+def ab_test_create(
+    name: Annotated[str, typer.Option(help="Unique name for the test")],
+    variants: Annotated[
+        str, typer.Option(help="Comma-separated variants and weights, e.g. v1=0.5,v2=0.5")
+    ],
+    metric: Annotated[str, typer.Option(help="Target metric, e.g. tier_a_precision")],
+    description: Annotated[Optional[str], typer.Option(help="Optional description")] = None,
+) -> None:
+    """Create a new A/B test."""
+    from jobhunter.db.enums import ABTestStatus
+    from jobhunter.db.models import ABTest
+
+    variant_dict = {}
+    try:
+        for v in variants.split(","):
+            v_name, weight = v.split("=")
+            variant_dict[v_name.strip()] = float(weight)
+
+        if abs(sum(variant_dict.values()) - 1.0) > 0.001:
+            typer.echo("Error: Weights must sum to 1.0", err=True)
+            raise typer.Exit(code=1)
+    except Exception as e:
+        typer.echo(f"Error parsing variants: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            test = ABTest(
+                name=name,
+                variants=variant_dict,
+                metric_target=metric,
+                description=description,
+                status=ABTestStatus.ACTIVE,
+                started_at=datetime.now(timezone.utc),
+            )
+            session.add(test)
+            session.commit()
+            typer.echo(f"Successfully created A/B test: {name}")
+    except Exception as e:
+        logger.error("Failed to create A/B test", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@ab_test_app.command("results")
+def ab_test_results(
+    name: Annotated[str, typer.Argument(help="Name of the A/B test")],
+) -> None:
+    """Show results for an A/B test."""
+    from jobhunter.analytics.ab_testing import get_ab_test_results
+
+    try:
+        with get_session() as session:
+            results = get_ab_test_results(session, name)
+
+        console = Console()
+        console.print(f"\n[bold blue]A/B Test Results: {name}[/bold blue]")
+        console.print(f"Metric Target: {results.metric_target}\n")
+
+        table = Table(header_style="bold magenta")
+        table.add_column("Variant")
+        table.add_column("Sample Size", justify="right")
+        table.add_column("Conversions", justify="right")
+        table.add_column("Rate", justify="right")
+        table.add_column("95% Conf. Interval", justify="right")
+
+        for v in results.variants:
+            if v.sample_size < 30:
+                v_name = f"{v.variant} [yellow](N<30)[/yellow]"
+            else:
+                v_name = v.variant
+
+            table.add_row(
+                v_name,
+                str(v.sample_size),
+                str(v.conversions),
+                f"{v.conversion_rate:.2%}",
+                f"[{v.confidence_interval[0]:.2%}, {v.confidence_interval[1]:.2%}]",
+            )
+
+        console.print(table)
+
+        sig_style = "green" if results.statistical_significance else "yellow"
+        console.print(f"\nP-value: [bold]{results.p_value:.4f}[/bold]")
+        console.print(
+            f"Statistically Significant: [{sig_style}]{results.statistical_significance}[/{sig_style}]"
+        )
+
+    except Exception as e:
+        logger.error("Failed to retrieve A/B test results", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@ab_test_app.command("conclude")
+def ab_test_conclude(
+    name: Annotated[str, typer.Argument(help="Name of the A/B test")],
+    winner: Annotated[str, typer.Option(help="The winning variant")],
+    conclusion: Annotated[str, typer.Option(help="Conclusion notes")],
+) -> None:
+    """Conclude an A/B test and pick a winner."""
+    from jobhunter.analytics.ab_testing import get_ab_test_results
+    from jobhunter.db.enums import ABTestStatus
+    from jobhunter.db.models import ABTest
+
+    try:
+        with get_session() as session:
+            test = session.scalar(select(ABTest).where(ABTest.name == name))
+            if not test:
+                typer.echo(f"Error: A/B test '{name}' not found.", err=True)
+                raise typer.Exit(code=1)
+
+            if test.status != ABTestStatus.ACTIVE:
+                typer.echo(f"Error: Test '{name}' is already {test.status}.", err=True)
+                raise typer.Exit(code=1)
+
+            # Rule: Sample size minimum 30 per variant
+            results = get_ab_test_results(session, name)
+            for v in results.variants:
+                if v.sample_size < 30:
+                    typer.echo(
+                        f"Error: Sample size for variant '{v.variant}' is too small "
+                        f"({v.sample_size} < 30). Cannot conclude.",
+                        err=True,
+                    )
+                    raise typer.Exit(code=1)
+
+            if winner not in test.variants:
+                typer.echo(f"Error: Winner '{winner}' is not a valid variant.", err=True)
+                raise typer.Exit(code=1)
+
+            test.status = ABTestStatus.CONCLUDED
+            test.ended_at = datetime.now(timezone.utc)
+            test.conclusion = f"Winner: {winner}. {conclusion}"
+            session.commit()
+            typer.echo(f"Successfully concluded A/B test: {name}. Winner: {winner}")
+
+    except Exception as e:
+        if isinstance(e, typer.Exit):
+            raise
+        logger.error("Failed to conclude A/B test", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

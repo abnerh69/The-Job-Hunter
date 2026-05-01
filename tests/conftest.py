@@ -6,7 +6,19 @@ import json
 from pathlib import Path
 from jobhunter.db.session import SessionLocal, engine
 from jobhunter.db.base import Base
-from jobhunter.db.models import Job, Application, OutreachContact
+from jobhunter.db.models import (  # noqa: F401
+    ABTest,
+    Application,
+    ApplicationEvent,
+    EmailMessage,
+    Job,
+    LLMCall,
+    NotificationSent,
+    OAuthToken,
+    OutreachContact,
+    OutreachMessage,
+    SourceHealth,
+)
 from jobhunter.db.enums import JobStatus, ApplicationStatus, OutreachStatus, LLMPurpose
 from jobhunter.llm.anthropic_client import LLMResponse
 from jobhunter.llm.pricing import calculate_cost_usd
@@ -137,6 +149,7 @@ def setup_database() -> Generator[None, None, None]:
             conn.commit()
 
     Base.metadata.drop_all(bind=engine)
+    print(f"Creating tables: {list(Base.metadata.tables.keys())}")
     Base.metadata.create_all(bind=engine)
 
     # Re-create the materialized view for PostgreSQL

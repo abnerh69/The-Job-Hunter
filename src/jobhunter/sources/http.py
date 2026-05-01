@@ -1,7 +1,7 @@
 import asyncio
+import logging
 import httpx
 import structlog
-import logging
 from typing import Any, Mapping, Dict
 from tenacity import (
     stop_after_attempt,

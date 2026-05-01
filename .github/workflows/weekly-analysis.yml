@@ -39,6 +39,9 @@ jobs:
 
       - name: Run Analytics
         shell: bash
+        env:
+          LOG_FORMAT: json
+          JOBHUNTER_CORRELATION_ID: ${{ github.run_id }}
         run: |
           echo "## 📊 Weekly Analytics Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

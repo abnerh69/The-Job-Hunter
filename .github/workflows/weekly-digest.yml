@@ -44,6 +44,7 @@ jobs:
         shell: bash
         env:
           LOG_FORMAT: json
+          JOBHUNTER_CORRELATION_ID: ${{ github.run_id }}
         run: |
           uv run jobhunter notify digest --send > digest-${{ github.run_id }}.jsonl 2>&1
 

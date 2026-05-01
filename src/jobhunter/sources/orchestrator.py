@@ -1,5 +1,5 @@
 import asyncio
-import logging
+import structlog
 import time
 from datetime import datetime, timezone
 from typing import Sequence
@@ -14,7 +14,7 @@ from jobhunter.sources.base import BaseSource, RawJob
 from jobhunter.sources.circuit_breaker import CircuitBreaker
 from jobhunter.sources.url_utils import compute_url_hash
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class SourceResult(BaseModel):
@@ -76,7 +76,7 @@ async def run_ingestion(
         if dry_run or breaker.allow_request(source_name):
             tasks.append(_ingest_from_source(source, since, job_repo, breaker, dry_run, limit))
         else:
-            logger.info("Source %s: skipped by circuit breaker", source_name)
+            logger.info("source_skipped_by_circuit_breaker", source_name=source_name)
             report.source_results.append(
                 SourceResult(source_name=source_name, status="skipped_breaker")
             )
@@ -92,7 +92,7 @@ async def run_ingestion(
                     report.total_errors += 1
             elif isinstance(result, Exception):
                 # This should ideally not happen as _ingest_from_source catches exceptions
-                logger.exception("Unexpected exception in ingestion task: %s", result)
+                logger.exception("unexpected_exception_in_ingestion_task", error=str(result))
                 report.total_errors += 1
 
     report.finished_at = datetime.now(timezone.utc)
@@ -100,11 +100,11 @@ async def run_ingestion(
     # Log summary
     duration = (report.finished_at - report.started_at).total_seconds()
     logger.info(
-        "Ingestion completed in %.2fs. New: %d, Duplicates: %d, Errors: %d",
-        duration,
-        report.total_new,
-        report.total_duplicates,
-        report.total_errors,
+        "ingestion_completed",
+        duration_s=duration,
+        total_new=report.total_new,
+        total_duplicates=report.total_duplicates,
+        total_errors=report.total_errors,
     )
 
     return report
@@ -151,7 +151,7 @@ async def _ingest_from_source(
         if dry_run:
             new_jobs_count = len(job_models)
             duplicates_count = 0
-            logger.info("Source %s: dry run, skipping persistence", source_name)
+            logger.info("source_dry_run_skipping_persistence", source_name=source_name)
         else:
             inserted_ids = job_repo.bulk_create_skipping_duplicates(job_models)
             new_jobs_count = len(inserted_ids)
@@ -167,7 +167,7 @@ async def _ingest_from_source(
         )
 
     except Exception as e:
-        logger.exception("Error ingesting from source %s: %s", source_name, e)
+        logger.exception("source_ingestion_error", source_name=source_name, error=str(e))
         if not dry_run:
             breaker.record_failure(source_name)
         return SourceResult(

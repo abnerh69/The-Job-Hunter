@@ -1,10 +1,10 @@
-import logging
+import structlog
 from datetime import datetime, timedelta, timezone
 
 from jobhunter.db.enums import SourceState
 from jobhunter.db.repos.source_health import SourceHealthRepo
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class CircuitBreaker:
@@ -45,7 +45,7 @@ class CircuitBreaker:
         if health.state == SourceState.OPEN:
             if health.opened_until and now >= health.opened_until:
                 # Transition to HALF_OPEN
-                logger.info("Source %s: transition from OPEN to HALF_OPEN", source_name)
+                logger.info("circuit_breaker_transition_half_open", source_name=source_name)
                 health.state = SourceState.HALF_OPEN
                 self.repo.session.flush()
                 return True
@@ -68,7 +68,7 @@ class CircuitBreaker:
         health = self.repo.get_or_create(source_name)
 
         if health.state != SourceState.CLOSED:
-            logger.info("Source %s: request successful, closing breaker", source_name)
+            logger.info("circuit_breaker_closed", source_name=source_name)
 
         health.state = SourceState.CLOSED
         health.failure_count = 0
@@ -92,14 +92,14 @@ class CircuitBreaker:
         if health.state == SourceState.CLOSED:
             if health.failure_count >= self.FAILURE_THRESHOLD:
                 logger.warning(
-                    "Source %s: failure threshold reached (%d), opening breaker",
-                    source_name,
-                    health.failure_count,
+                    "circuit_breaker_opened",
+                    source_name=source_name,
+                    failure_count=health.failure_count,
                 )
                 health.state = SourceState.OPEN
                 health.opened_until = now + self.PAUSE_DURATION
         elif health.state == SourceState.HALF_OPEN:
-            logger.warning("Source %s: failure in HALF_OPEN, re-opening breaker", source_name)
+            logger.warning("circuit_breaker_reopened_from_half_open", source_name=source_name)
             health.state = SourceState.OPEN
             health.opened_until = now + self.PAUSE_DURATION
 

@@ -14,7 +14,7 @@ from rich.table import Table
 from rich.markdown import Markdown
 
 from jobhunter import __version__
-from jobhunter.logging_config import setup_logging
+from jobhunter.log_config import configure_logging
 import uuid
 
 from jobhunter.config import Settings
@@ -1150,9 +1150,18 @@ def logs_tail(
     ] = "1 day ago",
     level: Annotated[str | None, typer.Option(help="Filter by log level")] = None,
     event: Annotated[str | None, typer.Option(help="Filter by event type")] = None,
+    module: Annotated[str | None, typer.Option(help="Filter by module name")] = None,
+    correlation_id: Annotated[str | None, typer.Option(help="Filter by correlation ID")] = None,
 ) -> None:
     """Download and display the latest log artifacts from GitHub Actions."""
-    logger.info("Starting logs tail", since=since, level=level, event=event)
+    logger.info(
+        "Starting logs tail",
+        since=since,
+        level=level,
+        event=event,
+        module=module,
+        correlation_id=correlation_id,
+    )
 
     # 1. Download latest artifacts using gh CLI
     # We assume 'gh' is installed and authenticated in the environment where this runs
@@ -1239,6 +1248,16 @@ def logs_tail(
                         # Filter by event
                         evt = data.get("event", "")
                         if event and event.lower() not in evt.lower():
+                            continue
+
+                        # Filter by module
+                        log_mod = data.get("module", "")
+                        if module and module.lower() not in log_mod.lower():
+                            continue
+
+                        # Filter by correlation_id
+                        log_cid = data.get("correlation_id", "")
+                        if correlation_id and correlation_id != log_cid:
                             continue
 
                         # Format level color
@@ -2380,7 +2399,7 @@ def callback() -> None:
 
 def main() -> None:
     """Main entry point for the application."""
-    setup_logging()
+    configure_logging()
     app()
 
 

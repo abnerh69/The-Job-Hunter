@@ -1,4 +1,4 @@
-import logging
+import structlog
 import webbrowser
 from datetime import timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -15,7 +15,7 @@ from jobhunter.config import Settings
 from jobhunter.crypto import decrypt, encrypt
 from jobhunter.db.models import OAuthToken
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Minimal scopes required for reading inbox and managing labels
 SCOPES = [
@@ -236,7 +236,7 @@ class GoogleOAuthHandler:
         )
 
         if not token_record:
-            logger.warning(f"No tokens found for {email} to revoke.")
+            logger.warning("no_tokens_found_to_revoke", email=email)
             return False
 
         if not self.settings.OAUTH_ENCRYPTION_KEY:
@@ -259,16 +259,18 @@ class GoogleOAuthHandler:
                     headers={"content-type": "application/x-www-form-urlencoded"},
                 )
                 if response.status_code == 200:
-                    logger.info(f"Successfully revoked token remotely for {email}")
+                    logger.info("token_revoked_remotely", email=email)
                 else:
-                    logger.warning(f"Failed to revoke token remotely for {email}: {response.text}")
+                    logger.warning(
+                        "token_revocation_remote_failed", email=email, error=response.text
+                    )
             except Exception as e:
-                logger.error(f"Error revoking token remotely for {email}: {e}")
+                logger.error("token_revocation_remote_error", email=email, error=str(e))
 
         # Delete locally regardless of remote success
         self.session.delete(token_record)
         self.session.commit()
-        logger.info(f"Deleted tokens locally for {email}")
+        logger.info("tokens_deleted_locally", email=email)
 
         return True
 

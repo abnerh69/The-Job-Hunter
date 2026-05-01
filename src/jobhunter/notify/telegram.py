@@ -21,7 +21,7 @@ from jobhunter.notify.base import (
 )
 from jobhunter.notify.templates import escape_telegram_markdown
 
-logger = structlog.get_logger()
+logger = structlog.get_logger(__name__)
 
 
 def escape_telegram_markdown_v2(text: str) -> str:
@@ -113,7 +113,7 @@ class TelegramNotifier(BaseNotifier):
             return await self._send_with_retry(bot, chat_id, text, start_time, reply_markup)
         except Exception as e:
             duration_ms = int((time.perf_counter() - start_time) * 1000)
-            logger.error("Unexpected error sending Telegram message", error=str(e))
+            logger.error("telegram_send_error", error=str(e))
             return NotificationResult(
                 success=False,
                 error=f"Unexpected error: {str(e)}",

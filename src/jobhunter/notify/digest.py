@@ -1,11 +1,10 @@
 import uuid
-from datetime import date, datetime, time, timedelta, timezone
-
+from datetime import date, timedelta
 
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, text
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
+from jobhunter.analytics import pipeline_metrics, quality_metrics
 from jobhunter.db.enums import ApplicationStatus, JobStatus, JobTier
 from jobhunter.db.models import Application, Job
 from jobhunter.db.repos.notifications import NotificationsRepo
@@ -87,26 +86,23 @@ def compute_digest_context(session: Session, week_ending: date) -> WeeklyDigestC
     Returns:
         WeeklyDigestContext: Aggregated data for the digest.
     """
+    from sqlalchemy import select
+    from sqlalchemy.orm import joinedload
+
     start_date = week_ending - timedelta(days=6)
-    start_dt = datetime.combine(start_date, time.min).replace(tzinfo=timezone.utc)
-    end_dt = datetime.combine(week_ending, time.max).replace(tzinfo=timezone.utc)
 
-    # 1. New jobs ingested this week
-    new_jobs_stmt = (
-        select(Job.tier, func.count(Job.id))
-        .where(Job.scraped_at >= start_dt, Job.scraped_at <= end_dt)
-        .group_by(Job.tier)
-    )
-    new_jobs_rows = session.execute(new_jobs_stmt).all()
-    new_jobs_by_tier: dict[JobTier | None, int] = {row[0]: row[1] for row in new_jobs_rows}
+    # Use analytics package
+    tier_dist = quality_metrics.get_tier_distribution(session, start_date, week_ending)
+    new_jobs_by_tier = {item.tier: item.count for item in tier_dist.distribution}
 
-    # 2. Applications sent this week
-    apps_sent_stmt = select(func.count(Application.id)).where(
-        Application.applied_at >= start_dt, Application.applied_at <= end_dt
-    )
-    apps_sent_this_week = session.scalar(apps_sent_stmt) or 0
+    funnel = pipeline_metrics.get_funnel_metrics(session, start_date, week_ending)
+    apps_sent_this_week = 0
+    for stage in funnel.stages:
+        if stage.stage == "4. Applied":
+            apps_sent_this_week = stage.count
+            break
 
-    # 3. Pending follow-ups (overdue based on next_action_due)
+    # Pending follow-ups
     terminal_statuses = [
         ApplicationStatus.REJECTED,
         ApplicationStatus.GHOSTED,
@@ -125,7 +121,7 @@ def compute_digest_context(session: Session, week_ending: date) -> WeeklyDigestC
     )
     followups = session.scalars(followups_stmt).all()
 
-    # 4. Tier A jobs in QUEUED status (top 5 by fit_score)
+    # Tier A jobs in QUEUED status
     queued_tier_a_stmt = (
         select(Job)
         .where(Job.tier == JobTier.A, Job.status == JobStatus.QUEUED)
@@ -134,81 +130,42 @@ def compute_digest_context(session: Session, week_ending: date) -> WeeklyDigestC
     )
     queued_tier_a = session.scalars(queued_tier_a_stmt).all()
 
-    queued_tier_a_total_stmt = select(func.count(Job.id)).where(
-        Job.tier == JobTier.A, Job.status == JobStatus.QUEUED
-    )
-    queued_tier_a_count = session.scalar(queued_tier_a_total_stmt) or 0
+    from sqlalchemy import func
 
-    # 5. Tier C jobs in MANUAL_REVIEW
-    manual_review_tier_c_stmt = select(func.count(Job.id)).where(
-        Job.tier == JobTier.C, Job.status == JobStatus.MANUAL_REVIEW
-    )
-    manual_review_tier_c_count = session.scalar(manual_review_tier_c_stmt) or 0
-
-    # 6. Response rate and monthly trends
-    response_rate = 0.0
-    monthly_trends: list[MonthlyMetric] = []
-
-    if session.bind and session.bind.dialect.name == "postgresql":
-        try:
-            # Monthly trends from weekly_metrics view
-            trends_stmt = text("""
-                SELECT week, apps_sent, interviews
-                FROM weekly_metrics
-                ORDER BY week DESC
-                LIMIT 4
-            """)
-            trends_rows = session.execute(trends_stmt).fetchall()
-
-            for row in reversed(trends_rows):
-                conv_rate = (row.interviews / row.apps_sent * 100) if row.apps_sent > 0 else 0.0
-                monthly_trends.append(
-                    MonthlyMetric(
-                        week_start=row.week,
-                        apps_sent=row.apps_sent,
-                        interviews=row.interviews,
-                        conversion_rate=conv_rate,
-                    )
-                )
-
-            # Aggregate response rate for last 4 weeks from view
-            resp_stmt = text("""
-                SELECT
-                    SUM(apps_sent) as total_apps,
-                    SUM(apps_with_response) as total_responses
-                FROM (
-                    SELECT apps_sent, apps_with_response
-                    FROM weekly_metrics
-                    ORDER BY week DESC
-                    LIMIT 4
-                ) last_4
-            """)
-            resp_row = session.execute(resp_stmt).fetchone()
-            if resp_row and resp_row.total_apps and resp_row.total_apps > 0:
-                response_rate = (resp_row.total_responses / resp_row.total_apps) * 100
-        except Exception:
-            # Fallback if view doesn't exist or other error
-            pass
-
-    # If no trends found (e.g. SQLite or empty DB), attempt basic fallback for last 4 weeks
-    if not monthly_trends:
-        # Simple aggregation for the last 28 days
-        four_weeks_ago = week_ending - timedelta(days=27)
-        four_weeks_ago_dt = datetime.combine(four_weeks_ago, time.min).replace(tzinfo=timezone.utc)
-
-        total_apps_4w_stmt = select(func.count(Application.id)).where(
-            Application.applied_at >= four_weeks_ago_dt, Application.applied_at <= end_dt
+    queued_tier_a_count = (
+        session.scalar(
+            select(func.count(Job.id)).where(Job.tier == JobTier.A, Job.status == JobStatus.QUEUED)
         )
-        total_apps_4w = session.scalar(total_apps_4w_stmt) or 0
+        or 0
+    )
 
-        if total_apps_4w > 0:
-            responded_apps_4w_stmt = select(func.count(Application.id)).where(
-                Application.applied_at >= four_weeks_ago_dt,
-                Application.applied_at <= end_dt,
-                ~Application.status.in_([ApplicationStatus.APPLIED, ApplicationStatus.WITHDRAWN]),
+    manual_review_tier_c_count = (
+        session.scalar(
+            select(func.count(Job.id)).where(
+                Job.tier == JobTier.C, Job.status == JobStatus.MANUAL_REVIEW
             )
-            responded_apps_4w = session.scalar(responded_apps_4w_stmt) or 0
-            response_rate = (responded_apps_4w / total_apps_4w) * 100
+        )
+        or 0
+    )
+
+    # Trends and response rate using analytics
+    weekly_trends = pipeline_metrics.get_weekly_trends(session, weeks=4)
+    monthly_trends = [
+        MonthlyMetric(
+            week_start=trend.week,
+            apps_sent=trend.apps_sent,
+            interviews=trend.interviews,
+            conversion_rate=trend.response_rate,
+        )
+        for trend in reversed(weekly_trends)
+    ]
+
+    response_rate = 0.0
+    if weekly_trends:
+        total_apps = sum(t.apps_sent for t in weekly_trends)
+        total_resp = sum(t.apps_with_response for t in weekly_trends)
+        if total_apps > 0:
+            response_rate = (total_resp / total_apps) * 100
 
     metrics = DigestMetrics(
         new_jobs_total=sum(new_jobs_by_tier.values()),

@@ -154,10 +154,13 @@ def get_weekly_trends(session: Session, weeks: int = 8) -> List[WeeklyTrend]:
 
     if is_postgres:
         try:
-            stmt_text = text(
-                "SELECT * FROM weekly_metrics ORDER BY week DESC LIMIT :limit"
-            ).bindparams(limit=weeks)
-            rows = session.execute(stmt_text).fetchall()
+            # Use a savepoint to avoid poisoning the transaction if the view is missing
+            with session.begin_nested():
+                stmt_text = text(
+                    "SELECT * FROM weekly_metrics ORDER BY week DESC LIMIT :limit"
+                ).bindparams(limit=weeks)
+                rows = session.execute(stmt_text).fetchall()
+
             if rows:
                 return [
                     WeeklyTrend(

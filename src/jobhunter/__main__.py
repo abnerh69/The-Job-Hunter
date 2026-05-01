@@ -41,6 +41,7 @@ from jobhunter.application.assistant import assist_application
 from jobhunter.application.cover_letter import generate_cover_letter
 from jobhunter.application.cv import load_cv
 from jobhunter.db.models import Application, Job, OutreachContact
+from jobhunter.analytics.regression_detector import check_metrics
 
 logger = structlog.get_logger()
 app = typer.Typer(help="Job Hunter EU CLI")
@@ -1566,6 +1567,181 @@ def ab_test_conclude(
         if isinstance(e, typer.Exit):
             raise
         logger.error("Failed to conclude A/B test", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@analytics_app.command("check-regressions")
+def analytics_check_regressions(
+    notify: Annotated[
+        bool, typer.Option(help="Send alerts to Telegram if regressions found")
+    ] = True,
+) -> None:
+    """Check for significant drops in key metrics (last 7 days vs 4-week baseline)."""
+    logger.info("Starting regression check")
+    try:
+        with get_session() as session:
+            report = check_metrics(session)
+
+            console = Console()
+            table = Table(title="Regression Analysis", header_style="bold magenta")
+            table.add_column("Metric")
+            table.add_column("Baseline", justify="right")
+            table.add_column("Current", justify="right")
+            table.add_column("Change (%)", justify="right")
+            table.add_column("Status")
+
+            regressions = []
+            for m in report.metrics:
+                status = "[green]OK[/green]"
+                if m.is_regression:
+                    status = "[bold red]REGRESSION[/bold red]"
+                    regressions.append(m)
+
+                change_style = "red" if m.change_pct < 0 else "green"
+                table.add_row(
+                    m.name,
+                    f"{m.baseline_value:.2f}%",
+                    f"{m.current_value:.2f}%",
+                    f"[{change_style}]{m.change_pct:+.2f}%[/{change_style}]",
+                    status,
+                )
+
+            console.print(table)
+
+            if notify and regressions:
+                from jobhunter.notify.telegram import TelegramNotifier
+                from jobhunter.notify import NotificationMessage
+                from jobhunter.notify.templates import render
+
+                settings = Settings()  # type: ignore[call-arg]
+                notifier = TelegramNotifier()
+                if notifier.is_enabled(settings):
+                    from jobhunter.db.models import NotificationSent
+
+                    repo = NotificationsRepo(session)
+                    for m in regressions:
+                        # Anti-flapping: bucketed dedup_key
+                        # bucketed by 20% intervals to allow re-alerting if it gets significantly worse
+                        # Use absolute value of change_pct for bucketing
+                        bucket = int(abs(m.change_pct) // 20)
+                        dedup_key = f"regression:{m.name.lower().replace(' ', '_')}:b{bucket}"
+
+                        # Check if already sent in last 3 days
+                        three_days_ago = datetime.now(timezone.utc) - timedelta(days=3)
+                        stmt = select(NotificationSent).where(
+                            NotificationSent.channel == "telegram",
+                            NotificationSent.dedup_key == dedup_key,
+                            NotificationSent.sent_at >= three_days_ago,
+                            NotificationSent.success,
+                        )
+                        if session.scalar(stmt):
+                            logger.info(
+                                "Regression alert skipped (anti-flapping)",
+                                metric=m.name,
+                                dedup_key=dedup_key,
+                            )
+                            continue
+
+                        body = render(
+                            "notifications/regression_alert.md",
+                            {"type": "Regresión", "metric": m, "context": report.inferred_context},
+                        )
+                        msg = NotificationMessage(
+                            channel="telegram",
+                            body_text=body,
+                            metadata={"type": "regression_alert", "metric": m.name},
+                        )
+                        res = asyncio.run(notifier.send(msg))
+                        repo.record_sent("telegram", dedup_key, None, res)
+                    session.commit()
+
+    except Exception as e:
+        logger.exception("Regression check failed")
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@analytics_app.command("check-anomalies")
+def analytics_check_anomalies(
+    notify: Annotated[bool, typer.Option(help="Send alerts to Telegram if anomalies found")] = True,
+) -> None:
+    """Check for unexpected upward spikes in key metrics."""
+    logger.info("Starting anomaly check")
+    try:
+        with get_session() as session:
+            report = check_metrics(session)
+
+            console = Console()
+            table = Table(title="Anomaly Analysis", header_style="bold blue")
+            table.add_column("Metric")
+            table.add_column("Baseline", justify="right")
+            table.add_column("Current", justify="right")
+            table.add_column("Change (%)", justify="right")
+            table.add_column("Status")
+
+            anomalies = []
+            for m in report.metrics:
+                status = "[green]OK[/green]"
+                if m.is_anomaly:
+                    status = "[bold yellow]ANOMALY[/bold yellow]"
+                    anomalies.append(m)
+
+                change_style = "green" if m.change_pct > 0 else "red"
+                table.add_row(
+                    m.name,
+                    f"{m.baseline_value:.2f}%",
+                    f"{m.current_value:.2f}%",
+                    f"[{change_style}]{m.change_pct:+.2f}%[/{change_style}]",
+                    status,
+                )
+
+            console.print(table)
+
+            if notify and anomalies:
+                from jobhunter.notify.telegram import TelegramNotifier
+                from jobhunter.notify import NotificationMessage
+                from jobhunter.notify.templates import render
+                from jobhunter.db.models import NotificationSent
+
+                settings = Settings()  # type: ignore[call-arg]
+                notifier = TelegramNotifier()
+                if notifier.is_enabled(settings):
+                    repo = NotificationsRepo(session)
+                    for m in anomalies:
+                        bucket = int(abs(m.change_pct) // 20)
+                        dedup_key = f"anomaly:{m.name.lower().replace(' ', '_')}:b{bucket}"
+
+                        three_days_ago = datetime.now(timezone.utc) - timedelta(days=3)
+                        stmt = select(NotificationSent).where(
+                            NotificationSent.channel == "telegram",
+                            NotificationSent.dedup_key == dedup_key,
+                            NotificationSent.sent_at >= three_days_ago,
+                            NotificationSent.success,
+                        )
+                        if session.scalar(stmt):
+                            logger.info(
+                                "Anomaly alert skipped (anti-flapping)",
+                                metric=m.name,
+                                dedup_key=dedup_key,
+                            )
+                            continue
+
+                        body = render(
+                            "notifications/regression_alert.md",
+                            {"type": "Anomalía", "metric": m, "context": report.inferred_context},
+                        )
+                        msg = NotificationMessage(
+                            channel="telegram",
+                            body_text=body,
+                            metadata={"type": "anomaly_alert", "metric": m.name},
+                        )
+                        res = asyncio.run(notifier.send(msg))
+                        repo.record_sent("telegram", dedup_key, None, res)
+                    session.commit()
+
+    except Exception as e:
+        logger.exception("Anomaly check failed")
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

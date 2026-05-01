@@ -1,7 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from jobhunter.db.models import Job, Application, LLMCall, OutreachMessage, OutreachContact
-from jobhunter.db.enums import JobTier, JobStatus, ApplicationStatus, OutreachMessageStatus, OutreachStatus
+from jobhunter.db.enums import (
+    JobTier,
+    JobStatus,
+    ApplicationStatus,
+    OutreachMessageStatus,
+    OutreachStatus,
+)
 from jobhunter.analytics.regression_detector import check_metrics
 from jobhunter.analytics.recommendations import get_recommendations
 import uuid

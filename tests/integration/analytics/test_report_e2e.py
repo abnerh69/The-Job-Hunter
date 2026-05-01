@@ -98,5 +98,3 @@ def test_monthly_report_generation_e2e(session: Session, mock_llm_client: Any) -
     if test_db_file.exists():
         test_db_file.unlink()
     os.environ.pop("TEST_DATABASE_URL", None)
-    if prompt_file.exists():
-        prompt_file.unlink()

@@ -65,6 +65,16 @@ jobs:
       - name: Type check with mypy
         run: uv run mypy .
 
+      - name: Security audit with bandit
+        run: |
+          uv pip install bandit
+          uv run bandit -r src/ -ll
+
+      - name: Dependency audit with pip-audit
+        run: |
+          uv pip install pip-audit
+          uv run pip-audit
+
       - name: Run database migrations
         run: uv run alembic upgrade head
 

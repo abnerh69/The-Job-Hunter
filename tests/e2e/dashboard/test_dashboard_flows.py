@@ -40,7 +40,6 @@ def streamlit_server() -> Generator[None, None, None]:
     process.wait()
 
 
-@pytest.mark.e2e
 def test_login_flow() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -70,7 +69,6 @@ def test_login_flow() -> None:
         browser.close()
 
 
-@pytest.mark.e2e
 def test_page_protection() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -87,7 +85,6 @@ def test_page_protection() -> None:
         browser.close()
 
 
-@pytest.mark.e2e
 def test_logout() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)

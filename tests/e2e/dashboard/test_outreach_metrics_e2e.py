@@ -172,7 +172,6 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     process.wait()
 
 
-@pytest.mark.e2e
 def test_outreach_metrics_flow(streamlit_server: None, test_db: str) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -204,7 +203,6 @@ def test_outreach_metrics_flow(streamlit_server: None, test_db: str) -> None:
         browser.close()
 
 
-@pytest.mark.e2e
 def test_outreach_cadence_cli(test_db: str) -> None:
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db

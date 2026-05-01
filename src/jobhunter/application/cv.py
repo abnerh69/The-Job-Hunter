@@ -98,8 +98,11 @@ def load_cv(variant_name: str, settings: Settings | None = None) -> CVVariant:
 
     Raises:
         FileNotFoundError: If the CV variant file is not found.
-        ValueError: If the CV file is malformed.
+        ValueError: If the CV file is malformed or variant_name is insecure.
     """
+    # Security check: Prevent path traversal
+    if ".." in variant_name or "/" in variant_name or "\\" in variant_name:
+        raise ValueError(f"Insecure CV variant name: {variant_name}")
     if settings is None:
         settings = Settings()  # type: ignore[call-arg]
 

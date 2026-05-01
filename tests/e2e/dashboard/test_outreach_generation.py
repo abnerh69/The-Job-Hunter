@@ -13,7 +13,6 @@ from jobhunter.db.enums import OutreachStatus, OutreachMarket
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.e2e
 def test_db() -> Generator[str, None, None]:
     db_path = "test_e2e_outreach_gen.db"
     if os.path.exists(db_path):
@@ -68,7 +67,6 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     process.wait()
 
 
-@pytest.mark.e2e
 def test_outreach_generation_flow(streamlit_server: None) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)

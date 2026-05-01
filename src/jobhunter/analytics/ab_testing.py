@@ -61,7 +61,8 @@ def select_variant(session: Session, test_name: str, entity_id: uuid.UUID) -> st
         return "default"
 
     # Deterministic hash: hash(entity_id + test_name) % 100 -> bucket
-    hasher = hashlib.md5()
+    # Use sha256 for better collision resistance and security compliance
+    hasher = hashlib.sha256()
     hasher.update(f"{entity_id}{test_name}".encode())
     bucket = int(hasher.hexdigest(), 16) % 100
 

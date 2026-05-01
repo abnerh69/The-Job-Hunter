@@ -14,7 +14,6 @@ from jobhunter.db.enums import JobStatus, JobTier
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.e2e
 def test_db() -> Generator[str, None, None]:
     db_path = "test_e2e_new_matches.db"
     if os.path.exists(db_path):
@@ -81,7 +80,6 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     process.wait()
 
 
-@pytest.mark.e2e
 def test_new_matches_flow(streamlit_server: None) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -143,8 +141,6 @@ def test_new_matches_flow(streamlit_server: None) -> None:
         browser.close()
 
 
-@pytest.mark.e2e
-@pytest.mark.e2e
 def test_new_matches_flow_with_e2e_mark(streamlit_server: None) -> None:
     # Just a placeholder to ensure the marker is picked up if we want to run all e2e
     pass

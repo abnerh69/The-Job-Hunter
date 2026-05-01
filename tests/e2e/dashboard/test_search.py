@@ -92,7 +92,6 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     process.wait()
 
 
-@pytest.mark.e2e
 def test_global_search_flow(streamlit_server: None) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)

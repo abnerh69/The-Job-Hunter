@@ -1,6 +1,6 @@
 [project]
 name = "jobhunter"
-version = "0.1.0"
+version = "1.0.0"
 description = "Automated job search system for Europe"
 authors = [
     { name = "Job Hunter EU Team" }
@@ -42,8 +42,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest",
-    "pytest-asyncio==0.23.6",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.25.0",
     "pytest-cov",
     "ruff",
     "mypy",

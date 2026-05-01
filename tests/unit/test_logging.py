@@ -2,7 +2,6 @@ import json
 import os
 import asyncio
 from typing import Any
-import structlog
 from _pytest.capture import CaptureFixture
 from jobhunter.log_config import configure_logging, with_correlation_id, get_logger
 

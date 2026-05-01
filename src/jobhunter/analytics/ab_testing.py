@@ -125,10 +125,12 @@ def get_ab_test_results(session: Session, test_name: str) -> ABTestResults:
             sample_size = (
                 session.scalar(select(func.count(Job.id)).where(Job.score_version == variant)) or 0
             )
+            from jobhunter.db.enums import JobTier
+
             conversions = (
                 session.scalar(
                     select(func.count(Job.id)).where(
-                        and_(Job.score_version == variant, Job.tier == "A")
+                        and_(Job.score_version == variant, Job.tier == JobTier.A)
                     )
                 )
                 or 0

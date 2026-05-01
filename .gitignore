@@ -163,7 +163,15 @@ cython_debug/
 *.db
 *.sqlite
 *.sqlite3
+pgdata/
+backups/
 
 # Local storage for sensitive data
 .local/
 .logs_cache
+.env.local
+.env.*
+!.env.example
+secrets.json
+credentials.json
+.streamlit/secrets.toml

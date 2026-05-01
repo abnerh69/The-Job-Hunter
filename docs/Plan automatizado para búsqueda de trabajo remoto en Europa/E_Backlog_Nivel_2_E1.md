@@ -303,7 +303,7 @@ Si esto pasa, E1 está cerrada.
   RUN uv sync --frozen
   CMD ["uv", "run", "python", "-m", "jobhunter.cli"]
   ```
-- [ ] Añadir `DATABASE_URL=postgresql://jobhunter:jobhunter_local@localhost:5432/jobhunter` a `.env.example`
+- [ ] Añadir `DATABASE_URL=postgresql://jobhunter:jobhunter_local@localhost:5432/jobhunter` a `.env.example`  # pragma: allowlist secret
 - [ ] Test manual: `docker-compose up -d postgres && psql ... -c "SELECT 1;"`
 - [ ] Documentar en notas del repo: `docker-compose down -v` para reset completo
 - [ ] Commit
@@ -356,7 +356,7 @@ Si esto pasa, E1 está cerrada.
             --health-cmd pg_isready --health-interval 5s
             --health-timeout 5s --health-retries 5
       env:
-        DATABASE_URL: postgresql://jobhunter:jobhunter_local@localhost:5432/jobhunter
+        DATABASE_URL: postgresql://jobhunter:jobhunter_local@localhost:5432/jobhunter  # pragma: allowlist secret
         ANTHROPIC_API_KEY: dummy-for-ci
         TELEGRAM_BOT_TOKEN: dummy-for-ci
         TELEGRAM_CHAT_ID: '0'

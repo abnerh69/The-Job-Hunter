@@ -32,4 +32,4 @@ repos:
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
-        exclude: package.lock.json
+        exclude: (uv\.lock|history_scan_results\.json|new_baseline\.json|history_scan_findings\.txt)

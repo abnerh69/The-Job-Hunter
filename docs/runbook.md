@@ -208,6 +208,18 @@ The system relies on several GitHub Secrets for CI/CD and production workflows.
     ```
 4.  **Redeploy**: Re-run any active workflows or redeploy the dashboard.
 
+#### Secret Rotation Plan
+
+| Secret | Provider/Service | Rotation Procedure |
+| :--- | :--- | :--- |
+| `ANTHROPIC_API_KEY` | [Anthropic Console](https://console.anthropic.com/settings/keys) | 1. Create new key. 2. Update GH Secret. 3. Delete old key. |
+| `TELEGRAM_BOT_TOKEN` | [@BotFather](https://t.me/botfather) | 1. Send `/token`. 2. Select bot. 3. Select `Revoke current token`. 4. Update GH Secret. |
+| `GMAIL_CLIENT_SECRET` | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) | 1. Select Client ID. 2. Click `Reset secret`. 3. Update GH Secret. |
+| `SMTP_PASSWORD` | [Google App Passwords](https://myaccount.google.com/apppasswords) | 1. Delete existing App Password. 2. Generate new one. 3. Update GH Secret. |
+| `DATABASE_URL_PROD` | [Neon Console](https://console.neon.tech) | 1. Reset password for the database role. 2. Update GH Secret. |
+| `DASHBOARD_PASSWORD` | User defined | 1. Generate new random string. 2. Update GH Secret/Fly.io secret. |
+| `OAUTH_ENCRYPTION_KEY` | CLI Generated | 1. Generate new Fernet key. 2. Update GH Secret. **Warning:** This invalidates all existing OAuth tokens; all users must re-authenticate. |
+
 **Migrating Database Provider:**
 1.  **Backup**: Create a full dump using `pg_dump`.
 2.  **New Provider**: Setup the new DB and apply migrations (`alembic upgrade head`).

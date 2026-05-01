@@ -40,6 +40,9 @@ jobs:
 
       - name: Run email poll and suggest
         id: email-poll
+        env:
+          LOG_FORMAT: json
+          JOBHUNTER_CORRELATION_ID: ${{ github.run_id }}
         run: |
           uv run jobhunter email poll-and-suggest > email-poll-${{ github.run_id }}.jsonl 2>&1
 

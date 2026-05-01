@@ -54,6 +54,7 @@ jobs:
         shell: bash
         env:
           LOG_FORMAT: json
+          JOBHUNTER_CORRELATION_ID: ${{ github.run_id }}
         run: |
           # Build arguments for limit and source if provided
           ARGS=""

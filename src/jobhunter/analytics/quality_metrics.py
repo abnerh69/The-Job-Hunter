@@ -385,7 +385,12 @@ async def rescore_suspicious_jobs(
         old_tier = job.tier or JobTier.REJECT
         try:
             outcome = await scorer.score(job, session=session)
-            new_tier = JobTier(outcome.result.tier.value) if outcome.result.valid else JobTier.REJECT
+            new_tier = JobTier.REJECT
+            if outcome.result.valid:
+                from jobhunter.scoring.schema import ScoringResult
+
+                if isinstance(outcome.result, ScoringResult):
+                    new_tier = JobTier(outcome.result.tier.value)
 
             improved = new_tier in [JobTier.A, JobTier.B, JobTier.C] and old_tier == JobTier.REJECT
 

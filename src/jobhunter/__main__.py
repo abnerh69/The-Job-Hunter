@@ -1677,7 +1677,9 @@ def analytics_false_rejects(
 
         console = Console()
         if not rejects:
-            console.print("[yellow]No se encontraron false rejects en el periodo especificado.[/yellow]")
+            console.print(
+                "[yellow]No se encontraron false rejects en el periodo especificado.[/yellow]"
+            )
             return
 
         table = Table(title=f"False Rejects (Últimos {days} días)", header_style="bold magenta")
@@ -1719,7 +1721,9 @@ def analytics_missed_opportunities(
             console.print("[yellow]No se encontraron missed opportunities potenciales.[/yellow]")
             return
 
-        table = Table(title=f"Missed Opportunities Candidates (Últimos {days} días)", header_style="bold blue")
+        table = Table(
+            title=f"Missed Opportunities Candidates (Últimos {days} días)", header_style="bold blue"
+        )
         table.add_column("ID", style="dim")
         table.add_column("Empresa", style="bold")
         table.add_column("Título")
@@ -1749,7 +1753,10 @@ def analytics_rescore_suspicious(
     confirm: Annotated[bool, typer.Option(help="If True, actually persist changes to DB")] = False,
 ) -> None:
     """Re-score potential missed opportunities with the latest prompt/model."""
-    from jobhunter.analytics.quality_metrics import get_missed_opportunities, rescore_suspicious_jobs
+    from jobhunter.analytics.quality_metrics import (
+        get_missed_opportunities,
+        rescore_suspicious_jobs,
+    )
     from jobhunter.scoring.scorer import JobScorer
     from jobhunter.llm.anthropic_client import AnthropicLLMClient
 
@@ -1793,7 +1800,9 @@ def analytics_rescore_suspicious(
         console.print(table)
 
         if not confirm:
-            console.print("\n[yellow]NOTE: This was a DRY RUN. Use --confirm to persist changes.[/yellow]")
+            console.print(
+                "\n[yellow]NOTE: This was a DRY RUN. Use --confirm to persist changes.[/yellow]"
+            )
 
     except Exception as e:
         logger.error("Rescore suspicious failed", error=str(e))

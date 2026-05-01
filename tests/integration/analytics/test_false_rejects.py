@@ -1,19 +1,22 @@
-import uuid
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from sqlalchemy import select
-from jobhunter.db.models import Job
-from jobhunter.db.enums import JobTier, JobStatus
+from sqlalchemy.orm import Session
+
 from jobhunter.analytics.quality_metrics import (
     get_false_rejects_detailed,
     get_missed_opportunities,
     rescore_suspicious_jobs,
 )
+from jobhunter.db.enums import JobStatus, JobTier
+from jobhunter.db.models import Job
 from jobhunter.scoring.scorer import JobScorer
-from unittest.mock import AsyncMock, MagicMock
+
 
 @pytest.fixture
-def session_with_rejects(session):
+def session_with_rejects(session: Session) -> Session:
     """Seed the session with some rejected and manually promoted jobs."""
     # 1. Normal REJECT
     j1 = Job(
@@ -26,7 +29,10 @@ def session_with_rejects(session):
         tier=JobTier.REJECT,
         status=JobStatus.REJECTED,
         scraped_at=datetime.now(timezone.utc) - timedelta(days=5),
-        score_data={"red_flags": ["No visa sponsorship"], "recommendation": {"reason_short": "No visa"}}
+        score_data={
+            "red_flags": ["No visa sponsorship"],
+            "recommendation": {"reason_short": "No visa"},
+        },
     )
 
     # 2. False Reject (Manually Promoted)
@@ -42,7 +48,10 @@ def session_with_rejects(session):
         scraped_at=datetime.now(timezone.utc) - timedelta(days=10),
         manually_promoted_at=datetime.now(timezone.utc) - timedelta(days=1),
         manually_promoted_reason="I have a referral",
-        score_data={"red_flags": ["Experience mismatch"], "recommendation": {"reason_short": "Too senior"}}
+        score_data={
+            "red_flags": ["Experience mismatch"],
+            "recommendation": {"reason_short": "Too senior"},
+        },
     )
 
     # 3. Another REJECT for frequency analysis
@@ -56,21 +65,26 @@ def session_with_rejects(session):
         tier=JobTier.REJECT,
         status=JobStatus.REJECTED,
         scraped_at=datetime.now(timezone.utc) - timedelta(days=30),
-        score_data={"red_flags": ["Experience mismatch"], "recommendation": {"reason_short": "Too senior"}}
+        score_data={
+            "red_flags": ["Experience mismatch"],
+            "recommendation": {"reason_short": "Too senior"},
+        },
     )
 
     session.add_all([j1, j2, j3])
     session.commit()
     return session
 
-def test_get_false_rejects_detailed(session_with_rejects):
+
+def test_get_false_rejects_detailed(session_with_rejects: Session) -> None:
     rejects = get_false_rejects_detailed(session_with_rejects, limit=10, days=60)
     assert len(rejects) == 1
     assert rejects[0].company == "Startup Inc"
     assert rejects[0].manual_promotion_reason == "I have a referral"
     assert rejects[0].original_reject_reason == "Too senior"
 
-def test_get_missed_opportunities(session_with_rejects):
+
+def test_get_missed_opportunities(session_with_rejects: Session) -> None:
     # In our seed:
     # j2 was promoted and had "Experience mismatch"
     # j3 is rejected and has "Experience mismatch"
@@ -85,11 +99,33 @@ def test_get_missed_opportunities(session_with_rejects):
     assert len(opps) >= 1
     # Check if j3 or j1 is in results (they are both REJECT and not promoted)
     job_ids = [o.job_id for o in opps]
-    assert any(str(j.id) in job_ids for j in session_with_rejects.scalars(select(Job).where(Job.url_hash.in_(["h1", "h3"]))).all())
+    assert any(
+        str(j.id) in job_ids
+        for j in session_with_rejects.scalars(
+            select(Job).where(Job.url_hash.in_(["h1", "h3"]))
+        ).all()
+    )
+
 
 @pytest.mark.asyncio
-async def test_rescore_suspicious_jobs(session_with_rejects):
-    from jobhunter.scoring.schema import ScoringResult, Tier, CompanyInfo, RoleInfo, CompensationInfo, LogisticsInfo, MatchAnalysis, Recommendation, CompanyStage, Seniority, RemoteType, TimezoneRequirement, ContractType, Action, Priority
+async def test_rescore_suspicious_jobs(session_with_rejects: Session) -> None:
+    from jobhunter.scoring.schema import (
+        Action,
+        CompanyInfo,
+        CompanyStage,
+        CompensationInfo,
+        ContractType,
+        LogisticsInfo,
+        MatchAnalysis,
+        Priority,
+        Recommendation,
+        RoleInfo,
+        ScoringResult,
+        Seniority,
+        Tier,
+        RemoteType,
+        TimezoneRequirement,
+    )
 
     # Mock Scorer
     mock_scorer = MagicMock(spec=JobScorer)
@@ -98,14 +134,48 @@ async def test_rescore_suspicious_jobs(session_with_rejects):
     mock_result = ScoringResult(
         fit_score=85,
         tier=Tier.A,
-        company=CompanyInfo(name="Tech Corp", stage=CompanyStage.ENTERPRISE, domain_inferred="tech"),
-        role=RoleInfo(title_normalized="SE", seniority_inferred=Seniority.SENIOR, primary_stack_match=["Python"], stack_overlap_pct=90, is_ai_ml_role=False, is_flutter_role=False, is_full_stack=True),
-        compensation=CompensationInfo(salary_min_usd_month=5000, salary_max_usd_month=7000, salary_explicit_in_offer=True, currency_original="USD", meets_floor=True, meets_target=True, notes=None),
-        logistics=LogisticsInfo(remote_type=RemoteType.REMOTE_EU_ONLY, timezone_requirement=TimezoneRequirement.STRICT_CET, overlap_hours_required_with_CET=8, latam_friendly=True, colombia_explicitly_blocked=False, contract_type_offered=ContractType.B2B, language_requirements=["English"]),
-        match_analysis=MatchAnalysis(key_match_points=["Good stack"], key_gaps=[], differentiators_to_emphasize=[]),
+        company=CompanyInfo(
+            name="Tech Corp", stage=CompanyStage.ENTERPRISE, domain_inferred="tech"
+        ),
+        role=RoleInfo(
+            title_normalized="SE",
+            seniority_inferred=Seniority.SENIOR,
+            primary_stack_match=["Python"],
+            stack_overlap_pct=90,
+            is_ai_ml_role=False,
+            is_flutter_role=False,
+            is_full_stack=True,
+        ),
+        compensation=CompensationInfo(
+            salary_min_usd_month=5000,
+            salary_max_usd_month=7000,
+            salary_explicit_in_offer=True,
+            currency_original="USD",
+            meets_floor=True,
+            meets_target=True,
+            notes=None,
+        ),
+        logistics=LogisticsInfo(
+            remote_type=RemoteType.REMOTE_EU_ONLY,
+            timezone_requirement=TimezoneRequirement.STRICT_CET,
+            overlap_hours_required_with_CET=8,
+            latam_friendly=True,
+            colombia_explicitly_blocked=False,
+            contract_type_offered=ContractType.B2B,
+            language_requirements=["English"],
+        ),
+        match_analysis=MatchAnalysis(
+            key_match_points=["Good stack"], key_gaps=[], differentiators_to_emphasize=[]
+        ),
         red_flags=[],
         yellow_flags=[],
-        recommendation=Recommendation(action=Action.APPLY_NOW, priority=Priority.HIGH, reason_short="Great match", cover_letter_angle="Tech")
+        recommendation=Recommendation(
+            action=Action.APPLY_NOW,
+            priority=Priority.HIGH,
+            reason_short="Great match",
+            cover_letter_angle="Tech",
+        ),
+        valid=True,
     )
 
     mock_outcome = MagicMock()

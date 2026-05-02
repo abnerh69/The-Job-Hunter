@@ -71,7 +71,7 @@ def streamlit_server_mr(test_db_mr: str) -> Generator[None, None, None]:
     subprocess.run("kill $(lsof -t -i :8501) 2>/dev/null || true", shell=True)
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db_mr
-    env["ANTHROPIC_API_KEY"] = "dummy"
+    env["ANTHROPIC_API_KEY"] = "dummy"  # pragma: allowlist secret
     env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     env["PYTHONPATH"] = "src"
     cmd = [

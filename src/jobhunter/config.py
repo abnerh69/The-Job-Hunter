@@ -1,3 +1,17 @@
+"""
+Application configuration.
+
+This module deliberately does NOT export a `settings = Settings()` singleton.
+Each call-site instantiates `Settings()` locally when it needs config. See
+`docs/adr/ADR-006-no-settings-singleton.md` for the rationale (test isolation,
+fail-fast validation at the CLI boundary, distinct entry-point profiles).
+
+Note: this is a known deviation from acceptance criterion E01-S05 in
+`docs/Plan automatizado.../E_Backlog_Nivel_2_E1.md`. The underlying goal of
+that story — a single typed config surface, no direct `os.environ` reads — is
+still met.
+"""
+
 from pathlib import Path
 from typing import Literal
 

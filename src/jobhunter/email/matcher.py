@@ -11,6 +11,7 @@ from jobhunter.db.enums import (
 )
 from jobhunter.db.models import Application, Job, OutreachContact, OutreachMessage
 from jobhunter.email.schemas import GmailMessageDetail, MatchResult
+from jobhunter.email.prompt import load_email_prompt, render_email_user_prompt
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
 
 logger = structlog.get_logger(__name__)
@@ -150,30 +151,28 @@ async def match_email(
                 }
             )
 
-        system_prompt = """You are an email matching assistant for a job search tracker.
-Your task is to match an incoming email to either a job application or an outreach contact.
-Respond ONLY with a JSON object containing:
-- match_status: "ai_matched" if found, "unmatched" otherwise.
-- application_id: UUID if matched to an application, null otherwise.
-- outreach_contact_id: UUID if matched to an outreach contact, null otherwise.
-- confidence: float between 0 and 1.
-- reasoning: short string explaining the match.
-"""
-        user_prompt = f"""Incoming Email:
-Subject: {email.subject}
-Snippet: {email.snippet}
-Sender: {email.from_email}
+        # Load versioned prompt
+        prompt_version = "v1"
+        prompt_data = load_email_prompt(prompt_version)
+        user_prompt = render_email_user_prompt(
+            prompt_data.user_template,
+            {
+                "subject": email.subject or "",
+                "snippet": email.snippet or "",
+                "from_email": email.from_email,
+                "candidates_json": json.dumps(candidates_info, indent=2),
+            },
+        )
 
-Candidates:
-{json.dumps(candidates_info, indent=2)}
-"""
         try:
+            full_system_prompt = f"{prompt_data.system_prompt}\n\n{prompt_data.requirements}"
             llm_response = await llm_client.complete(
-                system=system_prompt,
+                system=full_system_prompt,
                 user=user_prompt,
                 model="claude-3-haiku-20240307",
-                purpose=LLMPurpose.OUTREACH,  # Using OUTREACH as a generic purpose for now
+                purpose=LLMPurpose.EMAIL_MATCH,
                 session=session,
+                prompt_version=prompt_version,
             )
 
             result_data = json.loads(llm_response.text)
@@ -181,7 +180,7 @@ Candidates:
             if result_data.get("match_status") == "ai_matched":
                 match_status = EmailMatchStatus.AI_MATCHED
                 confidence = result_data.get("confidence", 0.0)
-                reasoning = result_data.get("reasoning", "AI Matched.")
+                reasoning = f"[{prompt_version}] {result_data.get('reasoning', 'AI Matched.')}"
 
                 if result_data.get("application_id"):
                     application_id = uuid.UUID(str(result_data["application_id"]))

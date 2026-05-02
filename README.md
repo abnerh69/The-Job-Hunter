@@ -71,6 +71,7 @@ We maintain a record of significant architectural decisions to provide context f
 - [ADR-005: Human-in-the-loop for Sensitive Actions](docs/adr/ADR-005-human-in-the-loop.md)
 - [ADR-006: No Module-Level `settings` Singleton](docs/adr/ADR-006-no-settings-singleton.md)
 - [ADR-007: Thin `BaseSource` Contract](docs/adr/ADR-007-thin-basesource-contract.md)
+- [ADR-008: Profile and CV Variants Live in DB, Not Files](docs/adr/ADR-008-profile-in-db.md)
 
 
 ```text

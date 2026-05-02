@@ -38,7 +38,7 @@ def test_db() -> Generator[str, None, None]:
     # Better use alembic to be safe
     env = os.environ.copy()
     env["DATABASE_URL"] = f"sqlite:///{db_path}"
-    env["ANTHROPIC_API_KEY"] = "dummy"
+    env["ANTHROPIC_API_KEY"] = "dummy"  # pragma: allowlist secret
     env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     subprocess.run(["uv", "run", "alembic", "upgrade", "head"], env=env, check=True)
 

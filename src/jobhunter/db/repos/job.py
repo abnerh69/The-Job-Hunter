@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Sequence
 
 from sqlalchemy import and_, cast, func, or_, select, Text as SAText
@@ -232,4 +232,52 @@ class JobRepo(BaseRepo[Job]):
         return {
             "jobs_today": self.session.scalar(jobs_today_stmt) or 0,
             "pending_a": self.session.scalar(pending_a_stmt) or 0,
+        }
+
+    def list_manual_review(
+        self,
+        min_age_days: int | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Sequence[Job]:
+        """
+        Lists jobs with status 'manual_review' and applies filters.
+
+        Args:
+            min_age_days (int | None): Filter jobs older than N days since scored_at.
+            limit (int): Maximum number of records to return. Defaults to 20.
+            offset (int): Number of records to skip. Defaults to 0.
+
+        Returns:
+            Sequence[Job]: A sequence of jobs matching the criteria.
+        """
+        stmt = select(Job).where(Job.status == JobStatus.MANUAL_REVIEW)
+
+        if min_age_days is not None:
+            threshold = datetime.now(timezone.utc) - timedelta(days=min_age_days)
+            stmt = stmt.where(Job.scored_at <= threshold)
+
+        # Default order: oldest first (antiquity)
+        stmt = stmt.order_by(Job.scored_at.asc()).limit(limit).offset(offset)
+        return self.session.scalars(stmt).all()
+
+    def get_manual_review_metrics(self) -> dict[str, int]:
+        """
+        Returns metrics for the manual review dashboard.
+
+        Returns:
+            dict[str, int]: A dictionary with metrics:
+                - total_pending: total jobs with status 'manual_review'.
+                - old_pending: jobs in 'manual_review' for more than 7 days.
+        """
+        threshold = datetime.now(timezone.utc) - timedelta(days=7)
+
+        total_stmt = select(func.count(Job.id)).where(Job.status == JobStatus.MANUAL_REVIEW)
+        old_stmt = select(func.count(Job.id)).where(
+            and_(Job.status == JobStatus.MANUAL_REVIEW, Job.scored_at <= threshold)
+        )
+
+        return {
+            "total_pending": self.session.scalar(total_stmt) or 0,
+            "old_pending": self.session.scalar(old_stmt) or 0,
         }

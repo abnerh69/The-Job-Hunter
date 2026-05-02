@@ -69,6 +69,8 @@ We maintain a record of significant architectural decisions to provide context f
 - [ADR-003: GitHub Actions for Orchestration](docs/adr/ADR-003-github-actions-orchestration.md)
 - [ADR-004: Centralized Symmetric Encryption](docs/adr/ADR-004-centralized-crypto.md)
 - [ADR-005: Human-in-the-loop for Sensitive Actions](docs/adr/ADR-005-human-in-the-loop.md)
+- [ADR-006: No Module-Level `settings` Singleton](docs/adr/ADR-006-no-settings-singleton.md)
+- [ADR-007: Thin `BaseSource` Contract](docs/adr/ADR-007-thin-basesource-contract.md)
 
 
 ```text
@@ -94,4 +96,4 @@ We maintain a record of significant architectural decisions to provide context f
 
 ## ⚖️ License
 
-Proprietary - See [LICENSE](LICENSE) (if applicable) or contact the Job Hunter EU Team.
+Released under the [MIT License](LICENSE). © 2026 Abner Hernandez.

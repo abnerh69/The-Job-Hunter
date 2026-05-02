@@ -5,7 +5,7 @@ description = "Automated job search system for Europe"
 authors = [
     { name = "Job Hunter EU Team" }
 ]
-license = { text = "Proprietary" }
+license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
     "httpx",

@@ -9,4 +9,10 @@ render_sidebar()
 
 st.header("🔍 Manual Review (Tier C)")
 st.write("Jobs that might be interesting but need human eyes.")
-st.info("Placeholder: Implementation coming in next stories.")
+st.warning(
+    "Esta página fue movida a la **Épica 13: QA Humana** (story `E13-S01`). "
+    "La implementación quedó diferida durante la verificación de la Épica 7. "
+    "Ver `docs/Plan automatizado para búsqueda de trabajo remoto en Europa/"
+    "Q_Backlog_Nivel2_E13.md` para los acceptance criteria y el plan de "
+    "implementación."
+)

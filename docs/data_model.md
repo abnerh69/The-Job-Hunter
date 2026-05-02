@@ -316,3 +316,20 @@ All `TIMESTAMPTZ` columns store data in UTC. This ensures consistency across dif
 4. **Review Migration**: Check the generated file in `alembic/versions/` for correctness.
 5. **Apply Migration**: Run `uv run alembic upgrade head`.
 6. **Update Documentation**: Add the new table description and update the ER diagram in `docs/data_model.md`.
+
+## CLI commands related to the data layer
+
+| Command | Purpose |
+|---|---|
+| `python -m jobhunter db-seed [--scenario rich\|minimal]` | Populate the local DB with sample data (E02-S08). |
+| `python -m jobhunter db-refresh-metrics` | Refresh the `weekly_metrics` materialized view (E02-S05). |
+| `python -m jobhunter backup create [--output PATH]` | Dump and gzip the database (wraps `scripts/backup_db.sh`). |
+| `python -m jobhunter backup list` | List existing backups. |
+| `python -m jobhunter backup restore <path>` | Restore the database from a dump. |
+
+> **Note (deviation from E02-S09 acceptance criteria).** The original backlog
+> specified a single CLI command `db-backup`. The implementation instead
+> exposes a `backup` sub-Typer with `create` / `list` / `restore` because the
+> restore + listing workflows added during E12 (Backup Multilayer) needed to
+> live next to `create`. The behaviour is a strict superset of the original
+> AC; `backup create` is the direct equivalent of the documented `db-backup`.

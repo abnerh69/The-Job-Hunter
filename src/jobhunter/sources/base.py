@@ -1,3 +1,15 @@
+"""
+Source ABC and the `RawJob` DTO that every adapter emits.
+
+`BaseSource` deliberately exposes only `fetch()`. The acceptance criteria for
+E03-S01 originally asked for `name: str`, `default_rate_limit: float` and a
+`canonicalize_url` method on the base class; those responsibilities live
+elsewhere (literal `source_name` per subclass, optional `default_rate_limit`
+on subclasses that deviate from the default, free functions in
+`sources/url_utils.py`). See `docs/adr/ADR-007-thin-basesource-contract.md`
+for the rationale.
+"""
+
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, AsyncIterator

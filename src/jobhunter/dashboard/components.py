@@ -142,6 +142,109 @@ def render_job_card(
             st.markdown("</div>", unsafe_allow_html=True)
 
 
+def render_manual_review_card(
+    job: Job,
+    on_promote: Callable[[Job], None],
+    on_reject: Callable[[Job], None],
+    on_rescore: Callable[[Job], None],
+) -> None:
+    """
+    Renders a detailed visual card for a job in manual review status.
+    """
+    tier_emoji = {
+        JobTier.A: "🔥",
+        JobTier.B: "✅",
+        JobTier.C: "⚖️",
+        JobTier.REJECT: "❌",
+    }.get(job.tier if job.tier else JobTier.C, "❓")
+
+    with st.container(border=True):
+        st.markdown(
+            f'<div data-testid="manual-review-card" data-job-id="{job.id}"></div>',
+            unsafe_allow_html=True,
+        )
+        col1, col2 = st.columns([0.8, 0.2])
+
+        with col1:
+            st.subheader(f"{tier_emoji} {job.title}")
+            st.write(f"**{job.company}**")
+        with col2:
+            st.metric("Fit Score", f"{job.fit_score}%")
+
+        # Recommendation and Reason
+        if job.score_data and "recommendation" in job.score_data:
+            rec = job.score_data["recommendation"]
+            st.info(f"🧐 **Razón Manual Review:** {rec.get('reason_short', 'No especificada')}")
+
+        # Flags
+        if job.score_data:
+            yellow_flags = job.score_data.get("yellow_flags", [])
+            if yellow_flags:
+                st.warning(f"⚠️ **Yellow Flags:** {', '.join(yellow_flags)}")
+
+        # Score Data Details
+        with st.expander("📊 Ver Análisis Completo", expanded=False):
+            if job.score_data:
+                sd = job.score_data
+                c1, c2 = st.columns(2)
+                with c1:
+                    if "company" in sd:
+                        st.write("**Company:**")
+                        st.write(f"- Stage: {sd['company'].get('stage')}")
+                        st.write(f"- Domain: {sd['company'].get('domain_inferred')}")
+                    if "role" in sd:
+                        st.write("**Role:**")
+                        st.write(f"- Normalized Title: {sd['role'].get('title_normalized')}")
+                        st.write(f"- Seniority: {sd['role'].get('seniority_inferred')}")
+                        st.write(f"- Stack Overlap: {sd['role'].get('stack_overlap_pct')}%")
+                with c2:
+                    if "logistics" in sd:
+                        st.write("**Logistics:**")
+                        st.write(f"- Remote: {sd['logistics'].get('remote_type')}")
+                        st.write(f"- Timezone: {sd['logistics'].get('timezone_requirement')}")
+                    if "compensation" in sd:
+                        st.write("**Compensation:**")
+                        s_min = sd["compensation"].get("salary_min_usd_month")
+                        s_max = sd["compensation"].get("salary_max_usd_month")
+                        st.write(f"- Salary: ${s_min:,.0f} - ${s_max:,.0f} / mes")
+
+                if "match_analysis" in sd:
+                    st.write("**Match Analysis:**")
+                    ma = sd["match_analysis"]
+                    st.write("*Match Points:*")
+                    for p in ma.get("key_match_points", []):
+                        st.write(f"- {p}")
+                    st.write("*Gaps:*")
+                    for g in ma.get("key_gaps", []):
+                        st.write(f"- {g}")
+
+        # JD Collapsible
+        with st.expander("📄 Ver Job Description", expanded=False):
+            st.markdown(job.description)
+
+        # Footer Actions
+        st.divider()
+        f_col1, f_col2 = st.columns([0.4, 0.6])
+
+        with f_col1:
+            age_str = format_relative_time(job.scored_at) if job.scored_at else "n/a"
+            st.caption(f"Scored {age_str} | Fuente: {job.source}")
+
+        with f_col2:
+            b_col1, b_col2, b_col3, b_col4 = st.columns(4)
+            with b_col1:
+                if st.button("🚀 Promote", key=f"promote_{job.id}", type="primary"):
+                    on_promote(job)
+            with b_col2:
+                if st.button("🔄 Re-score", key=f"rescore_{job.id}"):
+                    on_rescore(job)
+            with b_col3:
+                if st.button("❌ Reject", key=f"reject_{job.id}"):
+                    on_reject(job)
+            with b_col4:
+                st.link_button("🌐 View", job.url)
+
+
 def render_application_card(
     app: Application,
     on_click: Callable[[Application], None],

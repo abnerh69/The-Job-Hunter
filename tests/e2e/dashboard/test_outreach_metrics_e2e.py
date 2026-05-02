@@ -154,7 +154,7 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     subprocess.run("kill $(lsof -t -i :8504) 2>/dev/null || true", shell=True)
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db
-    env["ANTHROPIC_API_KEY"] = "dummy"
+    env["ANTHROPIC_API_KEY"] = "dummy"  # pragma: allowlist secret
     env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     env["PYTHONPATH"] = "src"
     cmd = [
@@ -209,7 +209,7 @@ def test_outreach_cadence_cli(test_db: str) -> None:
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db
     env["PYTHONPATH"] = "src"
-    env["ANTHROPIC_API_KEY"] = "dummy"
+    env["ANTHROPIC_API_KEY"] = "dummy"  # pragma: allowlist secret
     env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
 
     # Run cadence check

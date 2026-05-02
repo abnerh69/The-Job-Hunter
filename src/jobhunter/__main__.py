@@ -2632,6 +2632,127 @@ def email_auth(
         raise typer.Exit(code=1)
 
 
+@email_app.command("stats")
+def email_stats(
+    since: Annotated[
+        str, typer.Option(help="Calculate stats since this date (YYYY-MM-DD or 'N weeks ago')")
+    ] = "4 weeks ago",
+    strict: Annotated[
+        bool, typer.Option("--strict", help="Exit with code 1 if precision < 85%")
+    ] = False,
+) -> None:
+    """Display email matching performance and AI cost."""
+    from jobhunter.analytics.email_metrics import get_matcher_metrics
+
+    # Resolve 'since' parameter
+    since_dt: datetime
+    if "weeks ago" in since or "week ago" in since:
+        try:
+            weeks = int(since.split()[0])
+            since_dt = datetime.now(timezone.utc) - timedelta(weeks=weeks)
+        except (ValueError, IndexError):
+            typer.echo(f"Error: Invalid 'since' format: {since}", err=True)
+            raise typer.Exit(code=1)
+    elif "days ago" in since or "day ago" in since:
+        try:
+            days = int(since.split()[0])
+            since_dt = datetime.now(timezone.utc) - timedelta(days=days)
+        except (ValueError, IndexError):
+            typer.echo(f"Error: Invalid 'since' format: {since}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        try:
+            since_dt = datetime.fromisoformat(since).replace(tzinfo=timezone.utc)
+        except ValueError:
+            typer.echo(f"Error: Invalid 'since' date format: {since}. Use YYYY-MM-DD.", err=True)
+            raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            metrics = get_matcher_metrics(session, since_dt.date(), date.today())
+
+        console = Console()
+        console.print(
+            f"\n[bold blue]Email Matcher Statistics (Since {since_dt.date()})[/bold blue]\n"
+        )
+
+        # Overview Table
+        overview = Table(title="Global Overview", header_style="bold magenta")
+        overview.add_column("Metric")
+        overview.add_column("Value", justify="right")
+
+        overview.add_row("Total Emails Processed", str(metrics.total_processed))
+        overview.add_row(
+            "Overall Match Rate", f"[bold green]{metrics.match_rate * 100:.1f}%[/bold green]"
+        )
+        precision_color = "green" if metrics.precision >= 0.85 else "red"
+        overview.add_row(
+            "Precision (User Validated)",
+            f"[{precision_color}]{metrics.precision * 100:.1f}%[/{precision_color}]",
+        )
+        overview.add_row("Accumulated AI Cost", f"${metrics.ai_cost_usd:.4f}")
+        console.print(overview)
+
+        # Breakdown Table
+        breakdown = Table(title="Match Status Breakdown", header_style="bold cyan")
+        breakdown.add_column("Status")
+        breakdown.add_column("Count", justify="right")
+        breakdown.add_column("Percentage", justify="right")
+
+        total = metrics.total_processed or 1
+        breakdown.add_row(
+            "Auto Matched",
+            str(metrics.auto_matched),
+            f"{metrics.auto_matched / total * 100:.1f}%",
+        )
+        breakdown.add_row(
+            "AI Matched",
+            str(metrics.ai_matched),
+            f"{metrics.ai_matched / total * 100:.1f}%",
+        )
+        breakdown.add_row(
+            "Unmatched",
+            str(metrics.unmatched),
+            f"{metrics.unmatched / total * 100:.1f}%",
+        )
+        breakdown.add_row(
+            "Ignored (Marketing)",
+            str(metrics.ignored_marketing),
+            f"{metrics.ignored_marketing / total * 100:.1f}%",
+        )
+        breakdown.add_row(
+            "User Confirmed",
+            str(metrics.user_confirmed),
+            f"{metrics.user_confirmed / total * 100:.1f}%",
+        )
+        breakdown.add_row(
+            "User Rejected",
+            str(metrics.user_rejected),
+            f"{metrics.user_rejected / total * 100:.1f}%",
+        )
+        console.print(breakdown)
+
+        # Top Domains Table
+        if metrics.top_domains:
+            domains_table = Table(title="Top Domains", header_style="bold yellow")
+            domains_table.add_column("Domain")
+            domains_table.add_column("Count", justify="right")
+            for d in metrics.top_domains:
+                domains_table.add_row(d["domain"] or "unknown", str(d["count"]))
+            console.print(domains_table)
+
+        if strict and metrics.precision < 0.85:
+            typer.echo(f"\n[red]Error: Precision {metrics.precision:.1%} is below target 85%[/red]")
+            raise typer.Exit(code=1)
+
+    except Exception as e:
+        if isinstance(e, typer.Exit):
+            raise
+        logger.error("Email stats failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
 @email_app.command("poll-and-suggest")
 def email_poll_and_suggest() -> None:
     """Poll Gmail for new messages, match them, and suggest state changes."""

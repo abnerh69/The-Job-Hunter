@@ -32,6 +32,24 @@ Total setup inicial: **~2.5 horas humanas**, distribuibles en 2 sesiones.
 
 ## 1. Cuentas externas — pasos por servicio
 
+> **Convención de comandos.** Todos los comandos `python -m jobhunter ...` de
+> esta sección asumen que estás en la raíz del repo y se ejecutan **dentro
+> del venv gestionado por `uv`**. Sin esto, Python responde
+> `No module named jobhunter`. Dos formas equivalentes:
+>
+> ```bash
+> # Opción A (recomendada, sin activar venv):
+> uv run python -m jobhunter <comando>
+>
+> # Opción B (activar venv una vez en la sesión):
+> source .venv/bin/activate
+> python -m jobhunter <comando>
+> ```
+>
+> En la EC2 desplegada (`DEPLOY_AWS.md`) los comandos los corre el usuario
+> de servicio `jobhunter` desde `/home/jobhunter/app` con `uv run` —
+> mismo principio.
+
 ### 1.1 Anthropic (obligatorio)
 
 El modelo principal del sistema. Sin esto no hay scoring ni cover letters.
@@ -53,7 +71,7 @@ Notificaciones tier-A en tiempo real + sugerencias de cambio de estado por respu
 3. BotFather devuelve el **token** con formato `123456789:ABCdef...`. Copiarlo a `.env` como `TELEGRAM_BOT_TOKEN`.
 4. Iniciar conversación con tu nuevo bot (`/start`).
 5. Obtener el **chat ID**: visitar `https://api.telegram.org/bot<TU_TOKEN>/getUpdates` en el navegador. Buscar `"chat":{"id":123456789,...}`. Copiar ese número a `.env` como `TELEGRAM_CHAT_ID`.
-6. Probar con `python -m jobhunter notify test --channel telegram --message "ping"` — debe llegar el mensaje.
+6. Probar con `uv run python -m jobhunter notify test --channel telegram --message "ping"` — debe llegar el mensaje. Si aparece `No module named jobhunter`, falta el prefijo `uv run` o el venv no está activo (ver convención al inicio de §1).
 
 **Permisos del bot:** ningún permiso especial. El bot sólo te envía a ti, en tu chat 1-a-1. Los inline buttons (E10-S06) funcionan dentro de ese chat sin webhook.
 
@@ -72,7 +90,7 @@ Si quieres recibir el digest semanal por correo (E5-S06).
    SMTP_PASSWORD=abcdefghijklmnop      # sin espacios
    DIGEST_TO_EMAIL=tu@gmail.com         # puede ser el mismo o distinto
    ```
-5. Probar con `python -m jobhunter notify test --channel email --subject "Test" --message "Hello"`.
+5. Probar con `uv run python -m jobhunter notify test --channel email --subject "Test" --message "Hello"`.
 
 **Alternativas a Gmail:** SendGrid (100 emails/día free), Resend (3000/mes free). Más confiables que SMTP residencial pero requieren cambios mínimos en la app si quieres usarlos. Para el volumen actual (1 digest/semana + ~10 alertas/mes), Gmail SMTP basta.
 
@@ -97,11 +115,11 @@ Lee tu inbox para detectar respuestas a aplicaciones y proponer cambios de estad
    GMAIL_CLIENT_ID=xxxx.apps.googleusercontent.com
    GMAIL_CLIENT_SECRET=GOCSPX-xxxx
    GMAIL_REDIRECT_URI=http://localhost:8765/oauth/callback   # default, no cambiar
-   OAUTH_ENCRYPTION_KEY=<generar con: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
+   OAUTH_ENCRYPTION_KEY=<generar con: uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
    ```
 6. **Ejecutar el flow OAuth una sola vez**:
    ```bash
-   python -m jobhunter email auth
+   uv run python -m jobhunter email auth
    ```
    - Esto abre el navegador, pide login + consent, y captura el callback en `localhost:8765`.
    - El refresh token queda **cifrado en la DB** con `OAUTH_ENCRYPTION_KEY` (E10-S01).
@@ -127,11 +145,11 @@ E9 (Recruiter Outreach Module) puede importar tus conexiones de LinkedIn para em
 3. Descargar `Connections.csv`.
 4. Importar al sistema:
    ```bash
-   python -m jobhunter outreach import --from ~/Downloads/Connections.csv
+   uv run python -m jobhunter outreach import --from ~/Downloads/Connections.csv
    ```
 5. Opcionalmente con AI scoring para clasificar relevancia (~$0.50 para 500 contactos):
    ```bash
-   python -m jobhunter outreach import --from ~/Downloads/Connections.csv --enrich-with-ai
+   uv run python -m jobhunter outreach import --from ~/Downloads/Connections.csv --enrich-with-ai
    ```
 
 ### 1.7 Dominio + DNS (sólo si expones el dashboard)
@@ -154,9 +172,45 @@ Si vas a acceder al dashboard desde fuera de tu red local:
 
 Sin estos archivos personalizados, el sistema scoreará jobs **contra el perfil de otra persona** y los matches serán irrelevantes.
 
-### 2.1 `prompts/candidate_profile.yaml` — perfil maestro
+> ### ⚠️ Estado de transición — el contenido de §2 será reemplazado por E14
+>
+> Las secciones §2.1–§2.5 describen el **flujo manual actual** basado en
+> archivos (`prompts/candidate_profile.yaml` + `.local/cv_variants/*.md`).
+> Esta es deuda arquitectónica heredada del bootstrap (ver
+> [`ADR-008`](docs/adr/ADR-008-profile-in-db.md)).
+>
+> **La épica E14 — Onboarding Automation** (ver
+> [`R_Backlog_Nivel_2_E14.md`](docs/Plan%20automatizado%20para%20b%C3%BAsqueda%20de%20trabajo%20remoto%20en%20Europa/R_Backlog_Nivel_2_E14.md))
+> automatiza esta sección entera con un wizard web que:
+>
+> 1. Acepta tu CV maestro en PDF/MD/DOCX subido desde el dashboard.
+> 2. Extrae datos estructurados con Opus (~$0.10).
+> 3. Genera el perfil + N variants de CV (user-defined, no las 3 fijas
+>    actuales) + propuesta de rango salarial con Sonnet (~$0.06).
+> 4. Persiste todo en BD (no en archivos), habilita multi-profile, audit
+>    trail y edit en vivo desde el mismo wizard.
+> 5. Coste total bootstrap: **~$0.20 one-shot** vs. ~30–60 min manuales hoy.
+>
+> Mientras E14 no esté implementada, sigue las instrucciones manuales de
+> §2.1–§2.5. Cuando E14 cierre, esta sección se reescribirá para apuntar al
+> wizard. La migración de tu yaml/markdowns existentes a BD será automática
+> (`alembic upgrade head` los importa y archiva los originales — ver
+> E14-S10).
 
-Este YAML alimenta el prompt de scoring (E4), generación de cover letters (E6), y mensajes de outreach (E9). Es el **único archivo** que define "quién eres" para el sistema.
+### 2.1 `prompts/candidate_profile.yaml` — perfil maestro (manual, hoy)
+
+Este YAML alimenta:
+
+- El **outreach generator** (E9) — lee el archivo en cada generación de mensaje.
+- El **outreach contact scoring** (E9) — usa `primary_stack` para heurística.
+
+> **Nota técnica importante** (correcta con la realidad del código): el
+> scoring de jobs (E4) NO lee este archivo. El perfil está **literalmente
+> embebido** dentro de `prompts/scoring/v1.md` como bloque yaml hardcoded.
+> Esto significa que **debes mantener los dos sincronizados a mano**: si
+> editas el yaml debes editar también el bloque dentro del prompt v1.md (o
+> aceptar que el scoring evalúa contra un perfil distinto al outreach). Esta
+> duplicación es exactamente la deuda técnica que E14 resuelve.
 
 **Editar `prompts/candidate_profile.yaml`** con tus datos. Campos críticos:
 
@@ -175,11 +229,17 @@ Este YAML alimenta el prompt de scoring (E4), generación de cover letters (E6),
 | `soft_negatives` | Penalizaciones (no blockers) | Bajan score pero no rechazan. |
 | `positive_signals` | Patterns que suben score | Lo que tu CV tiene de single. |
 
-**Iteración:** después de procesar 20–30 jobs reales, revisar las decisiones del scorer. Si marca tier A jobs que tú considerarías tier B (o viceversa), **ajusta el YAML** — no el prompt. El YAML es la fuente de verdad de tus preferencias; el prompt es genérico.
+**Iteración:** después de procesar 20–30 jobs reales, revisar las decisiones del scorer. Si marca tier A jobs que tú considerarías tier B (o viceversa), **ajusta el bloque embebido en `prompts/scoring/v1.md`** (es lo que el scorer realmente lee) y **el yaml** (lo que outreach realmente lee). Con E14 cerrada, esto se vuelve un único punto de actualización.
 
 ### 2.2 CV variants — `cv_variants/*.template.md` → `.local/cv_variants/*.md`
 
-El sistema espera **3 variantes de CV** en formato markdown estructurado:
+> Hoy hardcoded a las 3 variantes siguientes; con E14 esto será **N variantes
+> user-defined** (puedes tener `python_backend`, `translator_es`,
+> `ai_agent_consultant`, lo que sea — el `variant_selector` se refactoriza
+> para soportar nombres arbitrarios).
+
+El sistema actual espera **3 variantes de CV** en formato markdown
+estructurado:
 
 - `ai_python.md` — perfil AI/Python/ML/LLM.
 - `flutter.md` — perfil Flutter/Dart/mobile.

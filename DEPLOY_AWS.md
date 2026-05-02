@@ -154,7 +154,7 @@ sudo -u jobhunter mkdir -p /home/jobhunter/{app,backups,logs}
 
 ```bash
 sudo -u postgres psql <<'SQL'
-CREATE USER jobhunter WITH PASSWORD 'CAMBIAR_ESTA_PASSWORD';
+CREATE USER jobhunter WITH PASSWORD 'CAMBIAR_ESTA_PASSWORD';  -- pragma: allowlist secret
 CREATE DATABASE jobhunter OWNER jobhunter;
 GRANT ALL PRIVILEGES ON DATABASE jobhunter TO jobhunter;
 SQL
@@ -184,7 +184,7 @@ uv run playwright install chromium  # sólo si vas a correr tests E2E en el host
 ```bash
 sudo -u jobhunter tee /home/jobhunter/app/.env <<'ENV'
 # Database
-DATABASE_URL=postgresql://jobhunter:CAMBIAR_ESTA_PASSWORD@localhost:5432/jobhunter
+DATABASE_URL=postgresql://jobhunter:CAMBIAR_ESTA_PASSWORD@localhost:5432/jobhunter  # pragma: allowlist secret
 
 # Anthropic
 ANTHROPIC_API_KEY=sk-ant-xxxxx

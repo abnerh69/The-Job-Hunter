@@ -1,13 +1,14 @@
 import asyncio
 import subprocess
 import sys
+import yaml
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
 import structlog
 import typer
-from sqlalchemy import select
+from sqlalchemy import select, asc
 from rich.console import Console
 from rich.table import Table
 from rich.markdown import Markdown
@@ -17,10 +18,20 @@ from jobhunter.log_config import configure_logging
 import uuid
 
 from jobhunter.config import Settings
-from jobhunter.db.enums import JobStatus, JobTier, ApplicationStatus
+from jobhunter.db.enums import (
+    JobStatus,
+    JobTier,
+    ApplicationStatus,
+    OutreachMarket,
+    OutreachStatus,
+    OutreachTemplateType,
+    OutreachMessageStatus,
+)
 from jobhunter.db.maintenance import refresh_weekly_metrics
 from jobhunter.db.repos.job import JobRepo
 from jobhunter.db.repos.llm_calls import LLMCallRepo
+from jobhunter.db.repos.outreach import OutreachRepo
+from jobhunter.db.repos.outreach_messages import OutreachMessageRepo
 from jobhunter.db.repos.source_health import SourceHealthRepo
 from jobhunter.db.seed import seed_database
 from jobhunter.db.session import get_session
@@ -39,7 +50,7 @@ from jobhunter.pipeline import RunCycleStatus, run_cycle, run_followup_checks
 from jobhunter.application.assistant import assist_application
 from jobhunter.application.cover_letter import generate_cover_letter
 from jobhunter.application.cv import load_cv
-from jobhunter.db.models import Application, Job, OutreachContact
+from jobhunter.db.models import Application, Job, OutreachContact, OutreachMessage
 from jobhunter.analytics.regression_detector import check_metrics
 
 logger = structlog.get_logger()
@@ -2143,6 +2154,325 @@ def telegram_process_callbacks() -> None:
             typer.echo("No pending Telegram callbacks found.")
     except Exception as e:
         logger.error("Failed to process Telegram callbacks", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("add")
+def outreach_add(
+    name: Annotated[str, typer.Option(help="Name of the contact")],
+    linkedin_url: Annotated[Optional[str], typer.Option(help="LinkedIn URL of the contact")] = None,
+    company: Annotated[Optional[str], typer.Option(help="Company of the contact")] = None,
+    role: Annotated[Optional[str], typer.Option(help="Role of the contact")] = None,
+    market: Annotated[Optional[OutreachMarket], typer.Option(help="Market of the contact")] = None,
+    notes: Annotated[Optional[str], typer.Option(help="Additional notes")] = None,
+) -> None:
+    """Add a new outreach contact manually."""
+    from jobhunter.outreach.scoring import (
+        calculate_heuristic_score,
+        infer_market,
+        infer_specialty_stack,
+    )
+    from jobhunter.cli.formatters import format_contact_row
+
+    try:
+        with get_session() as session:
+            repo = OutreachRepo(session)
+
+            if linkedin_url:
+                existing = repo.find_by_linkedin_url(linkedin_url)
+                if existing:
+                    typer.echo(
+                        f"Error: Contact with LinkedIn URL {linkedin_url} already exists.", err=True
+                    )
+                    raise typer.Exit(code=1)
+
+            # Heuristic market inference if not provided
+            if not market:
+                market = infer_market(company, role)
+
+            specialty_stack = infer_specialty_stack(role)
+
+            contact = OutreachContact(
+                name=name,
+                linkedin_url=linkedin_url,
+                company=company,
+                role=role,
+                market=market,
+                specialty_stack=specialty_stack,
+                notes=notes,
+                status=OutreachStatus.NEW,
+            )
+
+            # Load candidate profile for heuristic scoring
+            profile_path = Path("prompts/candidate_profile.yaml")
+            candidate_profile = {}
+            if profile_path.exists():
+                candidate_profile = yaml.safe_load(profile_path.read_text())
+
+            contact.quality_score = calculate_heuristic_score(contact, candidate_profile)
+
+            session.add(contact)
+            session.commit()
+            session.refresh(contact)
+
+            console = Console()
+            table = Table(title="Contact Created")
+            table.add_column("ID")
+            table.add_column("Name")
+            table.add_column("Company")
+            table.add_column("Role")
+            table.add_column("Score")
+            table.add_column("Status")
+            table.add_column("Last Contacted")
+
+            table.add_row(*format_contact_row(contact))
+            console.print(table)
+
+    except Exception as e:
+        if isinstance(e, typer.Exit):
+            raise
+        logger.error("Failed to add outreach contact", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("candidates")
+def outreach_candidates(
+    limit: Annotated[int, typer.Option(help="Maximum number of candidates to show")] = 10,
+    market: Annotated[Optional[OutreachMarket], typer.Option(help="Filter by market")] = None,
+    min_score: Annotated[Optional[int], typer.Option(help="Minimum quality score")] = None,
+) -> None:
+    """List prioritized outreach candidates."""
+    from jobhunter.cli.formatters import format_contact_row
+
+    try:
+        with get_session() as session:
+            stmt = select(OutreachContact)
+            if market:
+                stmt = stmt.where(OutreachContact.market == market)
+            if min_score is not None:
+                stmt = stmt.where(OutreachContact.quality_score >= min_score)
+
+            # Ordenamiento literal del AC original: quality_score DESC, last_contacted_at ASC NULLS FIRST
+            stmt = stmt.order_by(
+                OutreachContact.quality_score.desc().nulls_last(),
+                asc(OutreachContact.last_contacted_at).nulls_first(),
+            ).limit(limit)
+
+            contacts = session.scalars(stmt).all()
+
+            console = Console()
+            table = Table(title="Outreach Candidates")
+            table.add_column("ID")
+            table.add_column("Name")
+            table.add_column("Company")
+            table.add_column("Role")
+            table.add_column("Score")
+            table.add_column("Status")
+            table.add_column("Last Contacted")
+
+            for contact in contacts:
+                table.add_row(*format_contact_row(contact))
+
+            console.print(table)
+
+    except Exception as e:
+        logger.error("Failed to list candidates", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("draft")
+def outreach_draft(
+    contact_id: Annotated[str, typer.Argument(help="UUID of the contact")],
+    type: Annotated[OutreachTemplateType, typer.Option(help="Template type to use")],
+    note: Annotated[str, typer.Option(help="Research notes (min 20 chars)")],
+    language: Annotated[str, typer.Option(help="Target language (en/es)")] = "en",
+    copy: Annotated[bool, typer.Option(help="Copy to clipboard")] = False,
+) -> None:
+    """Generate an outreach message draft for a contact."""
+    from jobhunter.outreach.generator import generate_message
+
+    try:
+        contact_uuid = uuid.UUID(contact_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {contact_id}", err=True)
+        raise typer.Exit(code=1)
+
+    if len(note) < 20:
+        typer.echo("Error: research notes must be at least 20 characters long.", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        settings = Settings()  # type: ignore[call-arg]
+        llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+
+        with get_session() as session:
+            contact = session.get(OutreachContact, contact_uuid)
+            if not contact:
+                typer.echo(f"Error: Contact {contact_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            message = asyncio.run(
+                generate_message(
+                    contact=contact,
+                    template_type=type,
+                    research_notes=note,
+                    llm_client=llm_client,
+                    session=session,
+                    settings=settings,
+                    target_language=language,
+                )
+            )
+
+            console = Console()
+            console.print(f"\n[bold blue]Generated Message for {contact.name}[/bold blue]\n")
+            console.print(Markdown(message.body))
+            console.print(f"\n[dim]Message ID: {message.id}[/dim]")
+            console.print(f"[dim]To mark as sent: jobhunter outreach sent {message.id}[/dim]\n")
+
+            if copy:
+                try:
+                    import pyperclip  # type: ignore[import-untyped]
+
+                    pyperclip.copy(message.body)
+                    typer.echo("Message body copied to clipboard.")
+                except ImportError:
+                    typer.echo(
+                        "Error: pyperclip not installed. Install it with 'pip install pyperclip' to use --copy.",
+                        err=True,
+                    )
+                except Exception as e:
+                    typer.echo(f"Warning: Could not copy to clipboard: {e}")
+
+    except ValueError as e:
+        # Probablemente política de 2 toques
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+    except Exception as e:
+        logger.error("Failed to generate outreach draft", contact_id=contact_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("sent")
+def outreach_sent(
+    message_id: Annotated[str, typer.Argument(help="UUID of the message")],
+    at: Annotated[
+        Optional[datetime], typer.Option(help="ISO 8601 timestamp (default: now)")
+    ] = None,
+) -> None:
+    """Mark an outreach message as sent."""
+    try:
+        msg_uuid = uuid.UUID(message_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {message_id}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            repo = OutreachMessageRepo(session)
+            msg = repo.get(msg_uuid)
+            if not msg:
+                typer.echo(f"Error: Message {message_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            repo.mark_sent(msg_uuid, sent_at=at)
+            session.commit()
+            typer.echo(f"Message {message_id} marked as SENT.")
+
+    except Exception as e:
+        logger.error("Failed to mark message as sent", message_id=message_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("replied")
+def outreach_replied(
+    message_id: Annotated[str, typer.Argument(help="UUID of the message")],
+    at: Annotated[
+        Optional[datetime], typer.Option(help="ISO 8601 timestamp (default: now)")
+    ] = None,
+) -> None:
+    """Mark an outreach message as replied."""
+    try:
+        msg_uuid = uuid.UUID(message_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {message_id}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            repo = OutreachMessageRepo(session)
+            msg = repo.get(msg_uuid)
+            if not msg:
+                typer.echo(f"Error: Message {message_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            repo.mark_replied(msg_uuid, replied_at=at)
+            session.commit()
+            typer.echo(f"Message {message_id} marked as REPLIED.")
+
+    except Exception as e:
+        logger.error("Failed to mark message as replied", message_id=message_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@outreach_app.command("list")
+def outreach_list_cmd(
+    status: Annotated[
+        Optional[list[OutreachMessageStatus]],
+        typer.Option(help="Filter by status (can be repeated)"),
+    ] = None,
+    contact_id: Annotated[Optional[str], typer.Option(help="Filter by contact UUID")] = None,
+    last: Annotated[int, typer.Option(help="Show messages from the last N days")] = 14,
+) -> None:
+    """List outreach messages with filters."""
+    from jobhunter.cli.formatters import format_message_row
+    from sqlalchemy.orm import selectinload
+
+    try:
+        with get_session() as session:
+            stmt = select(OutreachMessage).options(selectinload(OutreachMessage.contact))
+
+            if status:
+                stmt = stmt.where(OutreachMessage.status.in_(status))
+
+            if contact_id:
+                try:
+                    stmt = stmt.where(OutreachMessage.contact_id == uuid.UUID(contact_id))
+                except ValueError:
+                    typer.echo(f"Error: Invalid contact UUID format: {contact_id}", err=True)
+                    raise typer.Exit(code=1)
+
+            if last:
+                since = datetime.now(timezone.utc) - timedelta(days=last)
+                stmt = stmt.where(OutreachMessage.created_at >= since)
+
+            stmt = stmt.order_by(OutreachMessage.created_at.desc())
+            messages = session.scalars(stmt).all()
+
+            console = Console()
+            table = Table(title="Outreach Messages")
+            table.add_column("ID")
+            table.add_column("Contact")
+            table.add_column("Type")
+            table.add_column("Status")
+            table.add_column("Created At")
+            table.add_column("Sent At")
+            table.add_column("Replied At")
+
+            for msg in messages:
+                table.add_row(*format_message_row(msg))
+
+            console.print(table)
+
+    except Exception as e:
+        if isinstance(e, typer.Exit):
+            raise
+        logger.error("Failed to list outreach messages", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

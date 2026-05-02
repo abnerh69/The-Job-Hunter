@@ -50,11 +50,11 @@ hard_blockers:
   - clearance/security-cleared roles (US gov, NATO, etc.)
 
 soft_negatives:
-  - timezone overlap > 5h con CET
-  - stack 100% no-Python/no-Flutter (ej. Java enterprise puro, .NET puro, Ruby on Rails)
-  - early-stage startup pre-seed sin runway claro
-  - "rockstar/ninja" job descriptions (señal de cultura tóxica)
-  - rangos salariales por debajo del floor cuando son visibles
+  - "timezone overlap > 5h con CET"
+  - "stack 100% no-Python/no-Flutter (ej. Java enterprise puro, .NET puro, Ruby on Rails)"
+  - "early-stage startup pre-seed sin runway claro"
+  - '"rockstar/ninja" job descriptions (señal de cultura tóxica)'
+  - "rangos salariales por debajo del floor cuando son visibles"
 
 positive_signals:
   - GenAI / LLM / RAG / vector DB / agents

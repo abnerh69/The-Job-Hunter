@@ -86,6 +86,12 @@ app.add_typer(analytics_app, name="analytics")
 backup_app = typer.Typer(help="Manage database backups and restores")
 app.add_typer(backup_app, name="backup")
 
+audit_app = typer.Typer(help="Query system audit logs")
+app.add_typer(audit_app, name="audit")
+
+compliance_app = typer.Typer(help="Manage data compliance (GDPR lite)")
+app.add_typer(compliance_app, name="compliance")
+
 ab_test_app = typer.Typer(help="Manage A/B tests for prompts and templates")
 analytics_app.add_typer(ab_test_app, name="ab-test")
 
@@ -2905,6 +2911,253 @@ def backup_list(
         console.print(table)
     except Exception as e:
         logger.error("Failed to list backups", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@audit_app.command("query")
+def audit_query(
+    since: Annotated[
+        Optional[str], typer.Option(help="Filter since date (YYYY-MM-DD or 'N days ago')")
+    ] = None,
+    actor: Annotated[Optional[str], typer.Option(help="Filter by actor")] = None,
+    event: Annotated[Optional[str], typer.Option(help="Filter by event type")] = None,
+    limit: Annotated[int, typer.Option(help="Maximum number of logs to show")] = 50,
+) -> None:
+    """Query system audit logs."""
+    from jobhunter.db.repos.audit_log import AuditLogRepo
+    from jobhunter.db.enums import AuditEventType
+
+    since_dt: Optional[datetime] = None
+    if since:
+        if "days ago" in since:
+            days = int(since.split()[0])
+            since_dt = datetime.now(timezone.utc) - timedelta(days=days)
+        else:
+            try:
+                since_dt = datetime.fromisoformat(since).replace(tzinfo=timezone.utc)
+            except ValueError:
+                typer.echo(f"Error: Invalid 'since' format: {since}. Use YYYY-MM-DD.", err=True)
+                raise typer.Exit(code=1)
+
+    try:
+        with get_session() as session:
+            repo = AuditLogRepo(session)
+            logs = repo.query(
+                event_type=AuditEventType(event) if event else None,
+                actor=actor,
+                since=since_dt,
+                limit=limit,
+            )
+
+            console = Console()
+            table = Table(title="System Audit Logs")
+            table.add_column("Timestamp")
+            table.add_column("Actor")
+            table.add_column("Event")
+            table.add_column("Action")
+            table.add_column("Target")
+            table.add_column("IP")
+
+            for log in logs:
+                target = f"{log.target_entity}:{log.target_id}" if log.target_entity else "-"
+                table.add_row(
+                    log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    log.actor,
+                    log.event_type,
+                    log.action,
+                    target,
+                    log.ip_address or "-",
+                )
+
+            console.print(table)
+    except Exception as e:
+        logger.error("Audit query failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@compliance_app.command("export-data")
+def compliance_export_data(
+    output: Annotated[Path, typer.Option(help="Path to save the JSON export")] = Path(
+        "compliance_export.json"
+    ),
+) -> None:
+    """Export all personal data to a JSON file."""
+    import json
+    from sqlalchemy.orm import selectinload
+    from jobhunter.db.models import OAuthToken, AuditLog, EmailMessage
+
+    logger.info("Starting data export for compliance")
+    try:
+        data: dict[str, Any] = {}
+        with get_session() as session:
+            # Jobs and Applications
+            jobs = session.scalars(select(Job).options(selectinload(Job.applications))).all()
+            data["jobs"] = []
+            for j in jobs:
+                app_list: list[dict[str, Any]] = []
+                for app in j.applications:
+                    app_dict = {
+                        "id": str(app.id),
+                        "applied_at": app.applied_at.isoformat(),
+                        "status": app.status,
+                        "cv_variant": app.cv_variant,
+                        "cover_letter": app.cover_letter_text,
+                        "contact": {
+                            "name": app.contact_name,
+                            "email": app.contact_email,
+                            "linkedin": app.contact_linkedin,
+                        },
+                    }
+                    app_list.append(app_dict)
+
+                j_dict: dict[str, Any] = {
+                    "id": str(j.id),
+                    "company": j.company,
+                    "title": j.title,
+                    "url": j.url,
+                    "status": j.status,
+                    "applications": app_list,
+                }
+                data["jobs"].append(j_dict)
+
+            # Outreach
+            outreach = session.scalars(
+                select(OutreachContact).options(selectinload(OutreachContact.messages))
+            ).all()
+            data["outreach"] = []
+            for c in outreach:
+                outreach_messages_list: list[dict[str, Any]] = []
+                for msg in c.messages:
+                    msg_dict = {
+                        "id": str(msg.id),
+                        "created_at": msg.created_at.isoformat(),
+                        "subject": msg.subject,
+                        "body": msg.body,
+                        "status": msg.status,
+                    }
+                    outreach_messages_list.append(msg_dict)
+
+                c_dict: dict[str, Any] = {
+                    "id": str(c.id),
+                    "name": c.name,
+                    "company": c.company,
+                    "linkedin_url": c.linkedin_url,
+                    "status": c.status,
+                    "messages": outreach_messages_list,
+                }
+                data["outreach"].append(c_dict)
+
+            # Emails
+            emails = session.scalars(select(EmailMessage)).all()
+            data["email_messages"] = [
+                {
+                    "gmail_id": e.gmail_message_id,
+                    "received_at": e.received_at.isoformat(),
+                    "from": e.from_email,
+                    "subject": e.subject,
+                    "snippet": e.snippet,
+                }
+                for e in emails
+            ]
+
+            # Audit Logs
+            audit = session.scalars(select(AuditLog).order_by(AuditLog.created_at.desc())).all()
+            data["audit_logs"] = [
+                {
+                    "timestamp": log.created_at.isoformat(),
+                    "actor": log.actor,
+                    "event_type": log.event_type,
+                    "action": log.action,
+                    "metadata": log.event_metadata,
+                }
+                for log in audit
+            ]
+
+            # OAuth Tokens (Redacted)
+            tokens = session.scalars(select(OAuthToken)).all()
+            data["oauth_tokens"] = [
+                {"provider": t.provider, "email": t.account_email, "access_token": "[REDACTED]"}
+                for t in tokens
+            ]
+
+        output.write_text(json.dumps(data, indent=2))
+        typer.echo(f"Successfully exported data to {output}")
+
+    except Exception as e:
+        logger.error("Compliance export failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@compliance_app.command("delete-all")
+def compliance_delete_all(
+    confirm_twice: Annotated[bool, typer.Option(help="Confirm deletion twice")] = False,
+) -> None:
+    """Delete all personal data from the database (DESTRUCTIVE)."""
+    from jobhunter.db.repos.audit_log import AuditLogRepo
+    from jobhunter.db.enums import AuditEventType
+    from jobhunter.db.models import (
+        ApplicationEvent,
+        Application,
+        OutreachMessage,
+        OutreachContact,
+        EmailMessage,
+        OAuthToken,
+        NotificationSent,
+        LLMCall,
+        Job,
+    )
+    from sqlalchemy import delete
+
+    if not confirm_twice:
+        typer.echo("Error: You must provide --confirm-twice flag.", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo("WARNING: This will delete ALL personal data from the database.")
+    typer.echo("Audit logs, alembic_version, and security tracking will be preserved.")
+
+    confirmation = typer.prompt("Type 'DELETE-ALL' to confirm")
+    if confirmation != "DELETE-ALL":
+        typer.echo("Aborted.")
+        return
+
+    if not typer.confirm("ARE YOU ABSOLUTELY SURE? This cannot be undone.", default=False):
+        typer.echo("Aborted.")
+        return
+
+    logger.warning("Executing bulk deletion of all personal data")
+    try:
+        with get_session() as session:
+            # 1. Record Audit Event BEFORE deletion
+            AuditLogRepo(session).record(
+                event_type=AuditEventType.BULK_DELETE,
+                actor="user",
+                action="compliance_delete_all",
+                event_metadata={"confirmed": True},
+            )
+            session.commit()
+
+            # 2. Delete in correct order to respect FKs
+            # Note: outreach_messages has ON DELETE CASCADE on contact_id usually?
+            # Let's be explicit and safe.
+
+            session.execute(delete(EmailMessage))
+            session.execute(delete(OutreachMessage))
+            session.execute(delete(ApplicationEvent))
+            session.execute(delete(Application))
+            session.execute(delete(OutreachContact))
+            session.execute(delete(OAuthToken))
+            session.execute(delete(NotificationSent))
+            session.execute(delete(LLMCall))
+            session.execute(delete(Job))
+
+            session.commit()
+            typer.echo("Successfully deleted all personal data.")
+
+    except Exception as e:
+        logger.error("Compliance delete failed", error=str(e))
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 

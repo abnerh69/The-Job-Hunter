@@ -28,6 +28,7 @@ from jobhunter.db.enums import (
     ABTestStatus,
     ApplicationEventType,
     ApplicationStatus,
+    AuditEventType,
     EmailMatchStatus,
     JobStatus,
     JobTier,
@@ -589,6 +590,45 @@ class BlockedIP(Base):
 
     def __repr__(self) -> str:
         return f"<BlockedIP(ip={self.ip_address}, unblock_at={self.unblock_at})>"
+
+
+class AuditLog(Base):
+    """
+    SQLAlchemy model for the 'audit_log' table.
+    Stores auditable events for compliance and security.
+    """
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    event_type: Mapped[AuditEventType] = mapped_column(String(50), nullable=False)
+    actor: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_entity: Mapped[str | None] = mapped_column(String(50))
+    target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    action: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        "metadata", JSONB().with_variant(JSON(), "sqlite"), nullable=True
+    )
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    # Indices
+    __table_args__ = (
+        Index("idx_audit_event_time", "event_type", created_at.desc()),
+        Index("idx_audit_actor_time", "actor", created_at.desc()),
+        Index("idx_audit_target", "target_entity", "target_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AuditLog(event_type={self.event_type}, actor={self.actor}, action={self.action})>"
 
 
 @event.listens_for(Application.status, "set")

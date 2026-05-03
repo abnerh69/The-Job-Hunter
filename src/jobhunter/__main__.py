@@ -2,13 +2,14 @@ import asyncio
 import subprocess
 import sys
 import yaml
+import mimetypes
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
 import structlog
 import typer
-from sqlalchemy import select, asc
+from sqlalchemy import select, asc, func
 from rich.console import Console
 from rich.table import Table
 from rich.markdown import Markdown
@@ -50,7 +51,13 @@ from jobhunter.pipeline import RunCycleStatus, run_cycle, run_followup_checks
 from jobhunter.application.assistant import assist_application
 from jobhunter.application.cover_letter import generate_cover_letter
 from jobhunter.application.cv import load_cv
-from jobhunter.db.models import Application, Job, OutreachContact, OutreachMessage
+from jobhunter.db.models import (
+    Application,
+    Job,
+    OutreachContact,
+    OutreachMessage,
+    LLMCall,
+)
 from jobhunter.analytics.regression_detector import check_metrics
 
 logger = structlog.get_logger()
@@ -97,6 +104,453 @@ analytics_app.add_typer(ab_test_app, name="ab-test")
 
 api_app = typer.Typer(help="Manage API sidecar")
 app.add_typer(api_app, name="api")
+
+profile_app = typer.Typer(help="Manage candidate profiles and CV variants")
+app.add_typer(profile_app, name="profile")
+
+
+@profile_app.command("bootstrap")
+def profile_bootstrap(
+    resume: Annotated[Path, typer.Option(help="Path to your resume file")],
+    interactive: Annotated[bool, typer.Option(help="Run in interactive mode")] = False,
+    profile_name: Annotated[
+        Optional[str], typer.Option(help="Optional profile name override")
+    ] = None,
+) -> None:
+    """Run the end-to-end profile bootstrapping pipeline."""
+    if not resume.exists():
+        typer.echo(f"Error: File not found: {resume}", err=True)
+        raise typer.Exit(code=1)
+
+    mime_type, _ = mimetypes.guess_type(resume)
+    if not mime_type:
+        if resume.suffix == ".md":
+            mime_type = "text/markdown"
+        else:
+            mime_type = "text/plain"
+
+    logger.info("Starting profile bootstrap", resume=str(resume), interactive=interactive)
+
+    from jobhunter.onboarding.resume_ingestor import ingest_resume
+    from jobhunter.onboarding.profile_generator import generate_profile, ProfileUserInputs
+    from jobhunter.onboarding.salary_proposer import propose_salary
+    from jobhunter.onboarding.cv_variant_generator import generate_variant, VariantSpec
+    from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+
+    settings = Settings()  # type: ignore[call-arg]
+    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+
+    try:
+        with get_session() as session:
+            console = Console()
+
+            with console.status("[bold green]Step 1/4: Ingesting resume (Claude Opus)..."):
+                with open(resume, "rb") as f:
+                    file_bytes = f.read()
+                resume_data = asyncio.run(ingest_resume(file_bytes, mime_type, session=session))
+                console.print(f"✅ Resume ingested for [bold]{resume_data.name}[/bold]")
+
+            # Step 2: Personal Context
+            if interactive:
+                country = typer.prompt("Country", default="Spain")
+                work_authorization = typer.prompt("Work Authorization", default="EU Citizen")
+                timezone_home = typer.prompt("Timezone Home", default="CET")
+                overlap_max_hours_cet = int(typer.prompt("Max overlap hours with CET", default="8"))
+                contract_preferences = typer.prompt(
+                    "Contract Preferences (comma separated)", default="Full-time, Contract"
+                ).split(",")
+                contract_preferences = [c.strip() for c in contract_preferences]
+                payment_methods_ok = typer.prompt(
+                    "Payment Methods (comma separated)", default="Bank Transfer, Deel"
+                ).split(",")
+                payment_methods_ok = [p.strip() for p in payment_methods_ok]
+                hard_blockers = typer.prompt(
+                    "Hard Blockers (comma separated)", default="No crypto"
+                ).split(",")
+                hard_blockers = [h.strip() for h in hard_blockers]
+                if not profile_name:
+                    profile_name = typer.prompt(
+                        "Profile Name", default=f"{resume_data.name}'s Profile"
+                    )
+            else:
+                country = "TODO_COUNTRY"
+                work_authorization = "TODO_AUTH"
+                timezone_home = "CET"
+                overlap_max_hours_cet = 8
+                contract_preferences = ["Full-time"]
+                payment_methods_ok = ["Bank Transfer"]
+                hard_blockers = ["[TODO_ADD_BLOCKERS]"]
+                if not profile_name:
+                    profile_name = f"{resume_data.name}'s Profile"
+
+            user_inputs = ProfileUserInputs(
+                country=country,
+                work_authorization=work_authorization,
+                timezone_home=timezone_home,
+                overlap_max_hours_cet=overlap_max_hours_cet,
+                contract_preferences=contract_preferences,
+                hard_blockers=hard_blockers,
+                payment_methods_ok=payment_methods_ok,
+                profile_name=profile_name,
+            )
+
+            with console.status("[bold green]Step 2/4: Generating profile (Claude Sonnet)..."):
+                profile = asyncio.run(
+                    generate_profile(resume_data, user_inputs, session, llm_client)
+                )
+                console.print(f"✅ Profile created with ID: [bold]{profile.id}[/bold]")
+
+            with console.status("[bold green]Step 3/4: Proposing salary (Claude Sonnet)..."):
+                salary_proposal = asyncio.run(
+                    propose_salary(profile, resume_data, llm_client, session=session)
+                )
+                profile_repo = CandidateProfileRepo(session)
+                profile_repo.update_compensation(profile.id, salary_proposal.model_dump())
+                console.print(
+                    f"✅ Salary proposed: [bold]{salary_proposal.target} {salary_proposal.currency}[/bold]"
+                )
+
+            with console.status(
+                "[bold green]Step 4/4: Generating default CV variants (Claude Sonnet)..."
+            ):
+                # We generate one standard variant
+                variant_spec = VariantSpec(
+                    name="standard",
+                    display_name="Standard CV",
+                    target_role_keywords=resume_data.detected_primary_stack,
+                    target_stack=resume_data.detected_primary_stack,
+                    target_seniority=resume_data.detected_seniority,
+                    angle_description="Standard professional profile based on resume.",
+                )
+                asyncio.run(
+                    generate_variant(profile, resume_data, variant_spec, session, llm_client)
+                )
+                console.print("✅ Default CV variant generated.")
+
+            session.commit()
+
+            # Final Summary
+            now = datetime.now(timezone.utc)
+            stmt = select(func.sum(LLMCall.cost_usd)).where(
+                LLMCall.called_at >= now - timedelta(minutes=5)
+            )
+            total_cost = session.scalar(stmt) or 0.0
+
+            table = Table(title="Profile Bootstrap Summary")
+            table.add_column("Field", style="cyan")
+            table.add_column("Value", style="magenta")
+            table.add_row("Profile ID", str(profile.id))
+            table.add_row("Name", profile.name)
+            table.add_row("Seniority", profile.seniority or "N/A")
+            table.add_row("Total Cost", f"${total_cost:.4f}")
+            table.add_row("Command to verify", f"jobhunter profile show {profile.id}")
+
+            console.print(table)
+
+    except Exception as e:
+        logger.error("Profile bootstrap failed", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("list")
+def profile_list() -> None:
+    """List all candidate profiles."""
+    try:
+        from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+        from jobhunter.db.repos.cv_variant import CVVariantRepo
+
+        with get_session() as session:
+            repo = CandidateProfileRepo(session)
+            cv_repo = CVVariantRepo(session)
+            # We want to show all profiles, not just active ones, for management
+            profiles = repo.list()
+
+            console = Console()
+            table = Table(title="Candidate Profiles")
+            table.add_column("ID", style="dim")
+            table.add_column("Name", style="bold")
+            table.add_column("Seniority")
+            table.add_column("Active", justify="center")
+            table.add_column("Variants", justify="right")
+            table.add_column("Created At")
+
+            for p in profiles:
+                variants = cv_repo.list_by_profile(p.id)
+                active_str = "[green]YES[/green]" if p.is_active else "[red]NO[/red]"
+                table.add_row(
+                    str(p.id)[:8],
+                    p.name,
+                    p.seniority or "N/A",
+                    active_str,
+                    str(len(variants)),
+                    p.created_at.strftime("%Y-%m-%d"),
+                )
+
+            console.print(table)
+    except Exception as e:
+        logger.error("Failed to list profiles", error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("show")
+def profile_show(
+    profile_id: Annotated[str, typer.Argument(help="UUID of the profile to show")],
+) -> None:
+    """Show detailed information for a specific profile."""
+    try:
+        profile_uuid = uuid.UUID(profile_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {profile_id}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+
+        with get_session() as session:
+            repo = CandidateProfileRepo(session)
+            profile = repo.get(profile_uuid)
+            if not profile:
+                typer.echo(f"Error: Profile {profile_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            console = Console()
+            console.print(f"\n[bold blue]Candidate Profile: {profile.name}[/bold blue]\n")
+            console.print(Markdown(f"```yaml\n{profile.to_yaml_string()}\n```"))
+
+    except Exception as e:
+        logger.error("Failed to show profile", profile_id=profile_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("activate")
+def profile_activate(
+    profile_id: Annotated[str, typer.Argument(help="UUID of the profile to activate")],
+) -> None:
+    """Mark a profile as active."""
+    try:
+        profile_uuid = uuid.UUID(profile_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {profile_id}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+
+        with get_session() as session:
+            repo = CandidateProfileRepo(session)
+            profile = repo.get(profile_uuid)
+            if not profile:
+                typer.echo(f"Error: Profile {profile_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            repo.update(profile_uuid, is_active=True)
+            session.commit()
+            typer.echo(f"Profile {profile_id} activated.")
+    except Exception as e:
+        logger.error("Failed to activate profile", profile_id=profile_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("deactivate")
+def profile_deactivate(
+    profile_id: Annotated[str, typer.Argument(help="UUID of the profile to deactivate")],
+) -> None:
+    """Mark a profile as inactive."""
+    try:
+        profile_uuid = uuid.UUID(profile_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {profile_id}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+
+        with get_session() as session:
+            repo = CandidateProfileRepo(session)
+            profile = repo.get(profile_uuid)
+            if not profile:
+                typer.echo(f"Error: Profile {profile_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            repo.update(profile_uuid, is_active=False)
+            session.commit()
+            typer.echo(f"Profile {profile_id} deactivated.")
+    except Exception as e:
+        logger.error("Failed to deactivate profile", profile_id=profile_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("delete")
+def profile_delete(
+    profile_id: Annotated[str, typer.Argument(help="UUID of the profile to delete")],
+    confirm: Annotated[bool, typer.Option(help="Actually delete from database")] = False,
+) -> None:
+    """Delete a profile (soft delete by default, use --confirm for hard delete)."""
+    try:
+        profile_uuid = uuid.UUID(profile_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {profile_id}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+
+        with get_session() as session:
+            repo = CandidateProfileRepo(session)
+            profile = repo.get(profile_uuid)
+            if not profile:
+                typer.echo(f"Error: Profile {profile_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            if confirm:
+                if typer.confirm(f"Are you sure you want to HARD DELETE profile '{profile.name}'?"):
+                    repo.delete(profile_uuid)
+                    session.commit()
+                    typer.echo(f"Profile {profile_id} hard deleted.")
+            else:
+                repo.update(profile_uuid, is_active=False)
+                session.commit()
+                typer.echo(f"Profile {profile_id} marked as inactive (soft delete).")
+    except Exception as e:
+        logger.error("Failed to delete profile", profile_id=profile_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("variants")
+def profile_variants_list(
+    profile_id: Annotated[str, typer.Argument(help="UUID of the profile")],
+) -> None:
+    """List all CV variants for a profile."""
+    try:
+        profile_uuid = uuid.UUID(profile_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {profile_id}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        from jobhunter.db.repos.cv_variant import CVVariantRepo
+
+        with get_session() as session:
+            cv_repo = CVVariantRepo(session)
+            variants = cv_repo.list_by_profile(profile_uuid)
+
+            console = Console()
+            table = Table(title=f"CV Variants for Profile {profile_id}")
+            table.add_column("ID", style="dim")
+            table.add_column("Name", style="bold")
+            table.add_column("Display Name")
+            table.add_column("Created At")
+
+            for v in variants:
+                table.add_row(
+                    str(v.id)[:8],
+                    v.name,
+                    v.display_name or "N/A",
+                    v.created_at.strftime("%Y-%m-%d"),
+                )
+
+            console.print(table)
+    except Exception as e:
+        logger.error("Failed to list variants", profile_id=profile_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@profile_app.command("rebuild-variants")
+def profile_rebuild_variants(
+    profile_id: Annotated[str, typer.Argument(help="UUID of the profile")],
+    resume: Annotated[Path, typer.Option(help="Path to the original resume file")],
+) -> None:
+    """Re-generate all CV variants for a profile using a resume file."""
+    if not resume.exists():
+        typer.echo(f"Error: File not found: {resume}", err=True)
+        raise typer.Exit(code=1)
+
+    mime_type, _ = mimetypes.guess_type(resume)
+    if not mime_type:
+        mime_type = "text/markdown" if resume.suffix == ".md" else "text/plain"
+
+    try:
+        profile_uuid = uuid.UUID(profile_id)
+    except ValueError:
+        typer.echo(f"Error: Invalid UUID format: {profile_id}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+        from jobhunter.db.repos.cv_variant import CVVariantRepo
+        from jobhunter.onboarding.cv_variant_generator import generate_variant, VariantSpec
+        from jobhunter.onboarding.resume_ingestor import ingest_resume
+
+        settings = Settings()  # type: ignore[call-arg]
+        llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+
+        with get_session() as session:
+            repo = CandidateProfileRepo(session)
+            cv_repo = CVVariantRepo(session)
+            profile = repo.get(profile_uuid)
+            if not profile:
+                typer.echo(f"Error: Profile {profile_id} not found.", err=True)
+                raise typer.Exit(code=1)
+
+            existing_variants = cv_repo.list_by_profile(profile_uuid)
+
+            console = Console()
+            with console.status("[bold green]Ingesting resume..."):
+                with open(resume, "rb") as f:
+                    file_bytes = f.read()
+                resume_data = asyncio.run(ingest_resume(file_bytes, mime_type, session=session))
+
+            if not existing_variants:
+                typer.echo("No variants found to rebuild. Rebuilding 'standard' variant.")
+                specs = [
+                    VariantSpec(
+                        name="standard",
+                        display_name="Standard CV",
+                        target_role_keywords=resume_data.detected_primary_stack,
+                        target_stack=resume_data.detected_primary_stack,
+                        target_seniority=resume_data.detected_seniority,
+                        angle_description="Standard professional profile.",
+                    )
+                ]
+            else:
+                specs = [
+                    VariantSpec(
+                        name=v.name,
+                        display_name=v.display_name or v.name,
+                        target_role_keywords=v.target_role_keywords or [],
+                        target_stack=v.target_stack or [],
+                        target_seniority=v.target_seniority,
+                        angle_description=f"Rebuild of {v.name}",
+                    )
+                    for v in existing_variants
+                ]
+
+                # Delete existing variants (cascade will handle experiences)
+                for v in existing_variants:
+                    session.delete(v)
+                session.flush()
+
+            for spec in specs:
+                with console.status(f"[bold green]Generating variant: {spec.display_name}..."):
+                    asyncio.run(generate_variant(profile, resume_data, spec, session, llm_client))
+                console.print(f"✅ Rebuilt variant: [bold]{spec.display_name}[/bold]")
+
+            session.commit()
+            typer.echo(f"Successfully rebuilt {len(specs)} variants for profile {profile_id}.")
+
+    except Exception as e:
+        if isinstance(e, typer.Exit):
+            raise
+        logger.error("Failed to rebuild variants", profile_id=profile_id, error=str(e))
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command()

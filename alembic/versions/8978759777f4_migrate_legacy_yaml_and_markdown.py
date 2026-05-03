@@ -212,6 +212,11 @@ def upgrade() -> None:
                     return json.dumps(val)
                 return val
 
+            def truncate(val: Optional[str], length: int = 50) -> Optional[str]:
+                if val is None:
+                    return None
+                return val[:length]
+
             conn.execute(
                 sa.text("""
                     INSERT INTO candidate_profiles (
@@ -236,11 +241,11 @@ def upgrade() -> None:
                     "id": profile_id,
                     "name": "Legacy Profile",
                     "is_active": True,
-                    "seniority": data.get("seniority"),
+                    "seniority": truncate(data.get("seniority")),
                     "years_experience": years_exp,
-                    "country": location_legal.get("country"),
+                    "country": truncate(location_legal.get("country")),
                     "work_authorization": location_legal.get("work_authorization"),
-                    "timezone_home": timezone.get("home"),
+                    "timezone_home": truncate(timezone.get("home")),
                     "overlap_max_hours_cet": timezone.get("overlap_max_acceptable_hours_with_CET"),
                     "preferred_overlap_cet": timezone.get("preferred_overlap_CET"),
                     "primary_stack": prepare_array(data.get("primary_stack")),
@@ -303,6 +308,11 @@ def upgrade() -> None:
                         return json.dumps(val)
                     return val
 
+                def truncate_v(val: Optional[str], length: int = 50) -> Optional[str]:
+                    if val is None:
+                        return None
+                    return val[:length]
+
                 conn.execute(
                     sa.text("""
                         INSERT INTO cv_variants (
@@ -320,8 +330,8 @@ def upgrade() -> None:
                     {
                         "id": v_id,
                         "profile_id": profile_id,
-                        "name": name,
-                        "display_name": name.replace("_", " ").title(),
+                        "name": truncate_v(name),
+                        "display_name": name.replace("_", " ").title()[:100],
                         "target_role_keywords": prepare_array_v(keywords),
                         "target_stack": prepare_array_v(v_data["stack_primary"]),
                         "summary": v_data["summary"],
@@ -346,8 +356,8 @@ def upgrade() -> None:
                         {
                             "id": str(uuid.uuid4()),
                             "v_id": v_id,
-                            "role": exp["role"],
-                            "company": exp["company"],
+                            "role": truncate_v(exp["role"], 200),
+                            "company": truncate_v(exp["company"], 200),
                             "start_date": start_date,
                             "end_date": end_date,
                             "bullets": prepare_array_v(exp["bullets"]),

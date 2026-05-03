@@ -102,6 +102,7 @@ class LLMPurpose(StrEnum):
     CV_TWEAKS = "cv_tweaks"
     EMAIL_MATCH = "email_match"
     ANALYTICS_REPORT = "analytics_report"
+    RESUME_PARSING = "resume_parsing"
 
 
 class EmailMatchStatus(StrEnum):

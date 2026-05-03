@@ -135,6 +135,37 @@ class AnthropicLLMClient:
                             text = "Hello, I am interested in your company. " + " ".join(
                                 ["word"] * 100
                             )
+                        elif purpose == LLMPurpose.RESUME_PARSING:
+                            text = json.dumps(
+                                {
+                                    "name": "Jane Doe",
+                                    "email": "jane@example.com",
+                                    "phone": "123456789",
+                                    "location_raw": "Berlin, Germany",
+                                    "summary": "Experienced Python Developer",
+                                    "experiences": [
+                                        {
+                                            "role": "Senior Engineer",
+                                            "company": "Tech Corp",
+                                            "dates": "2020 - Present",
+                                            "bullets": ["Developed Python apps", "Managed team"],
+                                        }
+                                    ],
+                                    "educations": [
+                                        {
+                                            "degree": "BSc Computer Science",
+                                            "institution": "Tech University",
+                                            "dates": "2015-2019",
+                                            "description": "GPA 3.8",
+                                        }
+                                    ],
+                                    "skills": ["Python", "SQL"],
+                                    "languages": ["English", "German"],
+                                    "detected_seniority": "senior",
+                                    "detected_years_experience": 8,
+                                    "detected_primary_stack": ["Python", "FastAPI"],
+                                }
+                            )
                         else:
                             # Mock cover letter that passes validation (250-450 words)
                             text = " ".join(["word"] * 300)

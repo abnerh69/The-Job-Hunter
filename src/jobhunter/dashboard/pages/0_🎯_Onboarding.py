@@ -304,6 +304,7 @@ def main() -> None:
                             }
                             state.llm_costs += 0.003  # Estimated cost for Claude Sonnet
                             st.success("Profile synthesized!")
+                            state.profile_id = profile.id
                             import time
 
                             time.sleep(2)  # Give time for user to see success
@@ -500,7 +501,7 @@ def main() -> None:
 
                         for gv in state.generated_variants:
                             variant = CVVariant(
-                                profile_id=profile.id, # Fixed in post-processing
+                                profile_id=profile.id,
                                 name=gv["name"],
                                 display_name=gv["display_name"],
                                 target_role_keywords=gv["target_role_keywords"],

@@ -6,7 +6,6 @@ from typing import Generator
 from playwright.sync_api import sync_playwright, expect
 from sqlalchemy import create_engine
 from jobhunter.db.base import Base
-import jobhunter.db.models
 
 
 @pytest.fixture(scope="module")
@@ -75,7 +74,7 @@ def test_onboarding_wizard_full_flow(streamlit_server: None, test_db: str) -> No
         resume_path = os.path.abspath("tests/fixtures/resumes/resume.pdf")
         page.locator('input[type="file"]').set_input_files(resume_path)
         page.get_by_role("button", name="Ingest Resume").click()
-        time.sleep(15) # Wait for extraction
+        time.sleep(15)  # Wait for extraction
 
         # 4. Step 2: Review Extraction
         expect(page.get_by_role("heading", name="Step 2: Review Extraction")).to_be_visible()
@@ -134,7 +133,9 @@ def test_onboarding_wizard_full_flow(streamlit_server: None, test_db: str) -> No
         with Session(engine) as session:
             # Verify Profile (The name might have been extracted or filled)
             # In our test we filled John Doe in Step 2
-            profile = session.scalar(select(CandidateProfile).where(CandidateProfile.name == "John Doe"))
+            profile = session.scalar(
+                select(CandidateProfile).where(CandidateProfile.name == "John Doe")
+            )
             assert profile is not None, "Candidate profile not found in database"
             assert profile.is_active is True
             assert profile.country == "Spain"
@@ -145,7 +146,9 @@ def test_onboarding_wizard_full_flow(streamlit_server: None, test_db: str) -> No
             assert variant.display_name == "Fullstack Dev"
 
             # Verify Experience (at least one)
-            experience = session.scalar(select(CVVariantExperience).where(CVVariantExperience.cv_variant_id == variant.id))
+            experience = session.scalar(
+                select(CVVariantExperience).where(CVVariantExperience.cv_variant_id == variant.id)
+            )
             assert experience is not None, "CV Variant Experience not found in database"
 
         # 11. Verify banner disappeared on home page

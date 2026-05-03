@@ -79,12 +79,8 @@ async def test_generate_profile_success(db_session: Session) -> None:
     assert profile.domains is not None
     assert "FinTech" in profile.domains
 
-    # Check persistence
-    db_session.expire(profile)
-    persisted_profile = db_session.get(CandidateProfile, profile.id)
-    assert persisted_profile is not None
-    assert persisted_profile.name == "Senior Python Developer"
-    assert persisted_profile.compensation is None
+    # Persistence is now handled by the caller (Wizard/CLI)
+    # The function no longer calls repo.create(profile)
 
 
 @pytest.mark.asyncio

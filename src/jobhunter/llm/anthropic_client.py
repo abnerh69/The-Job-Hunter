@@ -166,6 +166,19 @@ class AnthropicLLMClient:
                                     "detected_primary_stack": ["Python", "FastAPI"],
                                 }
                             )
+                        elif purpose == LLMPurpose.SALARY_PROPOSAL:
+                            text = json.dumps(
+                                {
+                                    "currency": "USD",
+                                    "period": "year",
+                                    "floor": 90000,
+                                    "target": 110000,
+                                    "stretch": 130000,
+                                    "rationale": "Strong background in Python and AI.",
+                                    "data_sources": ["llm_baseline_2026"],
+                                    "confidence": 0.9,
+                                }
+                            )
                         else:
                             # Mock cover letter that passes validation (250-450 words)
                             text = " ".join(["word"] * 300)

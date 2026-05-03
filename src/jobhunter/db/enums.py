@@ -105,6 +105,7 @@ class LLMPurpose(StrEnum):
     RESUME_PARSING = "resume_parsing"
     PROFILE_GENERATION = "profile_generation"
     CV_VARIANT_GENERATION = "cv_variant_generation"
+    SALARY_PROPOSAL = "salary_proposal"
 
 
 class EmailMatchStatus(StrEnum):

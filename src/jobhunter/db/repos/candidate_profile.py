@@ -87,6 +87,20 @@ class CandidateProfileRepo(BaseRepo[CandidateProfile]):
         profile = self.update(profile_id, is_active=False)
         return profile is not None
 
+    def update_compensation(self, profile_id: uuid.UUID, compensation: dict[str, Any]) -> bool:
+        """
+        Updates the compensation field of a candidate profile.
+
+        Args:
+            profile_id (uuid.UUID): The ID of the profile.
+            compensation (dict[str, Any]): The compensation data.
+
+        Returns:
+            bool: True if updated, False otherwise.
+        """
+        profile = self.update(profile_id, compensation=compensation)
+        return profile is not None
+
     def list_history(self, profile_id: uuid.UUID) -> Sequence[CandidateProfileHistory]:
         """
         Lists the history of a candidate profile.

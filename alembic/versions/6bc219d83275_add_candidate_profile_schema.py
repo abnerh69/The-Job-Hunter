@@ -189,8 +189,8 @@ def upgrade() -> None:
             RETURNS TRIGGER AS $$
             BEGIN
                 IF (OLD IS DISTINCT FROM NEW) THEN
-                    INSERT INTO candidate_profile_history (profile_id, snapshot, changed_by, change_reason)
-                    VALUES (OLD.id, to_jsonb(OLD), 'db_trigger', NEW.notes);
+                    INSERT INTO candidate_profile_history (id, profile_id, snapshot, changed_by, change_reason)
+                    VALUES (gen_random_uuid(), OLD.id, to_jsonb(OLD), 'db_trigger', NEW.notes);
                 END IF;
                 NEW.updated_at = now();
                 RETURN NEW;

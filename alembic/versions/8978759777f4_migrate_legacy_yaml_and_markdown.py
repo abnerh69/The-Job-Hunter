@@ -199,6 +199,13 @@ def upgrade() -> None:
             timezone = data.get("timezone", {})
 
             def prepare_json(val: Any) -> Any:
+                """For JSONB columns, always encode as JSON string for sa.text()."""
+                if val is None:
+                    return None
+                return json.dumps(val)
+
+            def prepare_array(val: Any) -> Any:
+                """For ARRAY columns, encode as JSON string for SQLite, keep as list for Postgres."""
                 if val is None:
                     return None
                 if is_sqlite:
@@ -236,15 +243,15 @@ def upgrade() -> None:
                     "timezone_home": timezone.get("home"),
                     "overlap_max_hours_cet": timezone.get("overlap_max_acceptable_hours_with_CET"),
                     "preferred_overlap_cet": timezone.get("preferred_overlap_CET"),
-                    "primary_stack": prepare_json(data.get("primary_stack")),
-                    "secondary_stack": prepare_json(data.get("secondary_stack")),
-                    "domains": prepare_json(data.get("domains")),
+                    "primary_stack": prepare_array(data.get("primary_stack")),
+                    "secondary_stack": prepare_array(data.get("secondary_stack")),
+                    "domains": prepare_array(data.get("domains")),
                     "languages": prepare_json(data.get("language")),
                     "compensation": prepare_json(data.get("compensation")),
-                    "contract_preferences": prepare_json(data.get("contract_preferences")),
-                    "hard_blockers": prepare_json(data.get("hard_blockers")),
-                    "soft_negatives": prepare_json(data.get("soft_negatives")),
-                    "positive_signals": prepare_json(data.get("positive_signals")),
+                    "contract_preferences": prepare_array(data.get("contract_preferences")),
+                    "hard_blockers": prepare_array(data.get("hard_blockers")),
+                    "soft_negatives": prepare_array(data.get("soft_negatives")),
+                    "positive_signals": prepare_array(data.get("positive_signals")),
                 },
             )
             imported_profiles += 1
@@ -287,6 +294,11 @@ def upgrade() -> None:
                 def prepare_json_v(val: Any) -> Any:
                     if val is None:
                         return None
+                    return json.dumps(val)
+
+                def prepare_array_v(val: Any) -> Any:
+                    if val is None:
+                        return None
                     if is_sqlite:
                         return json.dumps(val)
                     return val
@@ -310,10 +322,10 @@ def upgrade() -> None:
                         "profile_id": profile_id,
                         "name": name,
                         "display_name": name.replace("_", " ").title(),
-                        "target_role_keywords": prepare_json_v(keywords),
-                        "target_stack": prepare_json_v(v_data["stack_primary"]),
+                        "target_role_keywords": prepare_array_v(keywords),
+                        "target_stack": prepare_array_v(v_data["stack_primary"]),
                         "summary": v_data["summary"],
-                        "skills": prepare_json_v(v_data["skills"]),
+                        "skills": prepare_array_v(v_data["skills"]),
                         "raw_markdown": v_data["raw_markdown"],
                     },
                 )
@@ -338,7 +350,7 @@ def upgrade() -> None:
                             "company": exp["company"],
                             "start_date": start_date,
                             "end_date": end_date,
-                            "bullets": prepare_json_v(exp["bullets"]),
+                            "bullets": prepare_array_v(exp["bullets"]),
                             "sort_order": idx,
                         },
                     )

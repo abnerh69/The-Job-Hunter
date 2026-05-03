@@ -105,6 +105,7 @@ class LLMPurpose(StrEnum):
     RESUME_PARSING = "resume_parsing"
     PROFILE_GENERATION = "profile_generation"
     CV_VARIANT_GENERATION = "cv_variant_generation"
+    CV_VARIANT_SELECTION = "cv_variant_selection"
     SALARY_PROPOSAL = "salary_proposal"
 
 

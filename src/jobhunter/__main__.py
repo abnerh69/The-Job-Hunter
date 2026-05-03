@@ -883,8 +883,22 @@ def letter(
 
             if not cv_variant:
                 from jobhunter.application.variant_selector import recommend_cv_variant
+                from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+                from jobhunter.db.repos.cv_variant import CVVariantRepo
 
-                rec = recommend_cv_variant(job)
+                profile_repo = CandidateProfileRepo(session)
+                profiles = profile_repo.list_active()
+                if not profiles:
+                    typer.echo("Error: No active candidate profile found.", err=True)
+                    raise typer.Exit(code=1)
+                profile = profiles[0]
+
+                variant_repo = CVVariantRepo(session)
+                available_variants = variant_repo.list_by_profile(profile.id)
+
+                rec = asyncio.run(
+                    recommend_cv_variant(job, available_variants, llm_client=llm_client)
+                )
                 cv_variant = rec.variant_name
                 typer.echo(f"Auto-selected CV variant: {cv_variant} ({rec.reasoning})")
 

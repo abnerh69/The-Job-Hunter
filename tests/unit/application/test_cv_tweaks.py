@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -25,7 +24,6 @@ def mock_job() -> Job:
 def mock_cv_variant() -> CVVariant:
     return CVVariant(
         name="test_cv",
-        path=Path("dummy/path/to/cv.md"),
         summary="Senior Developer",
         stack_primary=["Python", "SQL"],
         stack_secondary=["AWS"],

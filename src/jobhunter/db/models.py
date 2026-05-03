@@ -92,6 +92,9 @@ class Job(Base):
 
     # Relationships
     applications: Mapped[list["Application"]] = relationship(back_populates="job")
+    profile_scores: Mapped[list["JobProfileScore"]] = relationship(
+        back_populates="job", cascade="all, delete-orphan"
+    )
 
     # Indices
     __table_args__ = (
@@ -714,8 +717,101 @@ class CandidateProfile(Base):
         ),
     )
 
+    def to_yaml_string(self) -> str:
+        """
+        Returns a YAML representation of the profile for prompt injection.
+        """
+        import yaml
+
+        data = {
+            "name": self.name,
+            "seniority": self.seniority,
+            "years_experience": self.years_experience,
+            "location_legal": {
+                "country": self.country,
+                "work_authorization": self.work_authorization,
+                "payment_methods_ok": self.payment_methods_ok,
+            },
+            "timezone": {
+                "home": self.timezone_home,
+                "overlap_max_acceptable_hours_with_CET": self.overlap_max_hours_cet,
+                "preferred_overlap_CET": self.preferred_overlap_cet,
+            },
+            "primary_stack": self.primary_stack,
+            "secondary_stack": self.secondary_stack,
+            "domains": self.domains,
+            "languages": self.languages,
+            "compensation": self.compensation,
+            "contract_preferences": self.contract_preferences,
+            "hard_blockers": self.hard_blockers,
+            "soft_negatives": self.soft_negatives,
+            "positive_signals": self.positive_signals,
+            "notes": self.notes,
+        }
+        # Filter out None values to keep YAML clean
+        clean_data = {k: v for k, v in data.items() if v is not None}
+        location_legal = clean_data.get("location_legal")
+        if isinstance(location_legal, dict):
+            clean_data["location_legal"] = {
+                k: v for k, v in location_legal.items() if v is not None
+            }
+
+        timezone = clean_data.get("timezone")
+        if isinstance(timezone, dict):
+            clean_data["timezone"] = {k: v for k, v in timezone.items() if v is not None}
+
+        return yaml.dump(clean_data, sort_keys=False, allow_unicode=True)
+
     def __repr__(self) -> str:
         return f"<CandidateProfile(name={self.name}, is_active={self.is_active})>"
+
+
+class JobProfileScore(Base):
+    """
+    SQLAlchemy model for the 'job_profile_scores' table.
+    Stores the fit score and tier of a job for a specific candidate profile.
+    """
+
+    __tablename__ = "job_profile_scores"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("candidate_profiles.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    fit_score: Mapped[int | None] = mapped_column(Integer)
+    tier: Mapped[JobTier | None] = mapped_column(String(10))
+    score_data: Mapped[dict[str, Any] | None] = mapped_column(
+        MutableDict.as_mutable(JSONB().with_variant(JSON(), "sqlite"))
+    )
+
+    scored_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    scored_with_prompt_version: Mapped[str | None] = mapped_column(String(20))
+
+    # Relationships
+    job: Mapped["Job"] = relationship(back_populates="profile_scores")
+    profile: Mapped["CandidateProfile"] = relationship()
+
+    # Indices
+    __table_args__ = (
+        Index("idx_job_profile_scores_job_id", "job_id"),
+        Index("idx_job_profile_scores_profile_id", "profile_id"),
+        Index("idx_job_profile_scores_tier", "tier"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<JobProfileScore(job_id={self.job_id}, profile_id={self.profile_id}, tier={self.tier})>"
 
 
 class CandidateProfileHistory(Base):

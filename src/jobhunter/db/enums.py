@@ -121,3 +121,17 @@ class ABTestStatus(StrEnum):
     ACTIVE = "active"
     CONCLUDED = "concluded"
     ABORTED = "aborted"
+
+
+class AuditEventType(StrEnum):
+    """Enumeration of possible event types for an audit log."""
+
+    LOGIN = "login"
+    LOGOUT = "logout"
+    DATA_ACCESS = "data_access"
+    DATA_MUTATION = "data_mutation"
+    CONFIG_CHANGE = "config_change"
+    SECRET_ROTATED = "secret_rotated"
+    BACKUP_CREATED = "backup_created"
+    RESTORE_EXECUTED = "restore_executed"
+    BULK_DELETE = "bulk_delete"

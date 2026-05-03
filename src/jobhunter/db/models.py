@@ -19,8 +19,8 @@ from sqlalchemy import (
     event,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from jobhunter.db.base import Base
@@ -629,6 +629,227 @@ class AuditLog(Base):
 
     def __repr__(self) -> str:
         return f"<AuditLog(event_type={self.event_type}, actor={self.actor}, action={self.action})>"
+
+
+class CandidateProfile(Base):
+    """
+    SQLAlchemy model for the 'candidate_profiles' table.
+    Represents the candidate's profile data.
+    """
+
+    __tablename__ = "candidate_profiles"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default="true", default=True)
+
+    seniority: Mapped[str | None] = mapped_column(String(50))
+    years_experience: Mapped[int | None] = mapped_column(Integer)
+    country: Mapped[str | None] = mapped_column(String(50))
+    work_authorization: Mapped[str | None] = mapped_column(Text)
+    timezone_home: Mapped[str | None] = mapped_column(String(50))
+    overlap_max_hours_cet: Mapped[int | None] = mapped_column(Integer)
+    preferred_overlap_cet: Mapped[int | None] = mapped_column(Integer)
+
+    primary_stack: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    secondary_stack: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    domains: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    languages: Mapped[dict[str, Any] | None] = mapped_column(
+        MutableDict.as_mutable(JSONB().with_variant(JSON(), "sqlite"))
+    )
+    compensation: Mapped[dict[str, Any] | None] = mapped_column(
+        MutableDict.as_mutable(JSONB().with_variant(JSON(), "sqlite"))
+    )
+    contract_preferences: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    hard_blockers: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    soft_negatives: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    positive_signals: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    payment_methods_ok: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    # Relationships
+    history: Mapped[list["CandidateProfileHistory"]] = relationship(
+        back_populates="profile", cascade="all, delete-orphan"
+    )
+    cv_variants: Mapped[list["CVVariant"]] = relationship(
+        back_populates="profile", cascade="all, delete-orphan"
+    )
+
+    # Indices
+    __table_args__ = (
+        Index(
+            "idx_profiles_is_active",
+            "is_active",
+            postgresql_where=is_active.is_(True),
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CandidateProfile(name={self.name}, is_active={self.is_active})>"
+
+
+class CandidateProfileHistory(Base):
+    """
+    SQLAlchemy model for the 'candidate_profile_history' table.
+    Stores snapshots of candidate profiles before updates.
+    """
+
+    __tablename__ = "candidate_profile_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("candidate_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    snapshot: Mapped[dict[str, Any]] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"), nullable=False
+    )
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    changed_by: Mapped[str | None] = mapped_column(String(100))
+    change_reason: Mapped[str | None] = mapped_column(Text)
+
+    # Relationships
+    profile: Mapped["CandidateProfile"] = relationship(back_populates="history")
+
+    # Indices
+    __table_args__ = (
+        Index("idx_profile_history_profile_id_changed_at", profile_id, changed_at.desc()),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<CandidateProfileHistory(profile_id={self.profile_id}, changed_at={self.changed_at})>"
+        )
+
+
+class CVVariant(Base):
+    """
+    SQLAlchemy model for the 'cv_variants' table.
+    Represents a specific variant of a candidate's CV.
+    """
+
+    __tablename__ = "cv_variants"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("candidate_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(100))
+
+    target_role_keywords: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    target_stack: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    target_seniority: Mapped[str | None] = mapped_column(String(50))
+    summary: Mapped[str | None] = mapped_column(Text)
+    skills: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    raw_markdown: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    # Relationships
+    profile: Mapped["CandidateProfile"] = relationship(back_populates="cv_variants")
+    experiences: Mapped[list["CVVariantExperience"]] = relationship(
+        back_populates="cv_variant",
+        cascade="all, delete-orphan",
+        order_by="CVVariantExperience.sort_order",
+    )
+
+    # Indices and Constraints
+    __table_args__ = (
+        Index("idx_cv_variants_profile_id", profile_id),
+        CheckConstraint("profile_id IS NOT NULL", name="check_cv_variant_profile_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CVVariant(name={self.name}, profile_id={self.profile_id})>"
+
+
+class CVVariantExperience(Base):
+    """
+    SQLAlchemy model for the 'cv_variant_experiences' table.
+    Represents professional experiences within a CV variant.
+    """
+
+    __tablename__ = "cv_variant_experiences"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    cv_variant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cv_variants.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str | None] = mapped_column(String(200))
+    company: Mapped[str | None] = mapped_column(String(200))
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    bullets: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    sort_order: Mapped[int | None] = mapped_column(Integer)
+
+    # Relationships
+    cv_variant: Mapped["CVVariant"] = relationship(back_populates="experiences")
+
+    # Indices
+    __table_args__ = (Index("idx_cv_exp_variant_sort", cv_variant_id, sort_order),)
+
+    def __repr__(self) -> str:
+        return f"<CVVariantExperience(role={self.role}, company={self.company})>"
 
 
 @event.listens_for(Application.status, "set")

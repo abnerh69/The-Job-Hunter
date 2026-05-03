@@ -10,6 +10,10 @@ from jobhunter.db.models import (  # noqa: F401
     ABTest,
     Application,
     ApplicationEvent,
+    CandidateProfile,
+    CandidateProfileHistory,
+    CVVariant,
+    CVVariantExperience,
     EmailMessage,
     Job,
     LLMCall,
@@ -172,10 +176,40 @@ def setup_database() -> Generator[None, None, None]:
             conn.execute(
                 text("CREATE UNIQUE INDEX idx_weekly_metrics_week ON weekly_metrics (week)")
             )
+
+            # Create trigger for candidate_profile_history
+            conn.execute(
+                text("""
+                CREATE OR REPLACE FUNCTION candidate_profile_snapshot_trigger_fn()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    IF (OLD IS DISTINCT FROM NEW) THEN
+                        INSERT INTO candidate_profile_history (id, profile_id, snapshot, changed_by, change_reason)
+                        VALUES (gen_random_uuid(), OLD.id, to_jsonb(OLD), 'db_trigger', NEW.notes);
+                    END IF;
+                    NEW.updated_at = now();
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+                """)
+            )
+            conn.execute(
+                text("""
+                CREATE TRIGGER trg_candidate_profile_history
+                BEFORE UPDATE ON candidate_profiles
+                FOR EACH ROW
+                EXECUTE FUNCTION candidate_profile_snapshot_trigger_fn();
+                """)
+            )
+
             conn.commit()
     yield
     if engine.dialect.name == "postgresql":
         with engine.connect() as conn:
+            conn.execute(
+                text("DROP TRIGGER IF EXISTS trg_candidate_profile_history ON candidate_profiles")
+            )
+            conn.execute(text("DROP FUNCTION IF EXISTS candidate_profile_snapshot_trigger_fn"))
             conn.execute(text("DROP MATERIALIZED VIEW IF EXISTS weekly_metrics CASCADE"))
             for table in reversed(Base.metadata.sorted_tables):
                 conn.execute(text(f"DROP TABLE IF EXISTS {table.name} CASCADE"))

@@ -466,6 +466,7 @@ def main() -> None:
                         sp = state.salary_proposal
 
                         profile = CandidateProfile(
+                            id=uuid.uuid4(),
                             name=pd["name"],
                             seniority=pd["seniority"],
                             years_experience=pd["years_experience"],
@@ -499,7 +500,7 @@ def main() -> None:
 
                         for gv in state.generated_variants:
                             variant = CVVariant(
-                                profile_id=profile.id,
+                                profile_id=profile.id, # Fixed in post-processing
                                 name=gv["name"],
                                 display_name=gv["display_name"],
                                 target_role_keywords=gv["target_role_keywords"],

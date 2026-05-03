@@ -6,11 +6,12 @@ from typing import Generator
 from playwright.sync_api import sync_playwright, expect
 from sqlalchemy import create_engine
 from jobhunter.db.base import Base
+import jobhunter.db.models
 
 
 @pytest.fixture(scope="module")
 def test_db() -> Generator[str, None, None]:
-    db_path = "test_e2e_onboarding.db"
+    db_path = os.path.abspath("test_e2e_onboarding.db")
     if os.path.exists(db_path):
         os.remove(db_path)
 
@@ -29,6 +30,7 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
     subprocess.run("kill $(lsof -t -i :8501) 2>/dev/null || true", shell=True)
     env = os.environ.copy()
     env["DATABASE_URL"] = test_db
+    env["TEST_DATABASE_URL"] = test_db
     env["ANTHROPIC_API_KEY"] = "dummy"
     env["DASHBOARD_PASSWORD"] = "secret123"  # pragma: allowlist secret
     env["PYTHONPATH"] = "src"
@@ -48,7 +50,7 @@ def streamlit_server(test_db: str) -> Generator[None, None, None]:
 
 
 @pytest.mark.e2e
-def test_onboarding_wizard_full_flow(streamlit_server: None) -> None:
+def test_onboarding_wizard_full_flow(streamlit_server: None, test_db: str) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
@@ -68,8 +70,12 @@ def test_onboarding_wizard_full_flow(streamlit_server: None) -> None:
 
         # 3. Step 1: Upload Resume
         expect(page.get_by_role("heading", name="Step 1: Upload Resume")).to_be_visible()
-        page.get_by_role("button", name="Skip and fill manually").click()
-        time.sleep(5)
+
+        # Upload resume
+        resume_path = os.path.abspath("tests/fixtures/resumes/resume.pdf")
+        page.locator('input[type="file"]').set_input_files(resume_path)
+        page.get_by_role("button", name="Ingest Resume").click()
+        time.sleep(15) # Wait for extraction
 
         # 4. Step 2: Review Extraction
         expect(page.get_by_role("heading", name="Step 2: Review Extraction")).to_be_visible()
@@ -118,5 +124,35 @@ def test_onboarding_wizard_full_flow(streamlit_server: None) -> None:
         page.get_by_role("button", name="🚀 ACTIVATE PROFILE").click()
         time.sleep(10)
         expect(page.get_by_text("Profile and variants activated successfully!")).to_be_visible()
+
+        # 10. Verify database records
+        from sqlalchemy import select
+        from sqlalchemy.orm import Session
+        from jobhunter.db.models import CandidateProfile, CVVariant, CVVariantExperience
+
+        engine = create_engine(test_db)
+        with Session(engine) as session:
+            # Verify Profile (The name might have been extracted or filled)
+            # In our test we filled John Doe in Step 2
+            profile = session.scalar(select(CandidateProfile).where(CandidateProfile.name == "John Doe"))
+            assert profile is not None, "Candidate profile not found in database"
+            assert profile.is_active is True
+            assert profile.country == "Spain"
+
+            # Verify Variant
+            variant = session.scalar(select(CVVariant).where(CVVariant.profile_id == profile.id))
+            assert variant is not None, "CV Variant not found in database"
+            assert variant.display_name == "Fullstack Dev"
+
+            # Verify Experience (at least one)
+            experience = session.scalar(select(CVVariantExperience).where(CVVariantExperience.cv_variant_id == variant.id))
+            assert experience is not None, "CV Variant Experience not found in database"
+
+        # 11. Verify banner disappeared on home page
+        page.goto("http://localhost:8501")
+        time.sleep(5)
+        expect(
+            page.get_by_text("Configura tu perfil para empezar a recibir matches")
+        ).not_to_be_visible()
 
         browser.close()

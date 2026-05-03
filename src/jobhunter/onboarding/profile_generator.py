@@ -155,13 +155,8 @@ async def generate_profile(
         compensation=None,  # Explicitly NULL as per AC
     )
 
-    # 6. Persistence
-    repo = CandidateProfileRepo(session)
-    repo.create(profile)
-
     logger.info(
         "candidate_profile_generated",
-        profile_id=str(profile.id),
         profile_name=profile.name,
     )
 

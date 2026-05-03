@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy.orm import Session
-from jobhunter.db.models import Job
+from jobhunter.db.models import CandidateProfile, Job
 from jobhunter.db.enums import JobStatus, JobTier
 from jobhunter.scoring.pipeline import score_pending_jobs
 from jobhunter.scoring.scorer import JobScorer
@@ -10,7 +10,9 @@ from typing import Any
 
 
 @pytest.mark.asyncio
-async def test_pipeline_e2e_distribution(db_session: Session, mock_job_scorer: JobScorer) -> None:
+async def test_pipeline_e2e_distribution(
+    db_session: Session, mock_job_scorer: JobScorer, sample_candidate_profile: CandidateProfile
+) -> None:
     """
     Test the full pipeline with a variety of jobs and verify distribution.
     """
@@ -148,7 +150,10 @@ async def test_pipeline_e2e_distribution(db_session: Session, mock_job_scorer: J
 
 @pytest.mark.asyncio
 async def test_pipeline_budget_exceeded(
-    db_session: Session, mock_job_scorer: JobScorer, monkeypatch: pytest.MonkeyPatch
+    db_session: Session,
+    mock_job_scorer: JobScorer,
+    monkeypatch: pytest.MonkeyPatch,
+    sample_candidate_profile: CandidateProfile,
 ) -> None:
     """
     Test that JobScorer.score raises BudgetExceededError when budget is reached.
@@ -180,7 +185,7 @@ async def test_pipeline_budget_exceeded(
 
 @pytest.mark.asyncio
 async def test_score_data_roundtrip_validation(
-    db_session: Session, mock_job_scorer: JobScorer
+    db_session: Session, mock_job_scorer: JobScorer, sample_candidate_profile: CandidateProfile
 ) -> None:
     """
     Verify that persisted score_data is valid against the Pydantic schema.
@@ -203,21 +208,31 @@ async def test_score_data_roundtrip_validation(
     db_session.expire_all()
     job_from_db = db_session.query(Job).filter(Job.url_hash == "hash_roundtrip").one()
 
-    assert job_from_db.score_data is not None
+    # Scores are now in job_profile_scores table
+    from jobhunter.db.models import JobProfileScore
+
+    profile_score = (
+        db_session.query(JobProfileScore).filter(JobProfileScore.job_id == job_from_db.id).one()
+    )
+
+    assert profile_score.score_data is not None
 
     # Validate against Pydantic schema
-    if job_from_db.score_data.get("valid"):
-        res_valid = ScoringResult.model_validate(job_from_db.score_data)
+    if profile_score.score_data.get("valid"):
+        res_valid = ScoringResult.model_validate(profile_score.score_data)
         assert res_valid.fit_score == 95
         assert res_valid.tier == "A"
     else:
-        res_invalid = InvalidScoringResponse.model_validate(job_from_db.score_data)
+        res_invalid = InvalidScoringResponse.model_validate(profile_score.score_data)
         assert res_invalid.valid is False
 
 
 @pytest.mark.asyncio
 async def test_scorer_retry_on_malformed_json(
-    db_session: Session, mock_job_scorer: JobScorer, mock_llm_client: Any
+    db_session: Session,
+    mock_job_scorer: JobScorer,
+    mock_llm_client: Any,
+    sample_candidate_profile: CandidateProfile,
 ) -> None:
     """
     Test that the scorer retries when receiving malformed JSON.
@@ -249,7 +264,13 @@ async def test_scorer_retry_on_malformed_json(
     db_session.expire_all()
     job_from_db = db_session.query(Job).filter(Job.url_hash == "hash_malformed").one()
     assert job_from_db.status == JobStatus.QUEUED
-    assert job_from_db.tier == JobTier.A
+
+    from jobhunter.db.models import JobProfileScore
+
+    profile_score = (
+        db_session.query(JobProfileScore).filter(JobProfileScore.job_id == job_from_db.id).one()
+    )
+    assert profile_score.tier == JobTier.A
 
     # Verify it took 2 calls
     assert mock_llm_client.call_count == 2

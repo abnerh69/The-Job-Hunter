@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from jobhunter.db.models import Job
+from jobhunter.db.models import CandidateProfile, Job
 from jobhunter.llm.anthropic_client import LLMResponse
 from jobhunter.scoring.errors import ScoringAPIError, ScoringParseError
 from jobhunter.scoring.scorer import JobScorer, ScoringOutcome
@@ -14,6 +14,17 @@ from jobhunter.scoring.schema import ScoringResult, InvalidScoringResponse
 @pytest.fixture
 def mock_llm_client() -> AsyncMock:
     return AsyncMock()
+
+
+@pytest.fixture
+def sample_profile() -> CandidateProfile:
+    return CandidateProfile(
+        id=uuid.uuid4(),
+        name="Abner Hernández",
+        seniority="senior",
+        years_experience=20,
+        primary_stack=["Python", "FastAPI", "AI/ML"],
+    )
 
 
 @pytest.fixture
@@ -88,7 +99,10 @@ def valid_json_response() -> str:
 
 @pytest.mark.asyncio
 async def test_score_success(
-    mock_llm_client: AsyncMock, sample_job: Job, valid_json_response: str
+    mock_llm_client: AsyncMock,
+    sample_job: Job,
+    sample_profile: CandidateProfile,
+    valid_json_response: str,
 ) -> None:
     # Arrange
     llm_response = LLMResponse(
@@ -117,7 +131,10 @@ async def test_score_success(
 
 @pytest.mark.asyncio
 async def test_score_retry_success(
-    mock_llm_client: AsyncMock, sample_job: Job, valid_json_response: str
+    mock_llm_client: AsyncMock,
+    sample_job: Job,
+    sample_profile: CandidateProfile,
+    valid_json_response: str,
 ) -> None:
     # Arrange
     # The first response should fail because parse_scoring_response is strict if it has extra text
@@ -159,7 +176,9 @@ async def test_score_retry_success(
 
 
 @pytest.mark.asyncio
-async def test_score_double_failure(mock_llm_client: AsyncMock, sample_job: Job) -> None:
+async def test_score_double_failure(
+    mock_llm_client: AsyncMock, sample_job: Job, sample_profile: CandidateProfile
+) -> None:
     # Arrange
     llm_response = LLMResponse(
         text="Still invalid JSON",
@@ -183,7 +202,9 @@ async def test_score_double_failure(mock_llm_client: AsyncMock, sample_job: Job)
 
 
 @pytest.mark.asyncio
-async def test_score_api_error(mock_llm_client: AsyncMock, sample_job: Job) -> None:
+async def test_score_api_error(
+    mock_llm_client: AsyncMock, sample_job: Job, sample_profile: CandidateProfile
+) -> None:
     # Arrange
     mock_llm_client.complete.side_effect = Exception("API connection failed")
     scorer = JobScorer(llm_client=mock_llm_client)
@@ -197,7 +218,9 @@ async def test_score_api_error(mock_llm_client: AsyncMock, sample_job: Job) -> N
 
 
 @pytest.mark.asyncio
-async def test_score_invalid_response(mock_llm_client: AsyncMock, sample_job: Job) -> None:
+async def test_score_invalid_response(
+    mock_llm_client: AsyncMock, sample_job: Job, sample_profile: CandidateProfile
+) -> None:
     # Arrange
     invalid_json = '{"valid": false, "reason": "Spam job offer"}'
     llm_response = LLMResponse(

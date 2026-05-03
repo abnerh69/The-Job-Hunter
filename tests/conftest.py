@@ -1,4 +1,5 @@
 import pytest
+from datetime import date
 from collections.abc import Generator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -275,6 +276,46 @@ def sample_application(db_session: Session, sample_job: Job) -> Application:
     db_session.add(app)
     db_session.flush()
     return app
+
+
+@pytest.fixture
+def sample_candidate_profile(db_session: Session) -> CandidateProfile:
+    """Provides a sample CandidateProfile instance persisted in the DB."""
+    profile = CandidateProfile(
+        name="Abner Hernández",
+        seniority="senior",
+        years_experience=20,
+        primary_stack=["Python", "FastAPI", "AI/ML"],
+        is_active=True,
+    )
+    db_session.add(profile)
+    db_session.flush()
+    return profile
+
+
+@pytest.fixture
+def sample_cv_variant(db_session: Session, sample_candidate_profile: CandidateProfile) -> CVVariant:
+    """Provides a sample CVVariant instance persisted in the DB."""
+    variant = CVVariant(
+        profile_id=sample_candidate_profile.id,
+        name="ai_python",
+        summary="Senior AI Engineer",
+        target_stack=["Python", "AI/ML"],
+        raw_markdown="## SUMMARY\nSenior AI Engineer\n## EXPERIENCE\n### Lead AI | Tech Corp | 2020-Present\n- Built RAG",
+    )
+    db_session.add(variant)
+    db_session.flush()
+
+    exp = CVVariantExperience(
+        cv_variant_id=variant.id,
+        role="Lead AI",
+        company="Tech Corp",
+        start_date=date(2020, 1, 1),
+        bullets=["Built RAG"],
+    )
+    db_session.add(exp)
+    db_session.flush()
+    return variant
 
 
 @pytest.fixture

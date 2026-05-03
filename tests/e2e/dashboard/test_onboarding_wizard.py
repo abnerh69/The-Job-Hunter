@@ -60,7 +60,9 @@ def test_onboarding_wizard_full_flow(streamlit_server: None) -> None:
         time.sleep(5)
 
         # 2. Check for soft gating banner
-        expect(page.get_by_text("Configura tu perfil para empezar a recibir matches")).to_be_visible()
+        expect(
+            page.get_by_text("Configura tu perfil para empezar a recibir matches")
+        ).to_be_visible()
         page.get_by_role("button", name="Empezar wizard").click()
         time.sleep(5)
 

@@ -46,7 +46,7 @@ def init_state() -> None:
     # Handle Edit Mode from query params
     params = st.query_params
     if "profile_id" in params and not state.is_edit_mode:
-        profile_id = uuid.UUID(params["profile_id"])
+        profile_id = uuid.UUID(str(params["profile_id"]))
         with get_session() as session:
             repo = CandidateProfileRepo(session)
             profile = repo.get(profile_id)
@@ -134,8 +134,7 @@ def render_step_indicator(current_step: int) -> None:
     state = st.session_state.onboarding_state
 
     if state.is_edit_mode:
-        # In edit mode, allow jumping between steps via a radio or tabs
-        # Streamlit doesn't have a great "tabs as navigation" but we can use st.sidebar or just buttons
+        # In edit mode, allow jumping between steps
         st.markdown("### 🛠 Edit Mode: Jump to Step")
         cols = st.columns(len(steps))
         for i, step_name in enumerate(steps):
@@ -306,7 +305,8 @@ def main() -> None:
                             state.llm_costs += 0.003  # Estimated cost for Claude Sonnet
                             st.success("Profile synthesized!")
                             import time
-                            time.sleep(2) # Give time for user to see success
+
+                            time.sleep(2)  # Give time for user to see success
                             st.rerun()
                     except Exception as e:
                         st.error(f"Error generating profile: {e}")
@@ -395,6 +395,7 @@ def main() -> None:
                             state.llm_costs += 0.003  # Estimated cost for Claude Sonnet
                             st.success("Proposal generated!")
                             import time
+
                             time.sleep(2)
                             st.rerun()
                     except Exception as e:
@@ -618,7 +619,7 @@ def render_resume_review_form(state: OnboardingState) -> None:
 
 def render_variant_form(state: OnboardingState) -> None:
     """Renders the form for CV variants specification and generation."""
-    if not state.profile_draft:
+    if not state.profile_draft or not state.user_inputs or not state.resume_data:
         return
 
     st.write(
@@ -739,6 +740,7 @@ def render_variant_form(state: OnboardingState) -> None:
                             state.llm_costs += 0.003  # Estimated cost for Claude Sonnet
                             st.success(f"Variant {i + 1} generated!")
                             import time
+
                             time.sleep(2)
                             st.rerun()
                     except Exception as e:

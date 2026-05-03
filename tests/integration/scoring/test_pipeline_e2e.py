@@ -175,7 +175,7 @@ async def test_pipeline_budget_exceeded(
     # We test JobScorer.score directly because the pipeline swallows the error
     # to continue processing other jobs (failure isolation).
     with pytest.raises(BudgetExceededError):
-        await mock_job_scorer.score(job, session=db_session)
+        await mock_job_scorer.score(job, profile=sample_candidate_profile, session=db_session)
 
 
 @pytest.mark.asyncio

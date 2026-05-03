@@ -1,9 +1,10 @@
 import re
-from pathlib import Path
+import uuid
 
 from pydantic import BaseModel
 
-from jobhunter.config import Settings
+from jobhunter.db.repos.cv_variant import CVVariantRepo
+from sqlalchemy.orm import Session
 
 
 class Experience(BaseModel):
@@ -25,11 +26,10 @@ class Experience(BaseModel):
 
 class CVVariant(BaseModel):
     """
-    Represents a parsed CV variant.
+    Represents a CV variant.
 
     Attributes:
         name: The name of the variant (e.g., 'ai_python').
-        path: The filesystem path to the CV file.
         summary: A professional summary.
         stack_primary: List of primary technologies.
         stack_secondary: List of secondary technologies.
@@ -39,7 +39,6 @@ class CVVariant(BaseModel):
     """
 
     name: str
-    path: Path
     summary: str
     stack_primary: list[str]
     stack_secondary: list[str]
@@ -48,89 +47,65 @@ class CVVariant(BaseModel):
     raw_markdown: str
 
 
-def list_available_variants(settings: Settings | None = None) -> list[str]:
+def list_available_variants(session: Session, profile_id: uuid.UUID) -> list[str]:
     """
-    Lists the names of available CV variants.
-
-    It looks into the configured CV_VARIANTS_DIR and the fallback cv_variants/ directory.
-    Variants are identified by .md or .template.md extensions.
+    Lists the names of available CV variants from the database for a given profile.
 
     Args:
-        settings: Application settings.
+        session: Database session.
+        profile_id: ID of the candidate profile.
 
     Returns:
         A list of variant names.
     """
-    if settings is None:
-        settings = Settings()  # type: ignore[call-arg]
-
-    search_dirs = [settings.CV_VARIANTS_DIR, Path("cv_variants")]
-    variants = set()
-
-    for directory in search_dirs:
-        if directory.exists() and directory.is_dir():
-            for file in directory.glob("*.md"):
-                # Remove .template.md or .md extension
-                name = file.name
-                if name.endswith(".template.md"):
-                    name = name[: -len(".template.md")]
-                elif name.endswith(".md"):
-                    name = name[: -len(".md")]
-                variants.add(name)
-
-    return sorted(list(variants))
+    repo = CVVariantRepo(session)
+    variants = repo.list_by_profile(profile_id)
+    return sorted([v.name for v in variants])
 
 
-def load_cv(variant_name: str, settings: Settings | None = None) -> CVVariant:
+def load_cv(session: Session, profile_id: uuid.UUID, variant_name: str) -> CVVariant:
     """
-    Loads and parses a CV variant by name.
-
-    It first tries to find variant_name.md in CV_VARIANTS_DIR,
-    then variant_name.template.md in CV_VARIANTS_DIR,
-    then falls back to cv_variants/ directory with the same logic.
+    Loads a CV variant from the database.
 
     Args:
+        session: Database session.
+        profile_id: ID of the candidate profile.
         variant_name: The name of the variant to load.
-        settings: Application settings.
 
     Returns:
         A CVVariant object.
 
     Raises:
-        FileNotFoundError: If the CV variant file is not found.
-        ValueError: If the CV file is malformed or variant_name is insecure.
+        FileNotFoundError: If the CV variant is not found in the database.
     """
-    # Security check: Prevent path traversal
-    if ".." in variant_name or "/" in variant_name or "\\" in variant_name:
-        raise ValueError(f"Insecure CV variant name: {variant_name}")
-    if settings is None:
-        settings = Settings()  # type: ignore[call-arg]
+    repo = CVVariantRepo(session)
+    variant_model = repo.get_by_name(profile_id, variant_name)
 
-    search_dirs = [settings.CV_VARIANTS_DIR, Path("cv_variants")]
-    cv_path: Path | None = None
+    if not variant_model:
+        raise FileNotFoundError(f"CV variant '{variant_name}' not found for profile {profile_id}.")
 
-    for directory in search_dirs:
-        # Try exact .md first
-        p = directory / f"{variant_name}.md"
-        if p.exists():
-            cv_path = p
-            break
-        # Try .template.md
-        p = directory / f"{variant_name}.template.md"
-        if p.exists():
-            cv_path = p
-            break
+    experience = [
+        Experience(
+            role=exp.role or "N/A",
+            company=exp.company or "N/A",
+            dates=f"{exp.start_date} - {exp.end_date if exp.end_date else 'Present'}",
+            bullets=exp.bullets or [],
+        )
+        for exp in variant_model.experiences
+    ]
 
-    if cv_path is None:
-        raise FileNotFoundError(f"CV variant '{variant_name}' not found.")
-
-    with open(cv_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    return _parse_cv_markdown(variant_name, cv_path, content)
+    return CVVariant(
+        name=variant_model.name,
+        summary=variant_model.summary or "",
+        stack_primary=variant_model.target_stack or [],
+        stack_secondary=[],  # DB schema currently only has target_stack
+        experience=experience,
+        skills=variant_model.skills or [],
+        raw_markdown=variant_model.raw_markdown or "",
+    )
 
 
-def _parse_cv_markdown(name: str, path: Path, content: str) -> CVVariant:
+def _parse_cv_markdown(name: str, content: str) -> CVVariant:
     """
     Parses the markdown content of a CV.
 
@@ -219,7 +194,6 @@ def _parse_cv_markdown(name: str, path: Path, content: str) -> CVVariant:
 
     return CVVariant(
         name=name,
-        path=path,
         summary=summary,
         stack_primary=stack_primary,
         stack_secondary=stack_secondary,

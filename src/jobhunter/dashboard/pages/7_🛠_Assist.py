@@ -108,7 +108,7 @@ async def run_assistance() -> None:
             cv_recommendation = await recommend_cv_variant(
                 db_job, available_variants=available_variants, llm_client=llm_client
             )
-            cv_variant = load_cv(cv_recommendation.variant_name, settings=settings)
+            cv_variant = load_cv(session, profile.id, cv_recommendation.variant_name)
 
             status.write("✉️ Generating cover letter (Opus)...")
             cover_letter_task = generate_cover_letter(
@@ -273,7 +273,11 @@ if "assist_package" in st.session_state:
         st.write(f"**Razón:** {package.cv_variant.reasoning}")
 
         try:
-            cv_variant = load_cv(package.cv_variant.variant_name, settings=settings)
+            with get_session() as session:
+                from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+
+                profile = CandidateProfileRepo(session).list_active()[0]
+                cv_variant = load_cv(session, profile.id, package.cv_variant.variant_name)
             with st.expander("Ver CV actual"):
                 st.markdown(cv_variant.raw_markdown)
         except Exception as e:

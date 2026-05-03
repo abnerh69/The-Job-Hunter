@@ -119,7 +119,16 @@ async def run_rescore(job: Job) -> None:
 
     with st.status("Re-ejecutando scoring con Sonnet 4.6...") as status:
         with get_session() as session:
-            outcome = await scorer.score(job, session=session)
+            from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+
+            profile_repo = CandidateProfileRepo(session)
+            profiles = profile_repo.list_active()
+            if not profiles:
+                st.error("No hay perfiles activos para realizar el scoring.")
+                return
+            profile = profiles[0]
+
+            outcome = await scorer.score(job, profile=profile, session=session)
 
             # Persist if better or just to update
             job_db = session.get(Job, job.id)

@@ -139,7 +139,7 @@ async def assist_application(
             job=job, available_variants=available_variants, llm_client=llm_client
         )
 
-    cv_variant = load_cv(cv_recommendation.variant_name, settings=settings)
+    cv_variant = load_cv(session, profile.id, cv_recommendation.variant_name)
 
     # 5. Parallel Execution
     # We run Cover Letter generation and (ATS Keywords -> CV Tweaks) in parallel

@@ -104,7 +104,7 @@ async def test_score_success(
     scorer = JobScorer(llm_client=mock_llm_client)
 
     # Act
-    outcome = await scorer.score(sample_job)
+    outcome = await scorer.score(sample_job, profile=sample_profile)
 
     # Assert
     assert isinstance(outcome, ScoringOutcome)
@@ -146,7 +146,7 @@ async def test_score_retry_success(
     scorer = JobScorer(llm_client=mock_llm_client)
 
     # Act
-    outcome = await scorer.score(sample_job)
+    outcome = await scorer.score(sample_job, profile=sample_profile)
 
     # Assert
     assert isinstance(outcome, ScoringOutcome)
@@ -175,7 +175,7 @@ async def test_score_double_failure(mock_llm_client: AsyncMock, sample_job: Job)
 
     # Act & Assert
     with pytest.raises(ScoringParseError) as excinfo:
-        await scorer.score(sample_job)
+        await scorer.score(sample_job, profile=sample_profile)
 
     assert "Failed to parse AI response after retry" in str(excinfo.value)
     assert excinfo.value.raw_response == "Still invalid JSON"
@@ -190,7 +190,7 @@ async def test_score_api_error(mock_llm_client: AsyncMock, sample_job: Job) -> N
 
     # Act & Assert
     with pytest.raises(ScoringAPIError) as excinfo:
-        await scorer.score(sample_job)
+        await scorer.score(sample_job, profile=sample_profile)
 
     assert "Failed to call LLM" in str(excinfo.value)
     assert mock_llm_client.complete.call_count == 1
@@ -213,7 +213,7 @@ async def test_score_invalid_response(mock_llm_client: AsyncMock, sample_job: Jo
     scorer = JobScorer(llm_client=mock_llm_client)
 
     # Act
-    outcome = await scorer.score(sample_job)
+    outcome = await scorer.score(sample_job, profile=sample_profile)
 
     # Assert
     assert isinstance(outcome.result, InvalidScoringResponse)

@@ -541,7 +541,16 @@ def score_job(
                 typer.echo(f"Error: Job {job_id} not found.", err=True)
                 raise typer.Exit(code=1)
 
-            outcome = asyncio.run(scorer.score(job, session=session))
+            from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+
+            profile_repo = CandidateProfileRepo(session)
+            profiles = profile_repo.list_active()
+            if not profiles:
+                typer.echo("Error: No active candidate profile found.", err=True)
+                raise typer.Exit(code=1)
+            profile = profiles[0]
+
+            outcome = asyncio.run(scorer.score(job, profile=profile, session=session))
 
             typer.echo("--- RAW RESPONSE ---")
             typer.echo(outcome.raw_response)
@@ -902,7 +911,7 @@ def letter(
                 cv_variant = rec.variant_name
                 typer.echo(f"Auto-selected CV variant: {cv_variant} ({rec.reasoning})")
 
-            cv = load_cv(cv_variant, settings=settings)
+            cv = load_cv(session, profile.id, cv_variant)
             result = asyncio.run(
                 generate_cover_letter(
                     job=job,

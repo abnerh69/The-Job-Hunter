@@ -179,6 +179,33 @@ class AnthropicLLMClient:
                                     "confidence": 0.9,
                                 }
                             )
+                        elif purpose == LLMPurpose.PROFILE_GENERATION:
+                            text = json.dumps(
+                                {
+                                    "seniority": "senior",
+                                    "years_experience": 8,
+                                    "primary_stack": ["Python", "FastAPI"],
+                                    "secondary_stack": ["React", "PostgreSQL"],
+                                    "domains": ["E-commerce", "Fintech"],
+                                    "positive_signals": ["Open source contributor"],
+                                    "soft_negatives": ["No Java experience"],
+                                }
+                            )
+                        elif purpose == LLMPurpose.CV_VARIANT_GENERATION:
+                            text = json.dumps(
+                                {
+                                    "summary": "Expert Python developer with 8 years of experience.",
+                                    "skills": ["Python", "FastAPI", "PostgreSQL"],
+                                    "experiences": [
+                                        {
+                                            "role": "Senior Engineer",
+                                            "company": "Tech Corp",
+                                            "dates": "2020 - Present",
+                                            "bullets": ["Led development of FastAPI services."],
+                                        }
+                                    ],
+                                }
+                            )
                         else:
                             # Mock cover letter that passes validation (250-450 words)
                             text = " ".join(["word"] * 300)

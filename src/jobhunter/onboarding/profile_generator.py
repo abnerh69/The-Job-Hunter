@@ -1,4 +1,5 @@
 import json
+import uuid
 from pathlib import Path
 
 import structlog
@@ -8,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from jobhunter.db.enums import LLMPurpose
 from jobhunter.db.models import CandidateProfile
-from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
 from jobhunter.onboarding.resume_ingestor import ResumeData
 
@@ -136,6 +136,7 @@ async def generate_profile(
 
     # 5. Build CandidateProfile
     profile = CandidateProfile(
+        id=uuid.uuid4(),
         name=user_inputs.profile_name,
         seniority=inferred_data.get("seniority"),
         years_experience=inferred_data.get("years_experience"),
@@ -155,13 +156,8 @@ async def generate_profile(
         compensation=None,  # Explicitly NULL as per AC
     )
 
-    # 6. Persistence
-    repo = CandidateProfileRepo(session)
-    repo.create(profile)
-
     logger.info(
         "candidate_profile_generated",
-        profile_id=str(profile.id),
         profile_name=profile.name,
     )
 

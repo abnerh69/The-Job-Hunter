@@ -304,6 +304,7 @@ def main() -> None:
                             }
                             state.llm_costs += 0.003  # Estimated cost for Claude Sonnet
                             st.success("Profile synthesized!")
+                            state.profile_id = profile.id
                             import time
 
                             time.sleep(2)  # Give time for user to see success
@@ -466,6 +467,7 @@ def main() -> None:
                         sp = state.salary_proposal
 
                         profile = CandidateProfile(
+                            id=uuid.uuid4(),
                             name=pd["name"],
                             seniority=pd["seniority"],
                             years_experience=pd["years_experience"],

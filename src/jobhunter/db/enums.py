@@ -103,6 +103,7 @@ class LLMPurpose(StrEnum):
     EMAIL_MATCH = "email_match"
     ANALYTICS_REPORT = "analytics_report"
     RESUME_PARSING = "resume_parsing"
+    PROFILE_GENERATION = "profile_generation"
 
 
 class EmailMatchStatus(StrEnum):

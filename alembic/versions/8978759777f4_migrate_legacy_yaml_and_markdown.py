@@ -234,9 +234,7 @@ def upgrade() -> None:
                     "country": location_legal.get("country"),
                     "work_authorization": location_legal.get("work_authorization"),
                     "timezone_home": timezone.get("home"),
-                    "overlap_max_hours_cet": timezone.get(
-                        "overlap_max_acceptable_hours_with_CET"
-                    ),
+                    "overlap_max_hours_cet": timezone.get("overlap_max_acceptable_hours_with_CET"),
                     "preferred_overlap_cet": timezone.get("preferred_overlap_CET"),
                     "primary_stack": prepare_json(data.get("primary_stack")),
                     "secondary_stack": prepare_json(data.get("secondary_stack")),

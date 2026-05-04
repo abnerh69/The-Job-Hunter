@@ -13,13 +13,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from jobhunter.config import Settings
-from jobhunter.db.enums import AuditEventType
-from jobhunter.audit.decorator import audit_logged
 
 logger = structlog.get_logger(__name__)
 
 
-@audit_logged(AuditEventType.BACKUP_CREATED, "create_compressed_backup")
 def create_compressed_backup(db_url: str, output_path: Path) -> Path:
     """
     Creates a compressed backup of the database.
@@ -72,7 +69,6 @@ def create_compressed_backup(db_url: str, output_path: Path) -> Path:
     return output_path
 
 
-@audit_logged(AuditEventType.RESTORE_EXECUTED, "restore_from_compressed_backup")
 def restore_from_compressed_backup(backup_path: Path, db_url: str) -> None:
     """
     Restores the database from a compressed backup.

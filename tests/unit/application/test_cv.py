@@ -1,64 +1,64 @@
-import uuid
-from datetime import date
-from unittest.mock import MagicMock
-
 import pytest
-
-from jobhunter.application.cv import list_available_variants, load_cv
-from jobhunter.db.models import CVVariant, CVVariantExperience
-
-
-@pytest.fixture
-def mock_session() -> MagicMock:
-    return MagicMock()
+from pathlib import Path
+from pydantic import SecretStr
+from jobhunter.application.cv import load_cv, list_available_variants
+from jobhunter.config import Settings
 
 
-@pytest.fixture
-def profile_id() -> uuid.UUID:
-    return uuid.uuid4()
+def test_list_available_variants(tmp_path: Path) -> None:
+    # Setup mock directories
+    local_dir = tmp_path / ".local" / "cv_variants"
+    repo_dir = tmp_path / "cv_variants"
+    local_dir.mkdir(parents=True)
+    repo_dir.mkdir(parents=True)
 
+    (local_dir / "expert.md").write_text("dummy")
+    (repo_dir / "template.template.md").write_text("dummy")
 
-def test_list_available_variants(mock_session: MagicMock, profile_id: uuid.UUID) -> None:
-    # Setup mock return value
-    variant1 = MagicMock(spec=CVVariant)
-    variant1.name = "expert"
-    variant2 = MagicMock(spec=CVVariant)
-    variant2.name = "ai"
+    settings = Settings(
+        ANTHROPIC_API_KEY=SecretStr("dummy"),
+        DASHBOARD_PASSWORD=SecretStr("pass"),
+        CV_VARIANTS_DIR=local_dir,
+    )
 
-    mock_session.scalars.return_value.all.return_value = [variant1, variant2]
-
-    variants = list_available_variants(mock_session, profile_id)
-
+    # We need to mock Path("cv_variants") or just rely on the fact that we can't easily mock it without monkeypatch
+    # but we can at least check if it finds the ones in CV_VARIANTS_DIR
+    variants = list_available_variants(settings)
     assert "expert" in variants
-    assert "ai" in variants
-    assert len(variants) == 2
 
 
-def test_load_cv_success(mock_session: MagicMock, profile_id: uuid.UUID) -> None:
-    # Setup mock return value
-    variant = MagicMock(spec=CVVariant)
-    variant.name = "ai_python"
-    variant.summary = "Experienced dev."
-    variant.target_stack = ["Python", "Go"]
-    variant.skills = ["Testing", "Architecture"]
-    variant.raw_markdown = "## SUMMARY\n..."
+def test_load_cv_success(tmp_path: Path) -> None:
+    cv_content = """# My CV
+## SUMMARY
+Experienced dev.
+## STACK
+- primary: Python, Go
+- secondary: AWS, Docker
+## EXPERIENCE
+### Senior Dev | Tech Corp | 2020-2024
+- Led team.
+- Built stuff.
+## SKILLS
+- Testing
+- Architecture
+"""
+    cv_dir = tmp_path / "cv_variants"
+    cv_dir.mkdir()
+    cv_file = cv_dir / "ai_python.md"
+    cv_file.write_text(cv_content)
 
-    exp = MagicMock(spec=CVVariantExperience)
-    exp.role = "Senior Dev"
-    exp.company = "Tech Corp"
-    exp.start_date = date(2020, 1, 1)
-    exp.end_date = date(2024, 1, 1)
-    exp.bullets = ["Led team.", "Built stuff."]
+    settings = Settings(
+        ANTHROPIC_API_KEY=SecretStr("dummy"),
+        DASHBOARD_PASSWORD=SecretStr("pass"),
+        CV_VARIANTS_DIR=cv_dir,
+    )
 
-    variant.experiences = [exp]
-
-    mock_session.scalar.return_value = variant
-
-    cv = load_cv(mock_session, profile_id, "ai_python")
+    cv = load_cv("ai_python", settings=settings)
 
     assert cv.name == "ai_python"
     assert cv.summary == "Experienced dev."
     assert cv.stack_primary == ["Python", "Go"]
+    assert cv.stack_secondary == ["AWS", "Docker"]
     assert len(cv.experience) == 1
     assert cv.experience[0].role == "Senior Dev"
     assert cv.experience[0].company == "Tech Corp"
@@ -66,8 +66,57 @@ def test_load_cv_success(mock_session: MagicMock, profile_id: uuid.UUID) -> None
     assert cv.skills == ["Testing", "Architecture"]
 
 
-def test_load_cv_not_found(mock_session: MagicMock, profile_id: uuid.UUID) -> None:
-    mock_session.scalar.return_value = None
+def test_load_cv_malformed(tmp_path: Path) -> None:
+    cv_content = """# My CV
+## SUMMARY
+Missing experience section.
+"""
+    cv_dir = tmp_path / "cv_variants"
+    cv_dir.mkdir()
+    cv_file = cv_dir / "bad.md"
+    cv_file.write_text(cv_content)
 
+    settings = Settings(
+        ANTHROPIC_API_KEY=SecretStr("dummy"),
+        DASHBOARD_PASSWORD=SecretStr("pass"),
+        CV_VARIANTS_DIR=cv_dir,
+    )
+
+    with pytest.raises(ValueError, match="missing an EXPERIENCE section"):
+        load_cv("bad", settings=settings)
+
+
+def test_load_cv_not_found(tmp_path: Path) -> None:
+    settings = Settings(
+        ANTHROPIC_API_KEY=SecretStr("dummy"),
+        DASHBOARD_PASSWORD=SecretStr("pass"),
+        CV_VARIANTS_DIR=tmp_path,
+    )
     with pytest.raises(FileNotFoundError):
-        load_cv(mock_session, profile_id, "non_existent")
+        load_cv("non_existent", settings=settings)
+
+
+def test_fallback_to_repo_variants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # This test is a bit trickier because Path("cv_variants") is hardcoded
+    # We will create the directory in the current working directory (sandbox root)
+    repo_dir = Path("cv_variants")
+    repo_dir.mkdir(exist_ok=True)
+    test_file = repo_dir / "test_fallback.template.md"
+    test_file.write_text("""## SUMMARY
+Fallback worked.
+## EXPERIENCE
+### Role | Co | Date
+- Bullet
+""")
+
+    try:
+        settings = Settings(
+            ANTHROPIC_API_KEY=SecretStr("dummy"),
+            DASHBOARD_PASSWORD=SecretStr("pass"),
+            CV_VARIANTS_DIR=tmp_path / "empty",
+        )
+        cv = load_cv("test_fallback", settings=settings)
+        assert cv.summary == "Fallback worked."
+    finally:
+        if test_file.exists():
+            test_file.unlink()

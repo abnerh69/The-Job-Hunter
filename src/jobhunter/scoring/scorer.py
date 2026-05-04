@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from jobhunter.db.enums import LLMPurpose
-from jobhunter.db.models import CandidateProfile, Job
+from jobhunter.db.models import Job
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
 from jobhunter.llm.budget import check_budget
 from jobhunter.scoring.errors import ScoringAPIError, ScoringParseError
@@ -98,16 +98,14 @@ class JobScorer:
     async def score(
         self,
         job: Job,
-        profile: CandidateProfile,
         session: Session | None = None,
         prompt_version_override: str | None = None,
     ) -> ScoringOutcome:
         """
-        Scores a job offer against a specific candidate profile.
+        Scores a job offer.
 
         Args:
             job: The job to score.
-            profile: The candidate profile to score against.
             session: Optional SQLAlchemy session for budget checks and call recording.
             prompt_version_override: Optional version to override the default prompt.
 
@@ -137,7 +135,6 @@ class JobScorer:
         if prompt_version_override and prompt_version_override != self.prompt_version:
             current_prompt = load_prompt(version=prompt_version_override)
 
-        job_data["candidate_profile_yaml"] = profile.to_yaml_string()
         user_prompt = render_user_prompt(current_prompt.user_template, job_data)
 
         try:

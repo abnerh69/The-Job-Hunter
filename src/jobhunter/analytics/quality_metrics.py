@@ -380,19 +380,11 @@ async def rescore_suspicious_jobs(
     Returns:
         List[RescoreReport]: Summary of rescoring results.
     """
-    from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
-
-    profile_repo = CandidateProfileRepo(session)
-    profiles = profile_repo.list_active()
-    if not profiles:
-        return []
-    profile = profiles[0]
-
     reports = []
     for job in jobs:
         old_tier = job.tier or JobTier.REJECT
         try:
-            outcome = await scorer.score(job, profile=profile, session=session)
+            outcome = await scorer.score(job, session=session)
             new_tier = JobTier.REJECT
             if outcome.result.valid:
                 from jobhunter.scoring.schema import ScoringResult

@@ -6,8 +6,6 @@ from jobhunter.db.session import get_session
 from jobhunter.db.repos.security import SecurityRepo
 from jobhunter.notify.telegram import TelegramNotifier
 from jobhunter.notify.base import NotificationMessage
-from jobhunter.db.enums import AuditEventType
-from jobhunter.audit.decorator import set_audit_context
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -75,20 +73,6 @@ def check_password() -> bool:
                     is_new = repo_inner.is_new_ip(remote_ip)
 
                     repo_inner.record_attempt(remote_ip, "success", user_agent)
-
-                    set_audit_context("user", remote_ip)
-                    # We can't easily use the decorator here because it's inside a callback
-                    # But we can call the repo directly or just use a helper if we had one.
-                    # Actually, the requirement says apply decorator or call explicitly.
-                    from jobhunter.db.repos.audit_log import AuditLogRepo
-
-                    AuditLogRepo(session_inner).record(
-                        event_type=AuditEventType.LOGIN,
-                        actor="user",
-                        action="login",
-                        ip_address=remote_ip,
-                        event_metadata={"user_agent": user_agent},
-                    )
 
                     st.session_state["password_correct"] = True
                     st.session_state["last_login"] = datetime.now()
@@ -177,13 +161,5 @@ def require_auth() -> None:
 
 def logout() -> None:
     """Logs out the user."""
-    remote_ip = get_remote_ip()
-    with get_session() as session:
-        from jobhunter.db.repos.audit_log import AuditLogRepo
-
-        AuditLogRepo(session).record(
-            event_type=AuditEventType.LOGOUT, actor="user", action="logout", ip_address=remote_ip
-        )
-        session.commit()
     st.session_state["password_correct"] = False
     st.rerun()

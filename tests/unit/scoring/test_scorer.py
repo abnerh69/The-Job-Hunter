@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from jobhunter.db.models import CandidateProfile, Job
+from jobhunter.db.models import Job
 from jobhunter.llm.anthropic_client import LLMResponse
 from jobhunter.scoring.errors import ScoringAPIError, ScoringParseError
 from jobhunter.scoring.scorer import JobScorer, ScoringOutcome
@@ -14,17 +14,6 @@ from jobhunter.scoring.schema import ScoringResult, InvalidScoringResponse
 @pytest.fixture
 def mock_llm_client() -> AsyncMock:
     return AsyncMock()
-
-
-@pytest.fixture
-def sample_profile() -> CandidateProfile:
-    return CandidateProfile(
-        id=uuid.uuid4(),
-        name="Abner Hernández",
-        seniority="senior",
-        years_experience=20,
-        primary_stack=["Python", "FastAPI", "AI/ML"],
-    )
 
 
 @pytest.fixture
@@ -99,10 +88,7 @@ def valid_json_response() -> str:
 
 @pytest.mark.asyncio
 async def test_score_success(
-    mock_llm_client: AsyncMock,
-    sample_job: Job,
-    sample_profile: CandidateProfile,
-    valid_json_response: str,
+    mock_llm_client: AsyncMock, sample_job: Job, valid_json_response: str
 ) -> None:
     # Arrange
     llm_response = LLMResponse(
@@ -118,7 +104,7 @@ async def test_score_success(
     scorer = JobScorer(llm_client=mock_llm_client)
 
     # Act
-    outcome = await scorer.score(sample_job, profile=sample_profile)
+    outcome = await scorer.score(sample_job)
 
     # Assert
     assert isinstance(outcome, ScoringOutcome)
@@ -131,10 +117,7 @@ async def test_score_success(
 
 @pytest.mark.asyncio
 async def test_score_retry_success(
-    mock_llm_client: AsyncMock,
-    sample_job: Job,
-    sample_profile: CandidateProfile,
-    valid_json_response: str,
+    mock_llm_client: AsyncMock, sample_job: Job, valid_json_response: str
 ) -> None:
     # Arrange
     # The first response should fail because parse_scoring_response is strict if it has extra text
@@ -163,7 +146,7 @@ async def test_score_retry_success(
     scorer = JobScorer(llm_client=mock_llm_client)
 
     # Act
-    outcome = await scorer.score(sample_job, profile=sample_profile)
+    outcome = await scorer.score(sample_job)
 
     # Assert
     assert isinstance(outcome, ScoringOutcome)
@@ -176,9 +159,7 @@ async def test_score_retry_success(
 
 
 @pytest.mark.asyncio
-async def test_score_double_failure(
-    mock_llm_client: AsyncMock, sample_job: Job, sample_profile: CandidateProfile
-) -> None:
+async def test_score_double_failure(mock_llm_client: AsyncMock, sample_job: Job) -> None:
     # Arrange
     llm_response = LLMResponse(
         text="Still invalid JSON",
@@ -194,7 +175,7 @@ async def test_score_double_failure(
 
     # Act & Assert
     with pytest.raises(ScoringParseError) as excinfo:
-        await scorer.score(sample_job, profile=sample_profile)
+        await scorer.score(sample_job)
 
     assert "Failed to parse AI response after retry" in str(excinfo.value)
     assert excinfo.value.raw_response == "Still invalid JSON"
@@ -202,25 +183,21 @@ async def test_score_double_failure(
 
 
 @pytest.mark.asyncio
-async def test_score_api_error(
-    mock_llm_client: AsyncMock, sample_job: Job, sample_profile: CandidateProfile
-) -> None:
+async def test_score_api_error(mock_llm_client: AsyncMock, sample_job: Job) -> None:
     # Arrange
     mock_llm_client.complete.side_effect = Exception("API connection failed")
     scorer = JobScorer(llm_client=mock_llm_client)
 
     # Act & Assert
     with pytest.raises(ScoringAPIError) as excinfo:
-        await scorer.score(sample_job, profile=sample_profile)
+        await scorer.score(sample_job)
 
     assert "Failed to call LLM" in str(excinfo.value)
     assert mock_llm_client.complete.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_score_invalid_response(
-    mock_llm_client: AsyncMock, sample_job: Job, sample_profile: CandidateProfile
-) -> None:
+async def test_score_invalid_response(mock_llm_client: AsyncMock, sample_job: Job) -> None:
     # Arrange
     invalid_json = '{"valid": false, "reason": "Spam job offer"}'
     llm_response = LLMResponse(
@@ -236,7 +213,7 @@ async def test_score_invalid_response(
     scorer = JobScorer(llm_client=mock_llm_client)
 
     # Act
-    outcome = await scorer.score(sample_job, profile=sample_profile)
+    outcome = await scorer.score(sample_job)
 
     # Assert
     assert isinstance(outcome.result, InvalidScoringResponse)

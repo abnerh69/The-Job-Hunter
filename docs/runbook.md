@@ -493,13 +493,6 @@ Reglas mandatorias en el pipeline de CI:
 1. Cobertura de tests unitarios > 80%.
 2. Sin fallos de Ruff en modo --strict.
 3. Sin fallos de Mypy en modo --strict.
-4. Escaneo de vulnerabilidades con Trivy (Severidad HIGH, CRITICAL).
-
-### 52.1 Gestión de hallazgos de Trivy
-Si el pipeline de CI falla debido a vulnerabilidades detectadas por Trivy:
-1. **Investigar:** Revise los logs de la acción de GitHub para identificar los paquetes o archivos afectados.
-2. **Actualizar:** Intente actualizar la dependencia afectada usando `uv lock --upgrade`.
-3. **Triaje:** Si es un falso positivo o una vulnerabilidad aceptable, añada el ID de la vulnerabilidad (CVE) al archivo `.trivyignore` en la raíz del proyecto.
 
 ---
 

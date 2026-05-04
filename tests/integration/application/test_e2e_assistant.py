@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy.orm import Session
-from jobhunter.db.models import Job, Application, CandidateProfile, CVVariant
+from jobhunter.db.models import Job, Application
 from jobhunter.db.enums import JobStatus, JobTier, ApplicationStatus
 from jobhunter.application.assistant import assist_application, JobNotAssistableError
 from typer.testing import CliRunner
@@ -33,19 +33,6 @@ async def test_assist_application_e2e_python_ai(
             "role": {"is_ai_ml_role": True, "primary_stack_match": ["Python", "PyTorch"]},
         },
     )
-    # 1.1 Setup a Candidate Profile and CV Variant
-    profile = CandidateProfile(name="John Doe", is_active=True)
-    db_session.add(profile)
-    db_session.flush()
-
-    variant = CVVariant(
-        profile_id=profile.id,
-        name="ai_python",
-        target_role_keywords=["python", "ai"],
-        target_stack=["pytorch"],
-    )
-    db_session.add(variant)
-
     db_session.add(job)
     db_session.commit()
 

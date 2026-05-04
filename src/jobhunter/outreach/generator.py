@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from jobhunter.config import Settings
 from jobhunter.db.enums import LLMPurpose, OutreachTemplateType
 from jobhunter.db.models import OutreachContact, OutreachMessage
-from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
 from jobhunter.db.repos.outreach_messages import OutreachMessageRepo
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
 from jobhunter.outreach.templates import load_outreach_template, render_outreach_template
@@ -53,7 +52,6 @@ async def generate_message(
     template_version: str = "latest",
     parent_message: Optional[OutreachMessage] = None,
     target_language: str = "en",
-    profile_id: Optional[str] = None,
 ) -> OutreachMessage:
     """
     Generates an outreach message for a contact using an LLM.
@@ -95,20 +93,10 @@ async def generate_message(
     template = load_outreach_template(template_type, version=actual_version)
 
     # 3. Load Candidate Profile
-    profile_repo = CandidateProfileRepo(session)
-    if profile_id:
-        from uuid import UUID
-
-        profile = profile_repo.get_active_by_id(UUID(profile_id))
-        if not profile:
-            raise ValueError(f"Active candidate profile with ID {profile_id} not found.")
-    else:
-        profiles = profile_repo.list_active()
-        if not profiles:
-            raise ValueError("No active candidate profile found.")
-        profile = profiles[0]
-
-    candidate_profile_yaml = profile.to_yaml_string()
+    profile_path = Path("prompts/candidate_profile.yaml")
+    if not profile_path.exists():
+        raise FileNotFoundError(f"Candidate profile not found at {profile_path}")
+    candidate_profile_yaml = profile_path.read_text(encoding="utf-8")
 
     # 4. Prepare Context
     context = {

@@ -24,6 +24,7 @@ from jobhunter.application.cv_tweaks import CVTweaksResult, suggest_cv_tweaks
 from jobhunter.application.variant_selector import VariantRecommendation, recommend_cv_variant
 from jobhunter.config import Settings
 from jobhunter.db.models import Application, Job
+from jobhunter.db.repos.cv_variant import CVVariantRepo
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
 
 logger = structlog.get_logger(__name__)
@@ -111,7 +112,7 @@ async def assist_application(
     logger.info("assistant_started", job_id=str(job_id), tier=job.tier)
     start_time = time.perf_counter()
 
-    # 4. Step 1: Recommend CV and Load it (Fast, synchronous)
+    # 4. Step 1: Recommend CV and Load it (Heuristic + LLM fallback)
     if cv_variant_override:
         cv_recommendation = VariantRecommendation(
             variant_name=cv_variant_override,
@@ -119,9 +120,26 @@ async def assist_application(
             reasoning="Variant explicitly requested via override.",
         )
     else:
-        cv_recommendation = recommend_cv_variant(job)
+        # Load available variants from DB for this candidate
+        # For now, we assume the first active profile.
+        # Multi-profile-aware: we should ideally know which profile we are using.
+        # But for E14-S06 we'll use all available variants for now or the first profile.
+        from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
 
-    cv_variant = load_cv(cv_recommendation.variant_name, settings=settings)
+        profile_repo = CandidateProfileRepo(session)
+        profiles = profile_repo.list_active()
+        if not profiles:
+            raise ValueError("No active candidate profile found.")
+        profile = profiles[0]
+
+        variant_repo = CVVariantRepo(session)
+        available_variants = variant_repo.list_by_profile(profile.id)
+
+        cv_recommendation = await recommend_cv_variant(
+            job=job, available_variants=available_variants, llm_client=llm_client
+        )
+
+    cv_variant = load_cv(session, profile.id, cv_recommendation.variant_name)
 
     # 5. Parallel Execution
     # We run Cover Letter generation and (ATS Keywords -> CV Tweaks) in parallel

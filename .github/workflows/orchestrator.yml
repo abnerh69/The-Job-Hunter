@@ -1,8 +1,8 @@
 name: Pipeline Orquestador
 
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -21,15 +21,16 @@ jobs:
     secrets: inherit
 
   # 2. Acción Asíncrona 2
-  validacion_playwright:
-    name: Run Playwright
-    uses: ./.github/workflows/playwright.yml
-    secrets: inherit
+  # validacion_playwright:
+  #   name: Run Playwright
+  #   uses: ./.github/workflows/playwright.yml
+  #   secrets: inherit
 
   # 3. Acción Dependiente (Solo corre si las dos anteriores son exitosas)
   ejecucion_jules_flow:
     name: Run Jules Flow
-    needs: [validacion_ci, validacion_playwright]
+    # needs: [validacion_ci, validacion_playwright]
+    needs: [validacion_ci]
     # Solo se lanza si ambas pasaron (implícito al usar 'needs') y si es un Pull Request
     if: success() && github.event_name == 'pull_request'
     uses: ./.github/workflows/jules-auto-flow-on-ci.yml

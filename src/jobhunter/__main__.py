@@ -2287,6 +2287,7 @@ def analytics_report(
         Optional[str], typer.Option(help="Month to report on (YYYY-MM), defaults to last month")
     ] = None,
     output: Annotated[str, typer.Option(help="Output format (md, html, pdf)")] = "md",
+    send_email: Annotated[bool, typer.Option("--send-email", help="Send report via email")] = False,
 ) -> None:
     """Generate a narrative monthly analytics report."""
     from jobhunter.analytics.report_generator import (
@@ -2386,6 +2387,41 @@ def analytics_report(
                 typer.echo(f"PDF report saved to {pdf_path}")
             else:
                 typer.echo(f"Warning: Unknown output format '{output}'. Only saved as .md")
+
+            if send_email:
+                from jobhunter.notify.email import EmailNotifier
+                from jobhunter.notify.base import NotificationMessage
+
+                notifier = EmailNotifier()
+                settings = Settings()  # type: ignore[call-arg]
+
+                if not notifier.is_enabled(settings):
+                    typer.echo("Error: Email notifier is not enabled. Cannot send report.", err=True)
+                else:
+                    typer.echo(f"Sending report for {month_label} via email...")
+
+                    pdf_path = reports_dir / f"{base_filename}.pdf"
+                    if not pdf_path.exists():
+                        # Generate PDF if it doesn't exist yet
+                        html_report = format_report_as_html(report_md, month_label)
+                        convert_html_to_pdf(html_report, str(pdf_path))
+
+                    with open(pdf_path, "rb") as f:
+                        pdf_content = f.read()
+
+                    msg = NotificationMessage(
+                        channel="email",
+                        subject=f"Monthly Analytics Report: {month_label}",
+                        body_text=f"Please find attached the monthly analytics report for {month_label}.",
+                        body_html=format_report_as_html(report_md, month_label),
+                        attachments=[{"filename": f.name, "content": pdf_content}],
+                    )
+
+                    result = asyncio.run(notifier.send(msg))
+                    if result.success:
+                        typer.echo("Email sent successfully.")
+                    else:
+                        typer.echo(f"Failed to send email: {result.error}", err=True)
 
     except Exception as e:
         logger.exception("Report generation failed")

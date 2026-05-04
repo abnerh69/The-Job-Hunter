@@ -15,6 +15,7 @@ class NotificationMessage(BaseModel):
     subject: str | None = None
     body_text: str
     body_html: str | None = None
+    attachments: list[dict[str, Any]] | None = None
     metadata: dict[str, Any] = {}
 
 

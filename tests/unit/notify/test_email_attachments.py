@@ -50,5 +50,3 @@ async def test_email_attachments() -> None:
             assert "test.txt" in filenames
 
             print("Email with attachments test passed!")
-
-

@@ -1,4 +1,4 @@
-import asyncio
+import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from jobhunter.notify.email import EmailNotifier
 from jobhunter.notify.base import NotificationMessage
@@ -6,6 +6,7 @@ from jobhunter.config import Settings
 from pydantic import SecretStr
 
 
+@pytest.mark.asyncio
 async def test_email_attachments() -> None:
     notifier = EmailNotifier()
 
@@ -49,7 +50,3 @@ async def test_email_attachments() -> None:
             assert "test.txt" in filenames
 
             print("Email with attachments test passed!")
-
-
-if __name__ == "__main__":
-    asyncio.run(test_email_attachments())

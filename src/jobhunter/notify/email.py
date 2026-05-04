@@ -55,20 +55,24 @@ class EmailNotifier(BaseNotifier):
         start_time = time.perf_counter()
 
         try:
-            # Create the root message (mixed for attachments)
-            msg = MIMEMultipart("mixed")
+            if message.attachments:
+                # Use mixed as root if we have attachments
+                msg = MIMEMultipart("mixed")
+                content_part = MIMEMultipart("alternative")
+                msg.attach(content_part)
+            else:
+                # Use alternative as root if no attachments
+                msg = MIMEMultipart("alternative")
+                content_part = msg
+
             msg["Subject"] = message.subject or "Job Hunter Notification"
             msg["From"] = settings.SMTP_USER or ""
             msg["To"] = settings.DIGEST_TO_EMAIL or ""
 
-            # Create the alternative part for text/html
-            alt_msg = MIMEMultipart("alternative")
-            alt_msg.attach(MIMEText(message.body_text, "plain"))
+            content_part.attach(MIMEText(message.body_text, "plain"))
 
             if message.body_html:
-                alt_msg.attach(MIMEText(message.body_html, "html"))
-
-            msg.attach(alt_msg)
+                content_part.attach(MIMEText(message.body_html, "html"))
 
             # Attach files if any
             if message.attachments:

@@ -1913,7 +1913,9 @@ def analytics_report(
                 settings = Settings()  # type: ignore[call-arg]
 
                 if not notifier.is_enabled(settings):
-                    typer.echo("Error: Email notifier is not enabled. Cannot send report.", err=True)
+                    typer.echo(
+                        "Error: Email notifier is not enabled. Cannot send report.", err=True
+                    )
                 else:
                     typer.echo(f"Sending report for {month_label} via email...")
 

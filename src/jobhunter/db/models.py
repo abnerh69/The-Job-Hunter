@@ -19,8 +19,8 @@ from sqlalchemy import (
     event,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from jobhunter.db.base import Base
@@ -92,6 +92,7 @@ class Job(Base):
 
     # Relationships
     applications: Mapped[list["Application"]] = relationship(back_populates="job")
+    profile_scores: Mapped[list["JobProfileScore"]] = relationship(back_populates="job")
 
     # Indices
     __table_args__ = (
@@ -605,18 +606,61 @@ class RecommendationState(Base):
     )
     snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-class AuditLog(Base):
+
+class CandidateProfile(Base):
     """
-    SQLAlchemy model for tracking the state of analytics recommendations.
+    SQLAlchemy model for the 'candidate_profiles' table.
+    Represents the candidate's career profile and preferences.
     """
 
-    __tablename__ = "recommendation_states"
+    __tablename__ = "candidate_profiles"
 
-    reco_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    status: Mapped[RecommendationStatus] = mapped_column(
-        String(20), nullable=False, server_default=RecommendationStatus.PENDING
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
     )
-    snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    seniority: Mapped[str | None] = mapped_column(String(50))
+    years_experience: Mapped[int | None] = mapped_column(Integer)
+    country: Mapped[str | None] = mapped_column(String(50))
+    work_authorization: Mapped[str | None] = mapped_column(Text)
+    payment_methods_ok: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    timezone_home: Mapped[str | None] = mapped_column(String(50))
+    overlap_max_hours_cet: Mapped[int | None] = mapped_column(Integer)
+    preferred_overlap_cet: Mapped[int | None] = mapped_column(Integer)
+    primary_stack: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    secondary_stack: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    domains: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    languages: Mapped[dict[str, Any] | None] = mapped_column(JSONB().with_variant(JSON(), "sqlite"))
+    compensation: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite")
+    )
+    contract_preferences: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    hard_blockers: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    soft_negatives: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    positive_signals: Mapped[list[str] | None] = mapped_column(
+        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -819,9 +863,6 @@ class CVVariant(Base):
         onupdate=func.now(),
     )
 
-    def __repr__(self) -> str:
-        return f"<RecommendationState(reco_hash={self.reco_hash}, status={self.status})>"
-
     # Relationships
     profile: Mapped["CandidateProfile"] = relationship(back_populates="cv_variants")
     experiences: Mapped[list["CVVariantExperience"]] = relationship(
@@ -872,7 +913,7 @@ class CVVariantExperience(Base):
     __table_args__ = (Index("idx_cv_exp_variant_sort", cv_variant_id, sort_order),)
 
     def __repr__(self) -> str:
-        return f"<RecommendationState(reco_hash={self.reco_hash}, status={self.status})>"
+        return f"<CVVariantExperience(role={self.role}, company={self.company})>"
 
 
 @event.listens_for(Application.status, "set")

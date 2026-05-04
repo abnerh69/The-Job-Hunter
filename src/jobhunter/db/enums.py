@@ -131,6 +131,7 @@ class RecommendationStatus(StrEnum):
     ACTED = "acted"
     IGNORED = "ignored"
 
+
 class AuditEventType(StrEnum):
     """Enumeration of possible event types for an audit log."""
 

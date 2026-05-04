@@ -1,4 +1,5 @@
 import time
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -54,18 +55,30 @@ class EmailNotifier(BaseNotifier):
         start_time = time.perf_counter()
 
         try:
-            # Create the root message
-            msg = MIMEMultipart("alternative")
+            # Create the root message (mixed for attachments)
+            msg = MIMEMultipart("mixed")
             msg["Subject"] = message.subject or "Job Hunter Notification"
             msg["From"] = settings.SMTP_USER or ""
             msg["To"] = settings.DIGEST_TO_EMAIL or ""
 
-            # Attach plain text body
-            msg.attach(MIMEText(message.body_text, "plain"))
+            # Create the alternative part for text/html
+            alt_msg = MIMEMultipart("alternative")
+            alt_msg.attach(MIMEText(message.body_text, "plain"))
 
-            # Attach HTML body if available
             if message.body_html:
-                msg.attach(MIMEText(message.body_html, "html"))
+                alt_msg.attach(MIMEText(message.body_html, "html"))
+
+            msg.attach(alt_msg)
+
+            # Attach files if any
+            if message.attachments:
+                for attachment in message.attachments:
+                    filename = attachment.get("filename", "attachment")
+                    content = attachment.get("content")
+                    if content:
+                        part = MIMEApplication(content)
+                        part.add_header("Content-Disposition", "attachment", filename=filename)
+                        msg.attach(part)
 
             # Connect and send
             smtp_client = aiosmtplib.SMTP(

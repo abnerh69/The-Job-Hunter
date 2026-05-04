@@ -121,3 +121,12 @@ class ABTestStatus(StrEnum):
     ACTIVE = "active"
     CONCLUDED = "concluded"
     ABORTED = "aborted"
+
+
+class RecommendationStatus(StrEnum):
+    """Enumeration of possible statuses for a recommendation."""
+
+    PENDING = "pending"
+    SNOOZED = "snoozed"
+    ACTED = "acted"
+    IGNORED = "ignored"

@@ -75,7 +75,7 @@ build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_mode = "strict"
+asyncio_mode = "auto"
 markers = [
     "integration: marks tests as integration tests",
     "e2e: marks tests as end-to-end dashboard tests",

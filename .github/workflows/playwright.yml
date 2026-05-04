@@ -42,7 +42,7 @@ jobs:
         run: uv run playwright install chromium
 
       - name: Run Playwright tests
-        run: uv run pytest tests/e2e/dashboard/ -m e2e
+        run: uv run pytest -p no:asyncio tests/e2e/dashboard/ -m e2e
 
       - name: Upload screenshots on failure
         uses: actions/upload-artifact@v4

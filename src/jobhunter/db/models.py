@@ -26,6 +26,7 @@ from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 from jobhunter.db.base import Base
 from jobhunter.db.enums import (
     ABTestStatus,
+    RecommendationStatus,
     ApplicationEventType,
     ApplicationStatus,
     EmailMatchStatus,
@@ -589,6 +590,29 @@ class BlockedIP(Base):
 
     def __repr__(self) -> str:
         return f"<BlockedIP(ip={self.ip_address}, unblock_at={self.unblock_at})>"
+
+
+class RecommendationState(Base):
+    """
+    SQLAlchemy model for tracking the state of analytics recommendations.
+    """
+
+    __tablename__ = "recommendation_states"
+
+    reco_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    status: Mapped[RecommendationStatus] = mapped_column(
+        String(20), nullable=False, server_default=RecommendationStatus.PENDING
+    )
+    snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        return f"<RecommendationState(reco_hash={self.reco_hash}, status={self.status})>"
 
 
 @event.listens_for(Application.status, "set")

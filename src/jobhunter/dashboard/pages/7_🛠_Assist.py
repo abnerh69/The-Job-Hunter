@@ -8,6 +8,8 @@ from jobhunter.db.session import get_session
 from jobhunter.db.models import Job, Application
 from jobhunter.db.repos.job import JobRepo
 from jobhunter.db.repos.application import ApplicationRepo
+from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+from jobhunter.db.repos.cv_variant import CVVariantRepo
 from jobhunter.db.enums import JobStatus, ApplicationStatus
 from jobhunter.config import Settings
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
@@ -92,8 +94,21 @@ async def run_assistance() -> None:
                 return
 
             status.write("🔍 Selecting CV variant...")
-            cv_recommendation = recommend_cv_variant(db_job)
-            cv_variant = load_cv(cv_recommendation.variant_name, settings=settings)
+            # Load variants from DB
+            profile_repo = CandidateProfileRepo(session)
+            profiles = profile_repo.list_active()
+            if not profiles:
+                st.error("No active candidate profile found.")
+                return
+            profile = profiles[0]
+
+            variant_repo = CVVariantRepo(session)
+            available_variants = variant_repo.list_by_profile(profile.id)
+
+            cv_recommendation = await recommend_cv_variant(
+                db_job, available_variants=available_variants, llm_client=llm_client
+            )
+            cv_variant = load_cv(session, profile.id, cv_recommendation.variant_name)
 
             status.write("✉️ Generating cover letter (Opus)...")
             cover_letter_task = generate_cover_letter(
@@ -258,7 +273,11 @@ if "assist_package" in st.session_state:
         st.write(f"**Razón:** {package.cv_variant.reasoning}")
 
         try:
-            cv_variant = load_cv(package.cv_variant.variant_name, settings=settings)
+            with get_session() as session:
+                from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
+
+                profile = CandidateProfileRepo(session).list_active()[0]
+                cv_variant = load_cv(session, profile.id, package.cv_variant.variant_name)
             with st.expander("Ver CV actual"):
                 st.markdown(cv_variant.raw_markdown)
         except Exception as e:

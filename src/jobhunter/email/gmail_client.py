@@ -12,7 +12,9 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fi
 
 from jobhunter.config import Settings
 from jobhunter.crypto import decrypt, encrypt
+from jobhunter.db.enums import AuditEventType
 from jobhunter.db.repos.oauth_tokens import OAuthTokenRepo
+from jobhunter.db.repos.audit_log import AuditLogRepo
 from jobhunter.email.schemas import GmailMessage, GmailMessageDetail, Label
 
 logger = structlog.get_logger(__name__)
@@ -51,6 +53,16 @@ class GmailClient:
             decrypt(token_record.refresh_token, encryption_key)
             if token_record.refresh_token
             else None
+        )
+
+        # Audit logging of OAuth token decryption
+        AuditLogRepo(self.token_repo.session).record(
+            event_type=AuditEventType.DATA_ACCESS,
+            actor="system",
+            action="decrypt_oauth_token",
+            target_entity="OAuthToken",
+            target_id=token_record.id,
+            event_metadata={"provider": "gmail", "account_email": self.account_email},
         )
 
         if not self.settings.GMAIL_CLIENT_ID or not self.settings.GMAIL_CLIENT_SECRET:

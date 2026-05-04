@@ -135,6 +135,77 @@ class AnthropicLLMClient:
                             text = "Hello, I am interested in your company. " + " ".join(
                                 ["word"] * 100
                             )
+                        elif purpose == LLMPurpose.RESUME_PARSING:
+                            text = json.dumps(
+                                {
+                                    "name": "Jane Doe",
+                                    "email": "jane@example.com",
+                                    "phone": "123456789",
+                                    "location_raw": "Berlin, Germany",
+                                    "summary": "Experienced Python Developer",
+                                    "experiences": [
+                                        {
+                                            "role": "Senior Engineer",
+                                            "company": "Tech Corp",
+                                            "dates": "2020 - Present",
+                                            "bullets": ["Developed Python apps", "Managed team"],
+                                        }
+                                    ],
+                                    "educations": [
+                                        {
+                                            "degree": "BSc Computer Science",
+                                            "institution": "Tech University",
+                                            "dates": "2015-2019",
+                                            "description": "GPA 3.8",
+                                        }
+                                    ],
+                                    "skills": ["Python", "SQL"],
+                                    "languages": ["English", "German"],
+                                    "detected_seniority": "senior",
+                                    "detected_years_experience": 8,
+                                    "detected_primary_stack": ["Python", "FastAPI"],
+                                }
+                            )
+                        elif purpose == LLMPurpose.SALARY_PROPOSAL:
+                            text = json.dumps(
+                                {
+                                    "currency": "USD",
+                                    "period": "year",
+                                    "floor": 90000,
+                                    "target": 110000,
+                                    "stretch": 130000,
+                                    "rationale": "Strong background in Python and AI.",
+                                    "data_sources": ["llm_baseline_2026"],
+                                    "confidence": 0.9,
+                                }
+                            )
+                        elif purpose == LLMPurpose.PROFILE_GENERATION:
+                            text = json.dumps(
+                                {
+                                    "seniority": "senior",
+                                    "years_experience": 8,
+                                    "primary_stack": ["Python", "FastAPI"],
+                                    "secondary_stack": ["React", "PostgreSQL"],
+                                    "domains": ["E-commerce", "Fintech"],
+                                    "positive_signals": ["Open source contributor"],
+                                    "soft_negatives": ["No Java experience"],
+                                }
+                            )
+                        elif purpose == LLMPurpose.CV_VARIANT_GENERATION:
+                            text = json.dumps(
+                                {
+                                    "summary": "Expert Python developer with 8 years of experience.",
+                                    "skills": ["Python", "FastAPI", "PostgreSQL"],
+                                    "experiences": [
+                                        {
+                                            "role": "Senior Engineer",
+                                            "company": "Tech Corp",
+                                            "dates": "2020 - Present",
+                                            "bullets": ["Led development of FastAPI services."],
+                                        }
+                                    ],
+                                }
+                            )
                         else:
                             # Mock cover letter that passes validation (250-450 words)
                             text = " ".join(["word"] * 300)

@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock
-from pathlib import Path
 from jobhunter.application.ats_keywords import (
     extract_ats_keywords,
     _check_presence_in_cv,
@@ -28,7 +27,6 @@ def mock_job() -> Job:
 def mock_cv() -> CVVariant:
     return CVVariant(
         name="test_cv",
-        path=Path("test.md"),
         summary="Senior Developer",
         stack_primary=["Python", "AWS"],
         stack_secondary=[],

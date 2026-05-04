@@ -4,7 +4,16 @@ from jobhunter.db.session import get_session
 from jobhunter.db.models import Job
 from jobhunter.db.repos.job import JobRepo
 from jobhunter.db.repos.notifications import NotificationsRepo
+from jobhunter.db.repos.candidate_profile import CandidateProfileRepo
 from jobhunter.db.enums import JobTier, JobStatus
+
+
+def check_profile_setup() -> bool:
+    """Checks if there is at least one active candidate profile."""
+    with get_session() as session:
+        repo = CandidateProfileRepo(session)
+        profiles = repo.list_active()
+        return len(profiles) > 0
 
 
 def render_header() -> None:
@@ -16,6 +25,19 @@ def render_header() -> None:
     with col2:
         if st.button("Logout"):
             logout()
+
+    if not check_profile_setup():
+        st.warning("ℹ️ Configura tu perfil para empezar a recibir matches", icon="ℹ️")
+        if st.button("Empezar wizard"):
+            st.switch_page("pages/0_🎯_Onboarding.py")
+
+    if st.sidebar.button("➕ Add another profile"):
+        import importlib
+
+        onboarding_module = importlib.import_module("jobhunter.dashboard.pages.0_🎯_Onboarding")
+        OnboardingState = onboarding_module.OnboardingState
+        st.session_state.onboarding_state = OnboardingState()
+        st.switch_page("pages/0_🎯_Onboarding.py")
 
 
 def render_sidebar() -> None:

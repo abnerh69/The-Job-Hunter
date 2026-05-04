@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
+from pathlib import Path
 import uuid
 
 from jobhunter.application.cover_letter import (
@@ -28,6 +29,7 @@ def mock_job() -> Job:
 def mock_cv_variant() -> CVVariant:
     return CVVariant(
         name="ai_python",
+        path=Path("dummy.md"),
         summary="Expert AI developer",
         stack_primary=["Python", "PyTorch"],
         stack_secondary=[],

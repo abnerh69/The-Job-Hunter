@@ -57,7 +57,6 @@ def main() -> None:
         tab_health,
         tab_quality,
         tab_recs,
-        tab_audit,
     ) = st.tabs(
         [
             "🎯 Funnel",
@@ -68,7 +67,6 @@ def main() -> None:
             "🩺 System Health",
             "🛡️ Quality Control",
             "💡 Recommendations",
-            "📜 Audit Log",
         ]
     )
 
@@ -95,9 +93,6 @@ def main() -> None:
 
     with tab_recs:
         render_recommendations_section()
-
-    with tab_audit:
-        render_audit_section()
 
 
 @st.cache_data(ttl=300)
@@ -490,48 +485,6 @@ def render_quality_section() -> None:
         "Use the CLI to perform deep analysis and re-scoring: "
         "`jobhunter analytics missed-opportunities` and `jobhunter analytics rescore-suspicious`"
     )
-
-
-def render_audit_section() -> None:
-    st.subheader("📜 System Audit Logs")
-    st.write("Traceability of critical system operations and data mutations.")
-
-    with get_session() as session:
-        from jobhunter.db.repos.audit_log import AuditLogRepo
-
-        repo = AuditLogRepo(session)
-        # Fetch last 100 logs
-        logs = repo.query(limit=100)
-
-    if logs:
-        log_data = []
-        for log in logs:
-            log_data.append(
-                {
-                    "Timestamp": log.created_at,
-                    "Actor": log.actor,
-                    "Event": log.event_type,
-                    "Action": log.action,
-                    "Target": f"{log.target_entity}:{log.target_id}" if log.target_entity else "-",
-                    "IP Address": log.ip_address or "-",
-                    "Metadata": str(log.event_metadata),
-                }
-            )
-
-        df_logs = pd.DataFrame(log_data)
-        st.dataframe(
-            df_logs,
-            column_config={
-                "Timestamp": st.column_config.DatetimeColumn(
-                    "Timestamp", format="YYYY-MM-DD HH:mm:ss"
-                ),
-                "Metadata": st.column_config.TextColumn("Metadata", width="medium"),
-            },
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.info("No audit logs found.")
 
 
 if __name__ == "__main__":

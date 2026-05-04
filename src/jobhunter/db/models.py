@@ -19,8 +19,8 @@ from sqlalchemy import (
     event,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
-from sqlalchemy.ext.mutable import MutableDict, MutableList
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from jobhunter.db.base import Base
@@ -29,7 +29,6 @@ from jobhunter.db.enums import (
     RecommendationStatus,
     ApplicationEventType,
     ApplicationStatus,
-    AuditEventType,
     EmailMatchStatus,
     JobStatus,
     JobTier,
@@ -93,9 +92,6 @@ class Job(Base):
 
     # Relationships
     applications: Mapped[list["Application"]] = relationship(back_populates="job")
-    profile_scores: Mapped[list["JobProfileScore"]] = relationship(
-        back_populates="job", cascade="all, delete-orphan"
-    )
 
     # Indices
     __table_args__ = (
@@ -611,102 +607,16 @@ class RecommendationState(Base):
 
 class AuditLog(Base):
     """
-    SQLAlchemy model for the 'audit_log' table.
-    Stores auditable events for compliance and security.
+    SQLAlchemy model for tracking the state of analytics recommendations.
     """
 
-    __tablename__ = "audit_log"
+    __tablename__ = "recommendation_states"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
+    reco_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    status: Mapped[RecommendationStatus] = mapped_column(
+        String(20), nullable=False, server_default=RecommendationStatus.PENDING
     )
-    event_type: Mapped[AuditEventType] = mapped_column(String(50), nullable=False)
-    actor: Mapped[str] = mapped_column(String(255), nullable=False)
-    target_entity: Mapped[str | None] = mapped_column(String(50))
-    target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    action: Mapped[str] = mapped_column(String(255), nullable=False)
-    event_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        "metadata", JSONB().with_variant(JSON(), "sqlite"), nullable=True
-    )
-    ip_address: Mapped[str | None] = mapped_column(String(45))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-    )
-
-    # Indices
-    __table_args__ = (
-        Index("idx_audit_event_time", "event_type", created_at.desc()),
-        Index("idx_audit_actor_time", "actor", created_at.desc()),
-        Index("idx_audit_target", "target_entity", "target_id"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<AuditLog(event_type={self.event_type}, actor={self.actor}, action={self.action})>"
-
-
-class CandidateProfile(Base):
-    """
-    SQLAlchemy model for the 'candidate_profiles' table.
-    Represents the candidate's profile data.
-    """
-
-    __tablename__ = "candidate_profiles"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, server_default="true", default=True)
-
-    seniority: Mapped[str | None] = mapped_column(String(50))
-    years_experience: Mapped[int | None] = mapped_column(Integer)
-    country: Mapped[str | None] = mapped_column(String(50))
-    work_authorization: Mapped[str | None] = mapped_column(Text)
-    timezone_home: Mapped[str | None] = mapped_column(String(50))
-    overlap_max_hours_cet: Mapped[int | None] = mapped_column(Integer)
-    preferred_overlap_cet: Mapped[int | None] = mapped_column(Integer)
-
-    primary_stack: Mapped[list[str] | None] = mapped_column(
-        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
-    )
-    secondary_stack: Mapped[list[str] | None] = mapped_column(
-        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
-    )
-    domains: Mapped[list[str] | None] = mapped_column(
-        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
-    )
-    languages: Mapped[dict[str, Any] | None] = mapped_column(
-        MutableDict.as_mutable(JSONB().with_variant(JSON(), "sqlite"))
-    )
-    compensation: Mapped[dict[str, Any] | None] = mapped_column(
-        MutableDict.as_mutable(JSONB().with_variant(JSON(), "sqlite"))
-    )
-    contract_preferences: Mapped[list[str] | None] = mapped_column(
-        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
-    )
-    hard_blockers: Mapped[list[str] | None] = mapped_column(
-        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
-    )
-    soft_negatives: Mapped[list[str] | None] = mapped_column(
-        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
-    )
-    positive_signals: Mapped[list[str] | None] = mapped_column(
-        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
-    )
-    payment_methods_ok: Mapped[list[str] | None] = mapped_column(
-        MutableList.as_mutable(ARRAY(Text).with_variant(JSON(), "sqlite"))
-    )
-    notes: Mapped[str | None] = mapped_column(Text)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
+    snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -962,7 +872,7 @@ class CVVariantExperience(Base):
     __table_args__ = (Index("idx_cv_exp_variant_sort", cv_variant_id, sort_order),)
 
     def __repr__(self) -> str:
-        return f"<CVVariantExperience(role={self.role}, company={self.company})>"
+        return f"<RecommendationState(reco_hash={self.reco_hash}, status={self.status})>"
 
 
 @event.listens_for(Application.status, "set")

@@ -11,24 +11,13 @@ from jobhunter.analytics.quality_metrics import (
     rescore_suspicious_jobs,
 )
 from jobhunter.db.enums import JobStatus, JobTier
-from jobhunter.db.models import CandidateProfile, Job
+from jobhunter.db.models import Job
 from jobhunter.scoring.scorer import JobScorer
 
 
 @pytest.fixture
 def session_with_rejects(session: Session) -> Session:
     """Seed the session with some rejected and manually promoted jobs."""
-    # 0. Active Profile
-    profile = CandidateProfile(
-        name="Abner",
-        seniority="senior",
-        years_experience=20,
-        primary_stack=["Python"],
-        is_active=True,
-    )
-    session.add(profile)
-    session.flush()
-
     # 1. Normal REJECT
     j1 = Job(
         source="test",

@@ -71,9 +71,14 @@ async def test_send_success(notifier: EmailNotifier, settings_mock: Settings) ->
         assert mime_msg["From"] == "user@example.com"
         assert mime_msg["To"] == "recipient@example.com"
 
-        # Verify it is multipart/alternative
+        # Verify it is multipart/mixed -> alternative -> parts
         assert mime_msg.is_multipart()
-        payload = mime_msg.get_payload()
+        assert mime_msg.get_content_type() == "multipart/mixed"
+
+        alt_part = mime_msg.get_payload()[0]
+        assert alt_part.get_content_type() == "multipart/alternative"
+
+        payload = alt_part.get_payload()
         assert len(payload) == 2
         assert payload[0].get_content_type() == "text/plain"
         assert payload[1].get_content_type() == "text/html"
@@ -130,8 +135,13 @@ async def test_send_no_html(notifier: EmailNotifier, settings_mock: Settings) ->
         args, _ = mock_smtp_instance.send_message.call_args
         mime_msg = args[0]
 
-        # Even if only text is provided, we use MIMEMultipart("alternative") in current impl
-        # but it will only have 1 part if body_html is None
-        payload = mime_msg.get_payload()
+        # Verify it is multipart/mixed -> alternative -> parts
+        assert mime_msg.is_multipart()
+        assert mime_msg.get_content_type() == "multipart/mixed"
+
+        alt_part = mime_msg.get_payload()[0]
+        assert alt_part.get_content_type() == "multipart/alternative"
+
+        payload = alt_part.get_payload()
         assert len(payload) == 1
         assert payload[0].get_content_type() == "text/plain"

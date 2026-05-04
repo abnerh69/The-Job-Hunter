@@ -130,11 +130,3 @@ class RecommendationStatus(StrEnum):
     SNOOZED = "snoozed"
     ACTED = "acted"
     IGNORED = "ignored"
-
-class AuditEventType(StrEnum):
-    """Enumeration of possible event types for an audit log."""
-
-    PENDING = "pending"
-    SNOOZED = "snoozed"
-    ACTED = "acted"
-    IGNORED = "ignored"

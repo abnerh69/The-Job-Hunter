@@ -53,9 +53,6 @@ def upgrade() -> None:
         )
 
     with op.batch_alter_table("applications", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("search_vector", sa.Text(), server_default=sa.FetchedValue(), nullable=True)
-        )
         batch_op.alter_column(
             "id",
             existing_type=sa.NUMERIC(),
@@ -90,9 +87,6 @@ def upgrade() -> None:
         )
 
     with op.batch_alter_table("jobs", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("search_vector", sa.Text(), server_default=sa.FetchedValue(), nullable=True)
-        )
         batch_op.alter_column(
             "id",
             existing_type=sa.NUMERIC(),
@@ -127,9 +121,6 @@ def upgrade() -> None:
         )
 
     with op.batch_alter_table("outreach_contacts", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("search_vector", sa.Text(), server_default=sa.FetchedValue(), nullable=True)
-        )
         batch_op.alter_column(
             "id",
             existing_type=sa.NUMERIC(),
@@ -174,7 +165,6 @@ def downgrade() -> None:
             existing_nullable=False,
             existing_server_default=sa.text("(gen_random_uuid())"),
         )
-        batch_op.drop_column("search_vector")
 
     with op.batch_alter_table("oauth_tokens", schema=None) as batch_op:
         batch_op.alter_column(
@@ -209,7 +199,6 @@ def downgrade() -> None:
             existing_nullable=False,
             existing_server_default=sa.text("(gen_random_uuid())"),
         )
-        batch_op.drop_column("search_vector")
 
     with op.batch_alter_table("failed_login_attempts", schema=None) as batch_op:
         batch_op.alter_column(
@@ -244,7 +233,6 @@ def downgrade() -> None:
             existing_nullable=False,
             existing_server_default=sa.text("(gen_random_uuid())"),
         )
-        batch_op.drop_column("search_vector")
 
     with op.batch_alter_table("application_events", schema=None) as batch_op:
         batch_op.alter_column(

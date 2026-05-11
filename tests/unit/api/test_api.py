@@ -3,7 +3,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
-from jobhunter.api.main import app, get_session, get_settings  # type: ignore[attr-defined]
+from jobhunter.api.main import app, get_settings
+from jobhunter.db.session import get_db
 from jobhunter.config import Settings
 from jobhunter.db.base import Base
 from pydantic import SecretStr
@@ -25,7 +26,12 @@ with engine.connect() as conn:
     conn.commit()
 
 
-def override_get_session() -> Generator[Session, None, None]:
+def override_get_db() -> Generator[Session, None, None]:
+    """Override of jobhunter.db.session.get_db using SQLite test engine.
+
+    Must mirror the production dependency: a *raw* generator function
+    (no @contextmanager) — FastAPI's Depends manages the context itself.
+    """
     try:
         db = TestingSessionLocal()
         yield db
@@ -39,7 +45,8 @@ def override_get_settings() -> Settings:
     )
 
 
-app.dependency_overrides[get_session] = override_get_session
+# Routes in api/main.py use Depends(get_db); override the same symbol.
+app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_settings] = override_get_settings
 
 client = TestClient(app)

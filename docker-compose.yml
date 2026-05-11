@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: jobhunter-postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: jobhunter
       POSTGRES_PASSWORD: jobhunter_local
@@ -17,9 +17,11 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
+  # One-shot: aplica migraciones Alembic y termina. Bloquea el arranque de app/dashboard.
+  migrate:
     build: .
-    container_name: jobhunter-app
+    image: jobhunter-app:local
+    container_name: jobhunter-migrate
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,6 +29,65 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://jobhunter:jobhunter_local@postgres:5432/jobhunter
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  # CLI worker + FastAPI sidecar (health/readiness).
+  # Para comandos puntuales:  docker compose exec app python -m jobhunter <cmd>
+  app:
+    build: .
+    image: jobhunter-app:local
+    container_name: jobhunter-app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://jobhunter:jobhunter_local@postgres:5432/jobhunter
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=3).status<500 else 1)"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # UI Streamlit -> http://localhost:8080
+  dashboard:
+    build: .
+    image: jobhunter-app:local
+    container_name: jobhunter-dashboard
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://jobhunter:jobhunter_local@postgres:5432/jobhunter
+      STREAMLIT_SERVER_PORT: "8080"
+      STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
+      STREAMLIT_SERVER_HEADLESS: "true"
+    ports:
+      - "8080:8080"
+    command: ["streamlit", "run", "src/jobhunter/dashboard/streamlit_app.py"]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/_stcore/health',timeout=3).status<500 else 1)"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
 
 volumes:
   postgres_data:

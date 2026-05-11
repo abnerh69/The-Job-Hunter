@@ -21,14 +21,12 @@ _test_engine: Engine | None = None
 _test_session_local: sessionmaker[Session] | None = None
 
 
-@contextmanager
-def get_session() -> Generator[Session, None, None]:
-    """
-    Dependency to get a SQLAlchemy session.
-    Ensures the session is closed after use.
+def _make_session() -> Session:
+    """Create a SQLAlchemy Session, honoring TEST_DATABASE_URL when set.
 
-    Yields:
-        Session: The SQLAlchemy session.
+    Internal helper shared by the CLI context manager (`get_session`) and the
+    FastAPI dependency (`get_db`). Centralizes the lazy test-engine bootstrap
+    so both entry points behave identically.
     """
     import os
 
@@ -42,11 +40,33 @@ def get_session() -> Generator[Session, None, None]:
                 autocommit=False, autoflush=False, bind=_test_engine, expire_on_commit=False
             )
         if _test_session_local:
-            session = _test_session_local()
-        else:
-            session = SessionLocal()
-    else:
-        session = SessionLocal()
+            return _test_session_local()
+        return SessionLocal()
+    return SessionLocal()
+
+
+def get_db() -> Generator[Session, None, None]:
+    """FastAPI dependency: yields a Session and closes it on teardown.
+
+    Must NOT be decorated with ``@contextmanager`` — FastAPI's ``Depends``
+    requires a *raw* generator function. Use this for ``Depends(get_db)``
+    in API routes. For CLI / script usage, use ``get_session`` (below),
+    which wraps this in a context manager.
+    """
+    session = _make_session()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+@contextmanager
+def get_session() -> Generator[Session, None, None]:
+    """Context manager for CLI / scripts: ``with get_session() as session: ...``.
+
+    Do NOT pass this to FastAPI ``Depends`` — use ``get_db`` instead.
+    """
+    session = _make_session()
     try:
         yield session
     finally:

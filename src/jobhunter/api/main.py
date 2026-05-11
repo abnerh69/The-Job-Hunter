@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, Response, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from fastapi.responses import HTMLResponse
-from jobhunter.db.session import get_session
+from jobhunter.db.session import get_db
 from jobhunter.config import Settings
 from jobhunter.health import get_health_report, HealthReport
 from jobhunter.db.enums import JobTier
@@ -19,7 +19,7 @@ def get_settings() -> Settings:
 @app.get("/health", response_model=HealthReport)
 def health(
     response: Response,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> HealthReport:
     report = get_health_report(session, settings)
@@ -36,7 +36,7 @@ def health(
 
 
 @app.get("/readiness")
-def readiness(response: Response, session: Session = Depends(get_session)) -> Dict[str, str]:
+def readiness(response: Response, session: Session = Depends(get_db)) -> Dict[str, str]:
     # ¿DB conectable? ¿Migrations al día? ¿Secrets cargados? ¿Servicios externos accesibles?
     # Readiness focus on critical infrastructure.
     from sqlalchemy import text
@@ -57,7 +57,7 @@ def readiness(response: Response, session: Session = Depends(get_session)) -> Di
 
 @app.get("/status", response_class=HTMLResponse)
 def public_status(
-    session: Session = Depends(get_session), settings: Settings = Depends(get_settings)
+    session: Session = Depends(get_db), settings: Settings = Depends(get_settings)
 ) -> HTMLResponse:
     report = get_health_report(session, settings)
 

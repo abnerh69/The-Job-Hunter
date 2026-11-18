@@ -41,6 +41,11 @@ class HealthReport(BaseModel):
     metrics: SystemMetrics
 
 
+def _ensure_utc(dt: datetime) -> datetime:
+    """Normalize naive SQLite datetimes to UTC for safe comparison."""
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
 def get_health_report(session: Session, settings: Settings) -> HealthReport:
     """
     Generates a full health report of the system.
@@ -87,7 +92,7 @@ def get_health_report(session: Session, settings: Settings) -> HealthReport:
     if not last_llm_call:
         anthropic_status = "warning"
         anthropic_msg = "No LLM calls recorded yet"
-    elif last_llm_call.called_at < datetime.now(timezone.utc) - timedelta(days=1):
+    elif _ensure_utc(last_llm_call.called_at) < datetime.now(timezone.utc) - timedelta(days=1):
         # If no calls in 24h, maybe it's just inactivity, but worth a warning?
         # Actually, maybe only if it's failed.
         anthropic_status = "ok"  # Inactivity is not necessarily an error
@@ -137,7 +142,7 @@ def get_health_report(session: Session, settings: Settings) -> HealthReport:
         for token in gmail_tokens:
             if (
                 token.expires_at
-                and token.expires_at < datetime.now(timezone.utc)
+                and _ensure_utc(token.expires_at) < datetime.now(timezone.utc)
                 and not token.refresh_token
             ):
                 expired_count += 1
@@ -160,7 +165,7 @@ def get_health_report(session: Session, settings: Settings) -> HealthReport:
     ).scalar()
 
     if last_pipeline_heartbeat:
-        diff = datetime.now(timezone.utc) - last_pipeline_heartbeat.sent_at
+        diff = datetime.now(timezone.utc) - _ensure_utc(last_pipeline_heartbeat.sent_at)
         if diff.total_seconds() < 3600:
             last_run_str = f"{int(diff.total_seconds() // 60)}m ago"
         elif diff.total_seconds() < 86400:

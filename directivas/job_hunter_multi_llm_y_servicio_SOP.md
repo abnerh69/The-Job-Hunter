@@ -40,3 +40,4 @@ Habilitar `The-Job-Hunter` para operar con costo \$0 en infraestructura y LLM (u
 - *Nota 2 (2026-11-18):* `get_all_sources()` devolvía `[]` en producción porque `src/jobhunter/sources/__init__.py` no existía y los módulos con `@register_source` no se importaban.
 - *Nota 3 (2026-11-18):* En `agy_cli`, el CLI `agy -p` solo está disponible en el servidor remoto (no en macOS local si no está instalado en `PATH`), por lo que en local se debe usar `gemini` (API), `anthropic` o `mock`.
 - *Nota 4 (2026-11-18):* Las migraciones iniciales de Alembic usaban `sa.text("now()")`, lo cual falla en SQLite (`unknown function: now()`). Se debe usar siempre `sa.func.now()` para portabilidad entre SQLite y PostgreSQL.
+- *Nota 5 (2026-11-18):* SQLite devuelve datetimes `offset-naive` aunque la columna tenga `DateTime(timezone=True)`. Toda comparación contra `datetime.now(timezone.utc)` debe normalizar con `_ensure_utc(dt)` (ej. en `src/jobhunter/health.py`).

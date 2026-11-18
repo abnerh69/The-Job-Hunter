@@ -32,7 +32,7 @@ def handle_generate_report() -> None:
         convert_html_to_pdf,
     )
     from jobhunter.analytics.regression_detector import check_metrics
-    from jobhunter.llm.anthropic_client import AnthropicLLMClient
+    from jobhunter.llm.factory import create_llm_client
     from jobhunter.config import Settings
     import asyncio
 
@@ -66,9 +66,7 @@ def handle_generate_report() -> None:
                 anomalies = check_metrics(session)
 
                 settings = Settings()  # type: ignore
-                llm_client = AnthropicLLMClient(
-                    api_key=settings.ANTHROPIC_API_KEY.get_secret_value()
-                )
+                llm_client = create_llm_client(settings)
 
                 report_md = asyncio.run(
                     generate_narrative_report(

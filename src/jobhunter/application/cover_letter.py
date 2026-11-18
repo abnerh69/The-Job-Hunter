@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from jobhunter.application.cv import CVVariant
 from jobhunter.db.enums import LLMPurpose
 from jobhunter.db.models import Application, Job
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
 
 logger = structlog.get_logger(__name__)
 
@@ -129,7 +129,7 @@ def validate_cover_letter(text: str, forbidden_phrases: list[str]) -> list[str]:
 async def generate_cover_letter(
     job: Job,
     cv_variant: CVVariant,
-    llm_client: AnthropicLLMClient,
+    llm_client: LLMClient,
     model: str,
     prompt_version: str = "latest",
     session: Session | None = None,

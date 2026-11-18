@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from jobhunter.db.enums import LLMPurpose
 from jobhunter.db.models import Job
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
 from jobhunter.llm.budget import check_budget
 from jobhunter.scoring.errors import ScoringAPIError, ScoringParseError
 from jobhunter.scoring.prompt import load_prompt, render_user_prompt
@@ -45,7 +45,7 @@ class JobScorer:
 
     def __init__(
         self,
-        llm_client: AnthropicLLMClient,
+        llm_client: LLMClient,
         prompt_version: str = "latest",
         model: str = "claude-haiku-4-5-20251001",
     ):

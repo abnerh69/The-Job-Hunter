@@ -15,7 +15,7 @@ from jobhunter.application.ats_keywords import ATSKeywordsResult
 from jobhunter.application.cv import CVVariant
 from jobhunter.db.enums import LLMPurpose
 from jobhunter.db.models import Job
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
 
 logger = structlog.get_logger(__name__)
 
@@ -93,7 +93,7 @@ async def suggest_cv_tweaks(
     job: Job,
     cv_variant: CVVariant,
     ats_keywords: ATSKeywordsResult,
-    llm_client: AnthropicLLMClient,
+    llm_client: LLMClient,
     session: Session | None = None,
     prompt_version: str = "latest",
     model: str = "claude-sonnet-4-6",

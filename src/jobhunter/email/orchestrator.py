@@ -10,7 +10,7 @@ from jobhunter.db.repos.email_messages import EmailMessageRepo
 from jobhunter.db.repos.oauth_tokens import OAuthTokenRepo
 from jobhunter.email.gmail_client import GmailClient
 from jobhunter.email.matcher import match_email
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
 from jobhunter.notify.telegram import TelegramNotifier, Button
 from jobhunter.email.suggester import suggest_state_changes, SuggestionStatus, StateSuggestion
 from jobhunter.db.models import EmailMessage
@@ -23,7 +23,7 @@ async def _poll_and_record_emails(
     session: Session,
     gmail_client: GmailClient,
     email_repo: EmailMessageRepo,
-    llm_client: AnthropicLLMClient,
+    llm_client: LLMClient,
 ) -> int:
     """
     Polls Gmail for new messages and records them in the database.
@@ -161,7 +161,9 @@ async def run_email_poll_and_suggest(session: Session) -> dict[str, Any]:
     auth_handler = GoogleOAuthHandler(session, settings)
     token_repo = OAuthTokenRepo(session)
     email_repo = EmailMessageRepo(session)
-    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    from jobhunter.llm.factory import create_llm_client
+
+    llm_client = create_llm_client(settings)
     notifier = TelegramNotifier()
 
     emails = auth_handler.list_authenticated_emails()

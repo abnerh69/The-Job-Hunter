@@ -36,9 +36,12 @@ from jobhunter.db.repos.source_health import SourceHealthRepo
 from jobhunter.db.seed import seed_database
 from jobhunter.db.session import get_session
 from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
+from jobhunter.llm.factory import create_llm_client
 from jobhunter.scoring.pipeline import rescore_jobs, score_pending_jobs
 from jobhunter.scoring.schema import ScoringResult, Tier
 from jobhunter.scoring.scorer import JobScorer
+import jobhunter.sources  # noqa: F401
 from jobhunter.sources.orchestrator import run_ingestion
 from jobhunter.sources.registry import get_all_sources
 from jobhunter.notify import get_all_notifiers, get_notifier_cls, NotificationMessage
@@ -55,6 +58,15 @@ from jobhunter.analytics.regression_detector import check_metrics
 
 logger = structlog.get_logger()
 app = typer.Typer(help="Job Hunter EU CLI")
+
+
+def _build_llm_client(settings: Settings) -> LLMClient:
+    """Build LLM client while keeping AnthropicLLMClient directly patchable in CLI tests."""
+    if settings.LLM_PROVIDER == "anthropic":
+        if settings.ANTHROPIC_API_KEY is None:
+            raise ValueError("ANTHROPIC_API_KEY is required when LLM_PROVIDER='anthropic'")
+        return AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    return create_llm_client(settings)
 
 sources_app = typer.Typer(help="Manage job sources")
 app.add_typer(sources_app, name="sources")
@@ -436,7 +448,7 @@ def score(
     )
 
     settings = Settings()  # type: ignore[call-arg]
-    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    llm_client = _build_llm_client(settings)
 
     scorer_kwargs = {"llm_client": llm_client, "prompt_version": prompt_version}
     if model:
@@ -524,7 +536,7 @@ def score_job(
     logger.info("Scoring specific job", job_id=job_id, persist=persist)
 
     settings = Settings()  # type: ignore[call-arg]
-    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    llm_client = _build_llm_client(settings)
     scorer = JobScorer(llm_client=llm_client)
 
     try:
@@ -598,7 +610,7 @@ def rescore(
     logger.info("Starting job rescoring", tier=tier, model=with_model, limit=limit)
 
     settings = Settings()  # type: ignore[call-arg]
-    client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    client = _build_llm_client(settings)
 
     scorer_kwargs: dict[str, Any] = {"llm_client": client}
     if with_model:
@@ -769,7 +781,7 @@ def assist(
         raise typer.Exit(code=1)
 
     settings = Settings()  # type: ignore[call-arg]
-    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    llm_client = _build_llm_client(settings)
 
     try:
         with get_session() as session:
@@ -866,7 +878,7 @@ def letter(
         raise typer.Exit(code=1)
 
     settings = Settings()  # type: ignore[call-arg]
-    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    llm_client = _build_llm_client(settings)
 
     try:
         with get_session() as session:
@@ -1865,7 +1877,7 @@ def analytics_report(
 
             # 3. Generate narrative
             settings = Settings()  # type: ignore[call-arg]
-            llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+            llm_client = _build_llm_client(settings)
 
             console = Console()
             with console.status(f"[bold green]Generating narrative report for {month_label}..."):
@@ -1959,12 +1971,11 @@ def analytics_rescore_suspicious(
         rescore_suspicious_jobs,
     )
     from jobhunter.scoring.scorer import JobScorer
-    from jobhunter.llm.anthropic_client import AnthropicLLMClient
 
     logger.info("Starting rescore-suspicious", limit=limit, confirm=confirm)
     try:
         settings = Settings()  # type: ignore[call-arg]
-        llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+        llm_client = _build_llm_client(settings)
         scorer = JobScorer(llm_client=llm_client)
 
         with get_session() as session:
@@ -2344,7 +2355,7 @@ def outreach_draft(
 
     try:
         settings = Settings()  # type: ignore[call-arg]
-        llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+        llm_client = _build_llm_client(settings)
 
         with get_session() as session:
             contact = session.get(OutreachContact, contact_uuid)
@@ -2584,9 +2595,7 @@ def outreach_import(
 
             if enrich_with_ai:
                 settings = Settings()  # type: ignore[call-arg]
-                llm_client = AnthropicLLMClient(
-                    api_key=settings.ANTHROPIC_API_KEY.get_secret_value()
-                )
+                llm_client = _build_llm_client(settings)
 
                 console = Console()
                 with console.status("[bold green]Enriching contacts with AI..."):

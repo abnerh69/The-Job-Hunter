@@ -13,9 +13,9 @@ still met.
 """
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,7 +27,13 @@ class Settings(BaseSettings):
 
     LOG_FORMAT: Literal["json", "pretty"] = "pretty"
     DATABASE_URL: str = "sqlite:///./jobhunter.db"
-    ANTHROPIC_API_KEY: SecretStr
+    LLM_PROVIDER: Literal["anthropic", "gemini", "agy_cli", "mock"] = "anthropic"
+    ANTHROPIC_API_KEY: SecretStr | None = None
+    GEMINI_API_KEY: SecretStr | None = None
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    AGY_CLI_BIN: str = "agy"
+    AGY_MODEL: str = "gemini-4-hydrogen-medium"
+    CANDIDATE_PROFILE_PATH: Path | None = None
     TELEGRAM_BOT_TOKEN: SecretStr | None = None
     TELEGRAM_CHAT_ID: str | None = None
     SMTP_HOST: str = "smtp.gmail.com"
@@ -62,12 +68,28 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @model_validator(mode="after")
+    def validate_provider_credentials(self) -> Self:
+        """Ensure required API key is set for the active LLM_PROVIDER."""
+        if self.LLM_PROVIDER == "anthropic" and self.ANTHROPIC_API_KEY is None:
+            raise ValueError("ANTHROPIC_API_KEY is required when LLM_PROVIDER='anthropic'")
+        if self.LLM_PROVIDER == "gemini" and self.GEMINI_API_KEY is None:
+            raise ValueError("GEMINI_API_KEY is required when LLM_PROVIDER='gemini'")
+        return self
+
     def safe_dict(self) -> dict[str, str | int | float | None]:
         """Returns a dictionary with sensitive values masked."""
         return {
             "LOG_FORMAT": self.LOG_FORMAT,
             "DATABASE_URL": self.DATABASE_URL,
+            "LLM_PROVIDER": self.LLM_PROVIDER,
             "ANTHROPIC_API_KEY": "***" if self.ANTHROPIC_API_KEY else None,
+            "GEMINI_API_KEY": "***" if self.GEMINI_API_KEY else None,
+            "GEMINI_MODEL": self.GEMINI_MODEL,
+            "AGY_MODEL": self.AGY_MODEL,
+            "CANDIDATE_PROFILE_PATH": (
+                str(self.CANDIDATE_PROFILE_PATH) if self.CANDIDATE_PROFILE_PATH else None
+            ),
             "TELEGRAM_BOT_TOKEN": "***" if self.TELEGRAM_BOT_TOKEN else None,
             "TELEGRAM_CHAT_ID": self.TELEGRAM_CHAT_ID,
             "SMTP_HOST": self.SMTP_HOST,

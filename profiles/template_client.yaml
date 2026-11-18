@@ -1,0 +1,36 @@
+candidate_profile:
+  name: Client Name
+  seniority: senior (5+ years experience)
+  primary_stack: [Python, FastAPI, PostgreSQL]
+  secondary_stack: [Docker, AWS, React]
+  domains: [Backend, SaaS, Data Pipelines]
+  years_experience: 6
+
+  location_legal:
+    country: Colombia
+    work_authorization: legal
+    payment_methods_ok: [Deel, Wise, Payoneer]
+
+  contract_preferences:
+    - international_contractor (B2B)
+    - EOR (Deel, Remote.com)
+
+  timezone:
+    home: UTC-5
+    overlap_max_acceptable_hours_with_CET: 5
+    preferred_overlap_CET: 4
+
+  compensation:
+    floor_usd_month: 4000
+    target_usd_month: 5500
+    stretch_usd_month: 7500
+
+  language:
+    english: fluent
+    spanish: native
+
+  hard_blockers:
+    - on-site requirement
+    - relocation required
+    - jobs requiring EU citizenship/work permit without B2B contractor option
+    - jobs explicitly excluding LATAM

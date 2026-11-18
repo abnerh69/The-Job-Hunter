@@ -18,13 +18,14 @@ from jobhunter.db.repos.application import ApplicationRepo
 from jobhunter.db.models import OutreachContact
 from jobhunter.db.repos.notifications import NotificationsRepo
 from jobhunter.db.repos.outreach_messages import OutreachMessageRepo
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.factory import create_llm_client
 from jobhunter.notify.base import NotificationMessage, NotificationResult
 from jobhunter.notify.dispatcher import DispatchReport, dispatch_tier_a_notifications
 from jobhunter.notify.telegram import TelegramNotifier
 from jobhunter.notify.templates import render
 from jobhunter.scoring.pipeline import ScoringBatchReport, score_pending_jobs
 from jobhunter.scoring.scorer import JobScorer
+import jobhunter.sources  # noqa: F401
 from jobhunter.sources.orchestrator import IngestionReport, run_ingestion
 from jobhunter.sources.registry import get_all_sources
 
@@ -145,7 +146,7 @@ async def run_cycle(
         logger.info("pipeline_cycle_step_start", step="score")
         try:
             settings = Settings()  # type: ignore[call-arg]
-            llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+            llm_client = create_llm_client(settings)
             scorer = JobScorer(llm_client=llm_client)
 
             scoring_report = await score_pending_jobs(

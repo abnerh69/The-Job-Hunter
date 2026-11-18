@@ -34,7 +34,21 @@ class ScoringPrompt(BaseModel):
     loaded_from: str
 
 
-def load_prompt(version: str = "latest") -> ScoringPrompt:
+def _apply_external_profile(system_prompt: str, profile_path: Path | None) -> str:
+    """Replace the default candidate_profile block when an external profile file is provided."""
+    if profile_path is None:
+        return system_prompt
+    if not profile_path.exists():
+        raise FileNotFoundError(f"Candidate profile file not found: {profile_path}")
+
+    profile_text = profile_path.read_text(encoding="utf-8").strip()
+    pattern = r"candidate_profile:.*?(?=\nRÚBRICA DE FIT_SCORE|\n## |\Z)"
+    if re.search(pattern, system_prompt, re.DOTALL):
+        return re.sub(pattern, profile_text, system_prompt, count=1, flags=re.DOTALL)
+    return f"{system_prompt}\n\n{profile_text}"
+
+
+def load_prompt(version: str = "latest", profile_path: Path | None = None) -> ScoringPrompt:
     """
     Loads a versioned prompt from the prompts/scoring/ directory.
 
@@ -89,9 +103,20 @@ def load_prompt(version: str = "latest") -> ScoringPrompt:
             "Must contain ## SYSTEM and ## USER_TEMPLATE headers."
         )
 
+    effective_profile_path = profile_path
+    if effective_profile_path is None:
+        try:
+            from jobhunter.config import Settings
+
+            effective_profile_path = Settings().CANDIDATE_PROFILE_PATH  # type: ignore[call-arg]
+        except Exception:
+            effective_profile_path = None
+
+    system_prompt = _apply_external_profile(system_match.group(1).strip(), effective_profile_path)
+
     return ScoringPrompt(
         version=target_version,
-        system_prompt=system_match.group(1).strip(),
+        system_prompt=system_prompt,
         user_template=user_match.group(1).strip(),
         loaded_from=str(target_file),
     )

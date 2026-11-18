@@ -14,7 +14,7 @@ from jobhunter.config import Settings
 from jobhunter.db.enums import LLMPurpose, OutreachTemplateType
 from jobhunter.db.models import OutreachContact, OutreachMessage
 from jobhunter.db.repos.outreach_messages import OutreachMessageRepo
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
 from jobhunter.outreach.templates import load_outreach_template, render_outreach_template
 from jobhunter.analytics.ab_testing import select_variant
 
@@ -46,7 +46,7 @@ async def generate_message(
     contact: OutreachContact,
     template_type: OutreachTemplateType,
     research_notes: str,
-    llm_client: AnthropicLLMClient,
+    llm_client: LLMClient,
     session: Session,
     settings: Optional[Settings] = None,
     template_version: str = "latest",

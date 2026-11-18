@@ -24,7 +24,7 @@ from jobhunter.application.cv_tweaks import CVTweaksResult, suggest_cv_tweaks
 from jobhunter.application.variant_selector import VariantRecommendation, recommend_cv_variant
 from jobhunter.config import Settings
 from jobhunter.db.models import Application, Job
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
 
 logger = structlog.get_logger(__name__)
 
@@ -62,7 +62,7 @@ _CACHE_TTL = timedelta(hours=1)
 async def assist_application(
     session: Session,
     job_id: UUID,
-    llm_client: AnthropicLLMClient,
+    llm_client: LLMClient,
     settings: Optional[Settings] = None,
     no_letter: bool = False,
     cv_variant_override: Optional[str] = None,

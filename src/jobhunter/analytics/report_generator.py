@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
-    from jobhunter.llm.anthropic_client import AnthropicLLMClient
+    from jobhunter.llm.base import LLMClient
 
 from jobhunter.analytics.cost_metrics import get_cost_per_outcome
 from jobhunter.analytics.email_metrics import get_matcher_metrics
@@ -161,7 +161,7 @@ def calculate_comparison(current: MonthlyMetrics, reference: MonthlyMetrics) -> 
 
 async def generate_narrative_report(
     session: Session,
-    llm_client: "AnthropicLLMClient",
+    llm_client: "LLMClient",
     month: str,
     current_metrics: MonthlyMetrics,
     prev_month_comp: Dict[str, Any],

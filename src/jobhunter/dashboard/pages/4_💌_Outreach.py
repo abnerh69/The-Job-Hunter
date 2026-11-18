@@ -19,7 +19,7 @@ from jobhunter.db.enums import (
 )
 from jobhunter.db.models import OutreachContact
 from jobhunter.config import Settings
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.factory import create_llm_client
 from jobhunter.outreach.generator import generate_message
 
 st.set_page_config(page_title="Outreach", page_icon="💌", layout="wide")
@@ -180,9 +180,7 @@ def generate_message_dialog(contact: OutreachContact) -> None:
                 else:
                     with st.spinner("Generando mensaje con Claude Sonnet..."):
                         settings = Settings()  # type: ignore[call-arg]
-                        llm_client = AnthropicLLMClient(
-                            api_key=settings.ANTHROPIC_API_KEY.get_secret_value()
-                        )
+                        llm_client = create_llm_client(settings)
                         try:
                             with get_session() as session:
                                 # Fetch parent message if follow-up

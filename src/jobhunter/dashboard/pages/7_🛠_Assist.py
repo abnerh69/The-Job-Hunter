@@ -10,7 +10,7 @@ from jobhunter.db.repos.job import JobRepo
 from jobhunter.db.repos.application import ApplicationRepo
 from jobhunter.db.enums import JobStatus, ApplicationStatus
 from jobhunter.config import Settings
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.factory import create_llm_client
 from jobhunter.application.assistant import ApplicationPackage
 from jobhunter.application.variant_selector import recommend_cv_variant
 from jobhunter.application.cv import load_cv
@@ -78,7 +78,7 @@ if job.tier not in ["A", "B"]:
 
 # Assistance Orchestration
 settings = Settings()  # type: ignore[call-arg]
-llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+llm_client = create_llm_client(settings)
 
 
 async def run_assistance() -> None:

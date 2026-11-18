@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from jobhunter.application.cv import CVVariant
 from jobhunter.db.enums import LLMPurpose
 from jobhunter.db.models import Job
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
 
 logger = structlog.get_logger(__name__)
 
@@ -129,7 +129,7 @@ def _check_presence_in_cv(term: str, cv_text: str) -> bool:
 
 async def extract_ats_keywords(
     job: Job,
-    llm_client: AnthropicLLMClient,
+    llm_client: LLMClient,
     cv_variant: CVVariant | None = None,
     session: Session | None = None,
     prompt_version: str = "latest",

@@ -12,7 +12,7 @@ from jobhunter.db.enums import (
 from jobhunter.db.models import Application, Job, OutreachContact, OutreachMessage
 from jobhunter.email.schemas import GmailMessageDetail, MatchResult
 from jobhunter.email.prompt import load_email_prompt, render_email_user_prompt
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
 
 logger = structlog.get_logger(__name__)
 
@@ -22,7 +22,7 @@ SUBJECT_KEYWORDS = ["re:", "application", "interview", "next steps", "your appli
 
 
 async def match_email(
-    email: GmailMessageDetail, session: Session, llm_client: AnthropicLLMClient
+    email: GmailMessageDetail, session: Session, llm_client: LLMClient
 ) -> MatchResult:
     """
     Matches an email to an application or outreach message using heuristics and AI.

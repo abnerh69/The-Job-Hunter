@@ -9,7 +9,7 @@ from jobhunter.db.repos.job import JobRepo
 from jobhunter.db.enums import JobStatus, JobTier
 from jobhunter.db.models import Job
 from jobhunter.config import Settings
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.factory import create_llm_client
 from jobhunter.scoring.scorer import JobScorer
 from typing import Any
 from jobhunter.scoring.schema import ScoringResult
@@ -113,7 +113,7 @@ def show_rescore_result(old_score: int, outcome: Any) -> None:
 
 async def run_rescore(job: Job) -> None:
     settings = Settings()  # type: ignore[call-arg]
-    llm_client = AnthropicLLMClient(api_key=settings.ANTHROPIC_API_KEY.get_secret_value())
+    llm_client = create_llm_client(settings)
     # Re-score with Sonnet 4.6 as requested
     scorer = JobScorer(llm_client=llm_client, model="claude-sonnet-4-6")
 

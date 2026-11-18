@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from jobhunter.db.enums import LLMPurpose, OutreachMarket
 from jobhunter.db.models import OutreachContact
-from jobhunter.llm.anthropic_client import AnthropicLLMClient
+from jobhunter.llm.base import LLMClient
 from jobhunter.outreach.dach_companies import AI_FRIENDLY_DACH_COMPANIES
 
 logger = structlog.get_logger(__name__)
@@ -113,7 +113,7 @@ def calculate_heuristic_score(contact: OutreachContact, candidate_profile: dict[
 
 async def enrich_contact_with_ai(
     contact: OutreachContact,
-    llm_client: AnthropicLLMClient,
+    llm_client: LLMClient,
     session: Session,
 ) -> int:
     """

@@ -113,7 +113,7 @@ def downgrade() -> None:
     with op.batch_alter_table("llm_calls", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
-                "created_at", sa.DATETIME(), server_default=sa.text("(now())"), nullable=False
+                "created_at", sa.DATETIME(), server_default=sa.func.now(), nullable=False
             )
         )
         batch_op.alter_column("duration_ms", existing_type=sa.INTEGER(), nullable=False)

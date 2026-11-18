@@ -29,7 +29,7 @@ def upgrade() -> None:
         sa.Column(
             "applied_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.Column("application_method", sa.String(length=50), nullable=True),
@@ -43,7 +43,7 @@ def upgrade() -> None:
         sa.Column(
             "status_updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.Column("next_action", sa.Text(), nullable=True),
@@ -82,7 +82,7 @@ def upgrade() -> None:
         sa.Column(
             "occurred_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(

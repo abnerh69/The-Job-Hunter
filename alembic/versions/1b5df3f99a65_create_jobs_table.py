@@ -37,7 +37,7 @@ def upgrade() -> None:
         sa.Column(
             "scraped_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.Column(

@@ -1,14 +1,18 @@
-import streamlit as st
 import time
-from jobhunter.dashboard.auth import require_auth
-from jobhunter.dashboard.layout import render_header, render_sidebar
+from collections.abc import Mapping
 from typing import Sequence
+
+import streamlit as st
+import streamlit.components.v1 as components
+
+from jobhunter.dashboard.auth import require_auth
 from jobhunter.dashboard.components import render_job_card
-from jobhunter.db.session import get_session
-from jobhunter.db.repos.job import JobRepo
-from jobhunter.db.repos.application import ApplicationRepo
-from jobhunter.db.enums import JobTier, JobStatus, ApplicationStatus
+from jobhunter.dashboard.layout import render_header, render_sidebar
+from jobhunter.db.enums import ApplicationStatus, JobStatus, JobTier
 from jobhunter.db.models import Job
+from jobhunter.db.repos.application import ApplicationRepo
+from jobhunter.db.repos.job import JobRepo
+from jobhunter.db.session import get_session
 
 st.set_page_config(page_title="New Matches", page_icon="📥", layout="wide")
 require_auth()
@@ -47,7 +51,28 @@ selected_sources = st.sidebar.multiselect(
     "Source", options=available_sources, default=available_sources
 )
 
-min_score = st.sidebar.slider("Min fit score", 50, 100, 70)
+cookies = getattr(getattr(st, "context", None), "cookies", None)
+saved_min_score: int | None = None
+if isinstance(cookies, Mapping):
+    raw_score = cookies.get("jh_min_score")
+    if isinstance(raw_score, str) and raw_score.isdigit():
+        parsed = int(raw_score)
+        if 50 <= parsed <= 100:
+            saved_min_score = parsed
+
+if "new_matches_min_score" not in st.session_state:
+    st.session_state["new_matches_min_score"] = saved_min_score if saved_min_score is not None else 70
+
+min_score = st.sidebar.slider("Min fit score", 50, 100, key="new_matches_min_score")
+if min_score != saved_min_score:
+    components.html(
+        f"""<script>
+        try {{
+            window.parent.document.cookie = "jh_min_score={min_score}; path=/; max-age=2592000; SameSite=Lax";
+        }} catch (e) {{}}
+        </script>""",
+        height=0,
+    )
 
 selected_stacks = st.sidebar.multiselect(
     "Stack predominante", options=["Python", "Flutter", "AI/ML", "Backend"], default=[]

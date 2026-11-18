@@ -1,8 +1,16 @@
-from typing import Any
-import pytest
-from unittest.mock import MagicMock, patch
+import time
 from datetime import datetime, timedelta
-from jobhunter.dashboard.auth import check_password, logout
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from jobhunter.dashboard.auth import (
+    _AUTH_COOKIE_NAME,
+    _sign_auth_token,
+    check_password,
+    logout,
+)
 
 
 @pytest.fixture
@@ -70,3 +78,23 @@ def test_logout(mock_streamlit: Any) -> None:
     logout()
     assert mock_streamlit.session_state["password_correct"] is False
     mock_streamlit.rerun.assert_called_once()
+
+
+def test_check_password_restores_from_valid_cookie(
+    mock_streamlit: Any, mock_settings: Any
+) -> None:
+    token = _sign_auth_token("secret123", int(time.time()) + 3600)
+    mock_streamlit.context.cookies = {_AUTH_COOKIE_NAME: token}
+
+    assert check_password() is True
+    assert mock_streamlit.session_state["password_correct"] is True
+    mock_streamlit.text_input.assert_not_called()
+
+
+def test_check_password_rejects_tampered_cookie(
+    mock_streamlit: Any, mock_settings: Any
+) -> None:
+    mock_streamlit.context.cookies = {_AUTH_COOKIE_NAME: "9999999999.badsignature"}
+
+    assert check_password() is False
+    mock_streamlit.text_input.assert_called_once()

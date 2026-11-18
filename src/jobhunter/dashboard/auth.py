@@ -1,14 +1,67 @@
 import asyncio
-import streamlit as st
-from jobhunter.config import Settings
+import hashlib
+import hmac
+import time
+from collections.abc import Mapping
 from datetime import datetime, timedelta
-from jobhunter.db.session import get_session
-from jobhunter.db.repos.security import SecurityRepo
-from jobhunter.notify.telegram import TelegramNotifier
-from jobhunter.notify.base import NotificationMessage
+
+import streamlit as st
+import streamlit.components.v1 as components
 import structlog
 
+from jobhunter.config import Settings
+from jobhunter.db.repos.security import SecurityRepo
+from jobhunter.db.session import get_session
+from jobhunter.notify.base import NotificationMessage
+from jobhunter.notify.telegram import TelegramNotifier
+
 logger = structlog.get_logger(__name__)
+
+_AUTH_COOKIE_NAME = "jh_auth"
+_AUTH_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+
+
+def _sign_auth_token(secret: str, exp_ts: int) -> str:
+    sig = hmac.new(secret.encode("utf-8"), str(exp_ts).encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{exp_ts}.{sig}"
+
+
+def _verify_auth_token(token: str, secret: str) -> bool:
+    if "." not in token:
+        return False
+    exp_str, sig = token.split(".", 1)
+    try:
+        exp_ts = int(exp_str)
+    except ValueError:
+        return False
+    if exp_ts < int(time.time()):
+        return False
+    expected = hmac.new(
+        secret.encode("utf-8"), exp_str.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(sig, expected)
+
+
+def _set_browser_auth_cookie(token: str) -> None:
+    components.html(
+        f"""<script>
+        try {{
+            window.parent.document.cookie = "{_AUTH_COOKIE_NAME}={token}; path=/; max-age={_AUTH_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax";
+        }} catch (e) {{}}
+        </script>""",
+        height=0,
+    )
+
+
+def _clear_browser_auth_cookie() -> None:
+    components.html(
+        f"""<script>
+        try {{
+            window.parent.document.cookie = "{_AUTH_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax";
+        }} catch (e) {{}}
+        </script>""",
+        height=0,
+    )
 
 
 def get_remote_ip() -> str:
@@ -76,6 +129,7 @@ def check_password() -> bool:
 
                     st.session_state["password_correct"] = True
                     st.session_state["last_login"] = datetime.now()
+                    st.session_state["_persist_auth_cookie"] = True
                     del st.session_state["password"]  # don't store password
 
                     if is_new:
@@ -131,6 +185,18 @@ def check_password() -> bool:
                         )
 
         if "password_correct" not in st.session_state:
+            cookies = getattr(getattr(st, "context", None), "cookies", None)
+            if isinstance(cookies, Mapping):
+                cookie_token = cookies.get(_AUTH_COOKIE_NAME)
+                if isinstance(cookie_token, str):
+                    settings = Settings()  # type: ignore[call-arg]
+                    if _verify_auth_token(
+                        cookie_token, settings.DASHBOARD_PASSWORD.get_secret_value()
+                    ):
+                        st.session_state["password_correct"] = True
+                        st.session_state["last_login"] = datetime.now()
+
+        if "password_correct" not in st.session_state:
             # First run, show input for password.
             st.text_input("Password", type="password", on_change=password_entered, key="password")
             return False
@@ -142,12 +208,18 @@ def check_password() -> bool:
         else:
             # Password correct, check timeout
             settings = Settings()  # type: ignore[call-arg]
+            if st.session_state.pop("_persist_auth_cookie", False):
+                exp_ts = int(time.time()) + _AUTH_COOKIE_MAX_AGE_SECONDS
+                token = _sign_auth_token(settings.DASHBOARD_PASSWORD.get_secret_value(), exp_ts)
+                _set_browser_auth_cookie(token)
+
             last_login = st.session_state.get("last_login")
             if last_login:
                 if datetime.now() - last_login > timedelta(
                     minutes=settings.DASHBOARD_SESSION_TIMEOUT_MINUTES
                 ):
                     st.session_state["password_correct"] = False
+                    _clear_browser_auth_cookie()
                     st.rerun()
                     return False
             return True
@@ -162,4 +234,5 @@ def require_auth() -> None:
 def logout() -> None:
     """Logs out the user."""
     st.session_state["password_correct"] = False
+    _clear_browser_auth_cookie()
     st.rerun()
